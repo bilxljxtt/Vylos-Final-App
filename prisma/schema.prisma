@@ -1,0 +1,40 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+model User {
+  id            String   @id @default(uuid())
+  name          String
+  password      String // Hashed password
+  phoneNumber   String?
+  age           Int?
+  income        Float?
+  householdSize Int?
+  riskTolerance Int? // 1 (Conservative) to 5 (Aggressive)
+  
+  // Gamification
+  xp            Int      @default(0)
+  streak        Int      @default(0)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model MarketContext {
+  id                 String    @id @default(uuid())
+  inflation          Float     // e.g. 3.0
+  repoRate           Float     // e.g. 6.75
+  petrolPrice        Float     // e.g. 20.30
+  
+  // Imminent shocks
+  projectedSpike     Float?    // e.g., inflation immediate spike amount
+  upcomingPetrolHike Float?    // e.g., 3.06
+  hikeEffectiveDate  DateTime? // upcoming effective dates (e.g., April 1st)
+  
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
