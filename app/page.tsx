@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Bell, Plus, Search, Filter, Trash2, TrendingUp, Wallet, X, CalendarCheck } from "lucide-react";
 import CashFlowChart from "@/components/charts/CashFlowChart";
 import ExpensePieChart from "@/components/charts/ExpensePieChart";
@@ -50,7 +50,6 @@ export default function Dashboard() {
     type: "expense" as "income" | "expense",
   });
 
-  // New subscription form
   const [subForm, setSubForm] = useState({
     name: "",
     category: "Subscriptions",
@@ -58,6 +57,13 @@ export default function Dashboard() {
     nextDue: new Date().toISOString().split("T")[0],
     amount: "",
   });
+
+  const [isMounted, setIsMounted] = useState(false);
+  
+  // Prevent hydration mismatch by blocking render until mounted on client
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Computed
   const netWorth   = useMemo(() => computeNetWorth(state.transactions), [state.transactions]);
@@ -139,6 +145,8 @@ export default function Dashboard() {
     setShowSubModal(false);
     setSubForm({ name: "", category: "Subscriptions", frequency: "Monthly", nextDue: new Date().toISOString().split("T")[0], amount: "" });
   }
+
+  if (!isMounted) return null;
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8 pb-20">

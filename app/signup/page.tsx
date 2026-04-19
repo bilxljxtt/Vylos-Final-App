@@ -3,8 +3,10 @@
 import { Eye, Phone, Globe, ShieldCheck, Lock, Check } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Signup() {
+  const router = useRouter();
   const [riskValue, setRiskValue] = useState(65);
 
   return (
@@ -19,7 +21,7 @@ export default function Signup() {
             <span className="text-2xl font-black text-gray-900 tracking-tight uppercase">Vylos</span>
           </div>
           <div className="text-sm font-medium text-gray-600">
-             Already have an account? <Link href="/login" className="font-bold text-gray-900 hover:text-[#2a5c54] transition-colors">Log in</Link>
+             Already have an account? <Link href="/" className="font-bold text-gray-900 hover:text-[#2a5c54] transition-colors">Log in</Link>
           </div>
        </nav>
 
@@ -137,8 +139,8 @@ export default function Signup() {
 
                 <div className="flex flex-col gap-2 relative">
                    <span className="text-[11px] font-bold text-gray-900 ml-4">Household Size</span>
-                   <select className="appearance-none w-full h-14 rounded-full border border-gray-200 bg-transparent px-6 font-medium text-gray-900 outline-none focus:border-[#2a5c54] transition cursor-pointer">
-                      <option value="" disabled selected>Select size</option>
+                   <select defaultValue="" className="appearance-none w-full h-14 rounded-full border border-gray-200 bg-transparent px-6 font-medium text-gray-900 outline-none focus:border-[#2a5c54] transition cursor-pointer">
+                      <option value="" disabled>Select size</option>
                       <option value="1">1 Person</option>
                       <option value="2">2 People</option>
                       <option value="3">3+ People</option>
@@ -209,7 +211,10 @@ export default function Signup() {
              <div className="bg-[#f4f7f6] rounded-full py-4 flex items-center justify-center gap-2 text-gray-500 text-xs font-bold tracking-tight">
                 <Lock className="w-4 h-4" /> Bank-level 256-bit encryption protocol
              </div>
-             <button className="w-full h-16 rounded-full bg-[#2a5c54] hover:bg-[#1a3832] transition-colors text-white font-bold text-lg shadow-lg">
+             <button 
+                onClick={() => router.push("/")}
+                className="w-full h-16 rounded-full bg-[#2a5c54] hover:bg-[#1a3832] transition-colors text-white font-bold text-lg shadow-lg"
+             >
                 Initialize Account
              </button>
              <p className="text-center text-xs font-medium text-gray-400 mt-2">
