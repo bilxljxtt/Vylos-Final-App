@@ -1,6 +1,8 @@
 "use client";
 
 import { LucideIcon, Pencil } from "lucide-react";
+import { formatMoney } from "@/lib/store";
+import { useAppStore } from "@/lib/AppContext";
 
 interface BudgetCardProps {
   title: string;
@@ -19,6 +21,7 @@ export function BudgetCard({
   type = "limit",
   onEditLimit,
 }: BudgetCardProps) {
+  const { state } = useAppStore();
   const isTarget = type === "target";
 
   const percentageUncapped = amountLimit > 0 ? (amountSpent / amountLimit) * 100 : 0;
@@ -57,10 +60,7 @@ export function BudgetCard({
     }
   }
 
-  const formatZar = (val: number) =>
-    new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR" })
-      .format(val)
-      .replace("ZAR", "R");
+  const formatZar = (val: number) => formatMoney(val, state.userProfile.country);
 
   return (
     <div className="group flex items-center bg-card rounded-2xl p-5 shadow-sm border border-border-main gap-5 hover:border-primary transition-all">
@@ -80,7 +80,7 @@ export function BudgetCard({
             {onEditLimit && (
               <button
                 onClick={onEditLimit}
-                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-text-muted hover:text-primary rounded-full hover:bg-border-subtle"
+                className="transition-colors p-1.5 text-text-muted hover:text-primary rounded-full hover:bg-border-subtle bg-border-main/50"
                 title="Edit limit"
               >
                 <Pencil className="w-3.5 h-3.5" />
@@ -91,9 +91,12 @@ export function BudgetCard({
 
         {/* Limit label */}
         <div className="flex justify-end mb-2">
-          <span className="text-[10px] text-text-muted font-semibold tracking-wide">
+          <button 
+            onClick={onEditLimit}
+            className={`text-[10px] font-semibold tracking-wide transition-colors ${onEditLimit ? "text-primary cursor-pointer hover:underline" : "text-text-muted font-semibold"}`}
+          >
             / {isTarget ? "Target" : "Limit"}: {formatZar(amountLimit)}
-          </span>
+          </button>
         </div>
 
         {/* Progress bar */}
@@ -107,9 +110,16 @@ export function BudgetCard({
         {/* Status */}
         <div className="flex items-center justify-between">
           <span className={`text-[11px] font-bold ${statusColor}`}>{statusText}</span>
-          <span className="text-[10px] text-text-muted font-medium">
-            {percentage.toFixed(0)}% {isTarget ? "funded" : "used"}
-          </span>
+          <div className="flex gap-2">
+            {!isTarget && (
+               <span className={`text-[10px] font-bold ${amountLimit - amountSpent < 0 ? "text-red-500" : "text-emerald-500"}`}>
+                 {amountLimit - amountSpent < 0 ? "Over by " : "Left: "}{formatZar(Math.abs(amountLimit - amountSpent))}
+               </span>
+            )}
+            <span className="text-[10px] text-text-muted font-black">
+              {percentageUncapped.toFixed(0)}% {isTarget ? "funded" : "used"}
+            </span>
+          </div>
         </div>
       </div>
     </div>

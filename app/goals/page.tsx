@@ -1,20 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Shield, Pencil, Trash2, Plus, PiggyBank } from "lucide-react";
 import { Modal } from "@/components/Modal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useAppStore } from "@/lib/AppContext";
 import { useToast } from "@/components/Toast";
-import { formatZAR } from "@/lib/store";
+import { formatMoney } from "@/lib/store";
+import { BrainCircuit, Loader2, Target, CalendarClock, Activity } from "lucide-react";
+import { computeGoalFeasibility } from "@/lib/store";
+import { useTranslation } from "@/lib/i18n";
 
 export default function Goals() {
-  const { state, addGoal, updateGoal, deleteGoal, depositToGoal } = useAppStore();
+  const { state, addGoal, updateGoal, deleteGoal, depositToGoal, withdrawFromGoal } = useAppStore();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   const [createOpen, setCreateOpen]   = useState(false);
   const [editId, setEditId]           = useState<string | null>(null);
   const [depositId, setDepositId]     = useState<string | null>(null);
+  const [withdrawId, setWithdrawId]   = useState<string | null>(null);
   const [deleteId, setDeleteId]       = useState<string | null>(null);
 
   // Create form
@@ -23,17 +28,32 @@ export default function Goals() {
   // Edit form
   const [editForm, setEditForm] = useState({ title: "", targetAmount: "" });
 
-  // Deposit form
+  // Deposit/Withdraw form
   const [depositAmount, setDepositAmount] = useState("");
+  const [withdrawAmount, setWithdrawAmount] = useState("");
 
-  function handleCreate() {
+  const [isMounted, setIsMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  async function handleCreate() {
     if (!createForm.title.trim()) return toast("Enter a goal name", "error");
     const amt = parseFloat(createForm.targetAmount);
     if (isNaN(amt) || amt <= 0) return toast("Enter a valid target amount", "error");
-    addGoal({ title: createForm.title.trim(), currentAmount: 0, targetAmount: amt });
-    toast(`Goal "${createForm.title}" created!`, "success");
-    setCreateOpen(false);
-    setCreateForm({ title: "", targetAmount: "" });
+    setIsLoading(true);
+    try {
+      await addGoal({ title: createForm.title.trim(), currentAmount: 0, targetAmount: amt });
+      toast(`Goal "${createForm.title}" created!`, "success");
+      setCreateOpen(false);
+      setCreateForm({ title: "", targetAmount: "" });
+    } catch (err: any) {
+      toast(err.message || "Failed to create goal", "error");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   function openEdit(id: string) {
@@ -43,29 +63,68 @@ export default function Goals() {
     setEditId(id);
   }
 
-  function handleEdit() {
+  async function handleEdit() {
     if (!editId) return;
     if (!editForm.title.trim()) return toast("Enter a goal name", "error");
     const amt = parseFloat(editForm.targetAmount);
     if (isNaN(amt) || amt <= 0) return toast("Enter a valid target", "error");
-    updateGoal(editId, { title: editForm.title.trim(), targetAmount: amt });
-    toast("Goal updated", "success");
-    setEditId(null);
+    
+    setIsLoading(true);
+    try {
+      await updateGoal(editId, { title: editForm.title.trim(), targetAmount: amt });
+      toast("Goal updated", "success");
+      setEditId(null);
+    } catch (err: any) {
+      toast(err.message || "Failed to update goal", "error");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
-  function handleDeposit() {
+  async function handleDeposit() {
     if (!depositId) return;
     const amt = parseFloat(depositAmount);
     if (isNaN(amt) || amt <= 0) return toast("Enter a valid amount", "error");
-    depositToGoal(depositId, amt);
-    toast(`${formatZAR(amt)} deposited`, "success");
-    setDepositId(null);
-    setDepositAmount("");
+    
+    setIsLoading(true);
+    try {
+      await depositToGoal(depositId, amt);
+      toast(`${formatMoney(amt, state.userProfile.country)} deposited`, "success");
+      setDepositId(null);
+      setDepositAmount("");
+    } catch (err: any) {
+      toast(err.message || "Failed to deposit", "error");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleWithdraw() {
+    if (!withdrawId) return;
+    const g = state.goals.find((g) => g.id === withdrawId);
+    if (!g) return;
+    const amt = parseFloat(withdrawAmount);
+    if (isNaN(amt) || amt <= 0) return toast("Enter a valid amount", "error");
+    if (amt > g.currentAmount) return toast("Cannot withdraw more than current balance", "error");
+    
+    setIsLoading(true);
+    try {
+      await withdrawFromGoal(withdrawId, amt);
+      toast(`${formatMoney(amt, state.userProfile.country)} withdrawn`, "success");
+      setWithdrawId(null);
+      setWithdrawAmount("");
+    } catch (err: any) {
+      toast(err.message || "Failed to withdraw", "error");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   const totalSaved = state.goals.reduce((s, g) => s + g.currentAmount, 0);
   const totalTarget = state.goals.reduce((s, g) => s + g.targetAmount, 0);
   const overallPct = totalTarget > 0 ? Math.min((totalSaved / totalTarget) * 100, 100) : 0;
+
+  if (!isMounted) return null;
 
   return (
     <div className="min-h-full flex flex-col items-center justify-start pt-12 px-8 max-w-4xl mx-auto pb-20">
@@ -75,9 +134,9 @@ export default function Goals() {
         <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-200/50 mb-6">
           <PiggyBank className="w-8 h-8 text-white" />
         </div>
-        <h1 className="text-5xl font-black text-text-main tracking-tight mb-3">Savings &amp; Goals</h1>
+        <h1 className="text-5xl font-black text-text-main tracking-tight mb-3">{t("goals")}</h1>
         <p className="text-text-muted font-medium max-w-lg leading-relaxed">
-          Track your progress towards financial freedom. Build and manage your savings buckets.
+          {t("overview")}
         </p>
 
         {/* Overall progress card */}
@@ -86,11 +145,11 @@ export default function Goals() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <p className="text-indigo-200 text-xs font-bold uppercase tracking-wider mb-1">Total Progress</p>
-                <p className="text-3xl font-black">{formatZAR(totalSaved)}</p>
-                <p className="text-indigo-200 text-sm mt-1">of {formatZAR(totalTarget)}</p>
+                <p className="text-3xl font-black">{formatMoney(totalSaved, state.userProfile.country)}</p>
+                <p className="text-indigo-200 text-sm mt-1">of {formatMoney(totalTarget, state.userProfile.country)}</p>
               </div>
               <div className="text-right">
-                <p className="text-4xl font-black">{overallPct.toFixed(0)}%</p>
+                <p className="text-4xl font-black">{Math.floor(overallPct)}%</p>
                 <p className="text-indigo-200 text-sm">funded</p>
               </div>
             </div>
@@ -132,25 +191,65 @@ export default function Goals() {
                   <div>
                     <h3 className="text-lg font-bold text-text-main">{g.title}</h3>
                     <div className="flex items-baseline gap-1.5 mt-0.5">
-                      <span className="text-base font-bold text-primary">{formatZAR(g.currentAmount)}</span>
-                      <span className="text-sm text-text-muted">of {formatZAR(g.targetAmount)}</span>
+                      <span className="text-base font-bold text-primary">{formatMoney(g.currentAmount, state.userProfile.country)}</span>
+                      <span className="text-sm text-text-muted">of {formatMoney(g.targetAmount, state.userProfile.country)}</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => setDepositId(g.id)}
-                      className="px-3 py-1.5 bg-primary text-white text-xs font-bold rounded-full hover:opacity-90 transition-opacity"
-                    >
-                      + Deposit
-                    </button>
-                    <button onClick={() => openEdit(g.id)} className="p-2 text-text-muted hover:text-text-main hover:bg-border-subtle rounded-full transition-colors">
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => setDeleteId(g.id)} className="p-2 text-text-muted hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => setWithdrawId(g.id)}
+                        className="px-3 py-1.5 bg-red-500/10 text-red-500 text-xs font-bold rounded-full hover:bg-red-500/20 transition-colors"
+                      >
+                        - Withdraw
+                      </button>
+                      <button
+                        onClick={() => setDepositId(g.id)}
+                        className="px-3 py-1.5 bg-primary text-white text-xs font-bold rounded-full hover:opacity-90 transition-opacity"
+                      >
+                        + Deposit
+                      </button>
+                      <button onClick={() => openEdit(g.id)} className="p-2 text-text-muted hover:text-text-main hover:bg-border-subtle rounded-full transition-colors">
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => setDeleteId(g.id)} className="p-2 text-text-muted hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
+                {/* Deterministic Feasibility Insight */}
+                {(() => {
+                  const feasibility = computeGoalFeasibility(state, g);
+                  const statusColors = {
+                    Realistic: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+                    Moderate: "bg-blue-500/10 text-blue-600 border-blue-500/20",
+                    Difficult: "bg-amber-500/10 text-amber-600 border-amber-500/20",
+                    Unrealistic: "bg-red-500/10 text-red-600 border-red-500/20",
+                  };
+
+                  return (
+                    <div className={`mb-4 p-4 rounded-2xl border ${statusColors[feasibility.status]}`}>
+                      <div className="flex items-center justify-between mb-2">
+                         <div className="flex items-center gap-2">
+                           <Activity className="w-3 h-3" />
+                           <p className="text-[10px] font-black uppercase tracking-widest">Reality Check: {feasibility.status}</p>
+                         </div>
+                         <p className="text-xs font-bold">{feasibility.monthsRemaining === Infinity ? "∞" : feasibility.monthsRemaining} Months to Goal</p>
+                      </div>
+                      
+                      <p className="text-[11px] font-bold leading-relaxed mb-3">&quot;{feasibility.message}&quot;</p>
+                      
+                      <div className="flex items-center justify-between pt-3 border-t border-current/10">
+                         <div className="flex items-center gap-1.5">
+                           <CalendarClock className="w-3 h-3 opacity-60" />
+                           <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Required Deposit</p>
+                         </div>
+                         <p className="text-xs font-black">{formatMoney(feasibility.requiredMonthlyDeposit, state.userProfile.country)}/mo</p>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Progress */}
                 <div className="flex items-end gap-3">
@@ -160,12 +259,12 @@ export default function Goals() {
                       style={{ width: `${pct}%` }}
                     />
                   </div>
-                  <span className="text-sm font-black text-text-main flex-shrink-0">{pct.toFixed(0)}%</span>
+                  <span className="text-sm font-black text-text-main flex-shrink-0">{Math.floor(pct)}%</span>
                 </div>
 
                 {pct < 100 && (
                   <p className="text-xs text-text-muted font-medium mt-2">
-                    {formatZAR(remaining)} remaining to reach your target
+                    {formatMoney(remaining, state.userProfile.country)} remaining to reach your target
                   </p>
                 )}
                 {pct >= 100 && (
@@ -204,8 +303,8 @@ export default function Goals() {
               placeholder="0.00" min="1"
               className="w-full h-11 rounded-xl border border-border-main px-4 text-sm font-medium bg-bg text-text-main focus:outline-none focus:ring-2 focus:ring-primary" />
           </div>
-          <button onClick={handleCreate} className="w-full py-3 bg-primary hover:opacity-90 text-white font-bold rounded-full text-sm transition-opacity">
-            Create Goal
+          <button onClick={handleCreate} disabled={isLoading} className="w-full py-3 bg-primary hover:opacity-90 disabled:opacity-50 text-white font-bold rounded-full text-sm transition-opacity">
+            {isLoading ? "Saving..." : "Create Goal"}
           </button>
         </div>
       </Modal>
@@ -222,8 +321,8 @@ export default function Goals() {
             <input type="number" value={editForm.targetAmount} onChange={(e) => setEditForm({ ...editForm, targetAmount: e.target.value })}
               className="w-full h-11 rounded-xl border border-border-main px-4 text-sm font-medium bg-bg text-text-main focus:outline-none focus:ring-2 focus:ring-primary" />
           </div>
-          <button onClick={handleEdit} className="w-full py-3 bg-primary hover:opacity-90 text-white font-bold rounded-full text-sm transition-opacity">
-            Save Changes
+          <button onClick={handleEdit} disabled={isLoading} className="w-full py-3 bg-primary hover:opacity-90 disabled:opacity-50 text-white font-bold rounded-full text-sm transition-opacity">
+            {isLoading ? "Saving..." : "Save Changes"}
           </button>
         </div>
       </Modal>
@@ -239,8 +338,25 @@ export default function Goals() {
               placeholder="0.00" min="1"
               className="w-full h-11 rounded-xl border border-border-main px-4 text-sm font-medium bg-bg text-text-main focus:outline-none focus:ring-2 focus:ring-primary" />
           </div>
-          <button onClick={handleDeposit} className="w-full py-3 bg-emerald-500 hover:opacity-90 text-white font-bold rounded-full text-sm transition-opacity">
-            Deposit Funds
+          <button onClick={handleDeposit} disabled={isLoading} className="w-full py-3 bg-emerald-500 hover:opacity-90 disabled:opacity-50 text-white font-bold rounded-full text-sm transition-opacity">
+            {isLoading ? "Processing..." : "Deposit Funds"}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal isOpen={!!withdrawId} onClose={() => { setWithdrawId(null); setWithdrawAmount(""); }} title="Withdraw Funds">
+        <div className="space-y-4">
+          <p className="text-sm text-text-muted font-medium">
+            How much would you like to withdraw from <strong className="text-text-main">{state.goals.find((g) => g.id === withdrawId)?.title}</strong>?
+          </p>
+          <div>
+            <label className="block text-xs font-bold text-text-muted mb-1.5 uppercase tracking-wide">Amount (R)</label>
+            <input type="number" value={withdrawAmount} onChange={(e) => setWithdrawAmount(e.target.value)}
+              placeholder="0.00" min="1"
+              className="w-full h-11 rounded-xl border border-border-main px-4 text-sm font-medium bg-bg text-text-main focus:outline-none focus:ring-2 focus:ring-primary" />
+          </div>
+          <button onClick={handleWithdraw} className="w-full py-3 bg-red-500 hover:opacity-90 text-white font-bold rounded-full text-sm transition-opacity">
+            Confirm Withdrawal
           </button>
         </div>
       </Modal>
@@ -258,13 +374,3 @@ export default function Goals() {
   );
 }
 
-// Missing import fix
-function Target({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 18a6 6 0 100-12 6 6 0 000 12z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 14a2 2 0 100-4 2 2 0 000 4z" />
-    </svg>
-  );
-}

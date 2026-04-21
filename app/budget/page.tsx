@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Pencil, Download, Lightbulb, TrendingUp, ShoppingCart, Repeat, Target, Home, Film, Car, ShoppingBag, Droplet, Receipt, Utensils, ShieldAlert, CheckSquare, X } from "lucide-react";
 import { BudgetCard } from "@/components/BudgetCard";
 import { Modal } from "@/components/Modal";
 import { useAppStore } from "@/lib/AppContext";
 import { useToast } from "@/components/Toast";
-import { computeTotalBudgetSpent, computeTotalBudgetLimit, formatZAR } from "@/lib/store";
+import { computeTotalBudgetSpent, computeTotalBudgetLimit, formatMoney } from "@/lib/store";
 import { LucideIcon } from "lucide-react";
+import { useTranslation } from "@/lib/i18n";
 
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
   Groceries: ShoppingCart,
@@ -29,12 +30,45 @@ const LINKED_CATEGORIES = ["Emergency Fund","M5"];
 export default function Budget() {
   const { state, updateBudgetLimit } = useAppStore();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   const [editCategory, setEditCategory] = useState<string | null>(null);
   const [newLimit, setNewLimit] = useState("");
   const [showAddCat, setShowAddCat] = useState(false);
   const [newCatName, setNewCatName] = useState("");
   const [newCatLimit, setNewCatLimit] = useState("");
+
+  const [isMounted, setIsMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiAdvice, setAiAdvice] = useState<{ evaluation: string; suggestion: string; score: number } | null>(null);
+
+  useEffect(() => {
+    setIsMounted(true);
+    loadAIAdvice();
+  }, []);
+
+  async function loadAIAdvice() {
+    setAiLoading(true);
+    try {
+      const response = await fetch("/api/ai/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          mode: "budget", 
+          data: { budgets: state.budgets, totalSpent, totalLimit } 
+        }),
+      });
+      const data = await response.json();
+      if (!data.error) {
+        setAiAdvice(data);
+      }
+    } catch (err) {
+      console.error("AI Budget Advice Error:", err);
+    } finally {
+      setAiLoading(false);
+    }
+  }
 
   const allocCategories = useMemo(() => {
     return Object.keys(state.budgets).filter(
@@ -56,24 +90,38 @@ export default function Budget() {
     setEditCategory(category);
   }
 
-  function handleSaveLimit() {
+  async function handleSaveLimit() {
     if (!editCategory) return;
     const val = parseFloat(newLimit);
     if (isNaN(val) || val < 0) return toast("Enter a valid limit", "error");
-    updateBudgetLimit(editCategory, val);
-    toast(`${editCategory} limit updated to ${formatZAR(val)}`, "success");
-    setEditCategory(null);
+    setIsLoading(true);
+    try {
+      await updateBudgetLimit(editCategory, val);
+      toast(`${editCategory} limit updated to ${formatMoney(val, state.userProfile.country)}`, "success");
+      setEditCategory(null);
+    } catch (err: any) {
+      toast(err.message || "Failed to update budget limit.", "error");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
-  function handleAddCategory() {
+  async function handleAddCategory() {
     if (!newCatName.trim()) return toast("Category name required", "error");
     const val = parseFloat(newCatLimit);
     if (isNaN(val) || val < 0) return toast("Enter a valid limit", "error");
-    updateBudgetLimit(newCatName.trim(), val);
-    toast(`${newCatName} category created`, "success");
-    setShowAddCat(false);
-    setNewCatName("");
-    setNewCatLimit("");
+    setIsLoading(true);
+    try {
+      await updateBudgetLimit(newCatName.trim(), val);
+      toast(`${newCatName} category created`, "success");
+      setShowAddCat(false);
+      setNewCatName("");
+      setNewCatLimit("");
+    } catch (err: any) {
+      toast(err.message || "Failed to add category.", "error");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   function handleExportCSV() {
@@ -95,15 +143,17 @@ export default function Budget() {
 
   const allocCount = allocCategories.length;
 
+  if (!isMounted) return null;
+
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-10 pb-20">
 
       {/* HEADER */}
       <header className="flex items-start justify-between">
         <div>
-          <h1 className="text-4xl font-black text-text-main tracking-tight">Strategic Calibration</h1>
+          <h1 className="text-4xl font-black text-text-main tracking-tight">{t("budgets")}</h1>
           <p className="text-text-muted font-medium mt-2 max-w-xl">
-            Optimize your capital allocation. Click any card&apos;s limit to update it, or use AI to recalibrate.
+            {t("overview")}
           </p>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
@@ -123,48 +173,50 @@ export default function Budget() {
             <Lightbulb className="w-5 h-5 text-amber-400" />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-white">AI Budget Advisor</h3>
-            <p className="text-indigo-300 text-sm">Real-time analysis based on your current data</p>
+            <h3 className="text-xl font-bold text-white">AI Advisor</h3>
+            <p className="text-indigo-300 text-sm">Real-time analysis powered by Vylos AI</p>
           </div>
         </div>
 
-        <div className="relative z-10 bg-card rounded-3xl p-6 shadow-sm space-y-4">
-          {variance >= 0 ? (
-            <div className="bg-emerald-500/10 rounded-2xl p-5 border border-emerald-500/20">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="w-5 h-5 text-emerald-500" />
-                <h4 className="font-bold text-lg text-emerald-600">
-                  Positive Variance: +{formatZAR(variance)}
-                </h4>
-              </div>
-              <p className="text-emerald-600/80 font-medium text-sm mb-3">You are spending less than budgeted — great discipline!</p>
-              <p className="text-text-muted text-sm">
-                Total budget: <strong className="text-text-main">{formatZAR(totalLimit)}</strong> &nbsp;·&nbsp; Spent so far: <strong className="text-text-main">{formatZAR(totalSpent)}</strong>
-              </p>
+        <div className="relative z-10 bg-card rounded-3xl p-6 shadow-sm space-y-4 min-h-[200px] flex flex-col justify-center">
+          {aiLoading ? (
+            <div className="flex flex-col items-center gap-4 py-8">
+              <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+              <p className="text-text-muted text-sm font-bold animate-pulse uppercase tracking-widest">Calibrating Strategy...</p>
+            </div>
+          ) : aiAdvice ? (
+            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-700">
+               <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-emerald-500" />
+                    <h4 className="font-bold text-lg text-text-main">Strategic Evaluation</h4>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">Discipline Score</span>
+                    <span className="text-2xl font-black text-primary">{aiAdvice.score}</span>
+                  </div>
+               </div>
+               
+               <p className="text-text-main font-medium text-sm leading-relaxed">&quot;{aiAdvice.evaluation}&quot;</p>
+               
+               <div className="bg-primary/5 rounded-2xl p-5 border border-primary/10">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Lightbulb className="w-4 h-4 text-amber-500" />
+                    <span className="text-[10px] font-black text-primary uppercase tracking-widest">Tactical Reallocation</span>
+                  </div>
+                  <p className="text-sm font-bold text-text-main leading-relaxed">{aiAdvice.suggestion}</p>
+               </div>
+
+               <div className="flex items-center gap-4 text-[11px] text-text-muted font-bold uppercase tracking-wider px-2">
+                  <span>Total Budget: {formatMoney(totalLimit, state.userProfile.country)}</span>
+                  <span>·</span>
+                  <span>Spent: {formatMoney(totalSpent, state.userProfile.country)}</span>
+               </div>
             </div>
           ) : (
-            <div className="bg-red-500/10 rounded-2xl p-5 border border-red-500/20">
-              <div className="flex items-center gap-2 mb-2">
-                <ShieldAlert className="w-5 h-5 text-red-500" />
-                <h4 className="font-bold text-lg text-red-600">Over Budget: {formatZAR(Math.abs(variance))}</h4>
-              </div>
-              <p className="text-red-500/80 font-medium text-sm">You have exceeded your total monthly budget. Review your limits.</p>
-            </div>
-          )}
-
-          {topSpend && (
-            <div className="bg-primary/10 rounded-2xl p-5 border border-primary/20">
-              <div className="flex items-center gap-2 mb-2">
-                <CheckSquare className="w-5 h-5 text-primary" />
-                <p className="font-bold text-primary text-sm">
-                  Highest spend category: <strong>{topSpend[0]}</strong> ({formatZAR(topSpend[1].spent)})
-                </p>
-              </div>
-              {topSpend[1].spent > topSpend[1].limit ? (
-                <p className="text-text-muted text-sm">⚠️ This category is <strong className="text-text-main">over its limit</strong>. Consider adjusting.</p>
-              ) : (
-                <p className="text-text-muted text-sm">This is currently within budget — keep monitoring it.</p>
-              )}
+            <div className="text-center py-8">
+              <p className="text-text-muted text-sm">Select budget data to begin AI calibration.</p>
+              <button onClick={loadAIAdvice} className="mt-4 text-xs font-black text-primary uppercase tracking-widest hover:underline">Retry Analysis</button>
             </div>
           )}
         </div>
@@ -233,7 +285,7 @@ export default function Budget() {
       <Modal isOpen={!!editCategory} onClose={() => setEditCategory(null)} title={`Edit ${editCategory} Limit`} maxWidth="max-w-sm">
         <div className="space-y-4">
           <p className="text-sm text-text-muted font-medium">
-            Current limit: <strong className="text-text-main">{editCategory ? formatZAR(state.budgets[editCategory]?.limit ?? 0) : ""}</strong>
+            Current limit: <strong className="text-text-main">{editCategory ? formatMoney(state.budgets[editCategory]?.limit ?? 0, state.userProfile.country) : ""}</strong>
           </p>
           <div>
             <label className="block text-xs font-bold text-text-muted mb-1.5 uppercase tracking-wide">New Limit (R)</label>
@@ -246,8 +298,8 @@ export default function Budget() {
               className="w-full h-11 rounded-xl border border-border-main px-4 text-sm font-medium bg-bg text-text-main focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
-          <button onClick={handleSaveLimit} className="w-full py-3 bg-primary hover:opacity-90 transition-opacity text-white font-bold rounded-full text-sm">
-            Update Limit
+          <button onClick={handleSaveLimit} disabled={isLoading} className="w-full py-3 bg-primary disabled:opacity-50 hover:opacity-90 transition-opacity text-white font-bold rounded-full text-sm">
+            {isLoading ? "Saving..." : "Update Limit"}
           </button>
         </div>
       </Modal>

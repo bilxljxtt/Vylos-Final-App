@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Share2, TrendingUp, TrendingDown, Target, Shield, MessageSquare, Info } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Share2, TrendingUp, TrendingDown, Target, Shield, MessageSquare, Info, BrainCircuit } from "lucide-react";
 import { useAppStore } from "@/lib/AppContext";
 import { useToast } from "@/components/Toast";
-import { computeHealthScore } from "@/lib/store";
+import { computeHealthScoreMetrics } from "@/lib/store";
+import { useTranslation } from "@/lib/i18n";
 
 interface Post {
   id: string;
@@ -32,13 +33,46 @@ const INITIAL_POSTS: Post[] = [
 export default function ProgressBoard() {
   const { state } = useAppStore();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   const [broadcastText, setBroadcastText] = useState("");
   const [posts, setPosts] = useState<Post[]>(INITIAL_POSTS);
   const [rankings] = useState(INITIAL_RANKINGS);
 
-  const score = useMemo(() => computeHealthScore(state), [state]);
+  const [isMounted, setIsMounted] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiDirective, setAiDirective] = useState<string>("");
+
+  useEffect(() => {
+    setIsMounted(true);
+    loadAIDirective();
+  }, []);
+
+  const metrics = useMemo(() => computeHealthScoreMetrics(state), [state]);
+  const score = metrics.score;
   const myRow = rankings.find((r) => r.isYou)!;
+
+  async function loadAIDirective() {
+    setAiLoading(true);
+    try {
+      const response = await fetch("/api/ai/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          mode: "progress", 
+          data: { rank: myRow.rank, score, efficiency: myRow.efficiency } 
+        }),
+      });
+      const data = await response.json();
+      if (data.directive) {
+        setAiDirective(data.directive);
+      }
+    } catch (err) {
+      console.error("AI Directive Error:", err);
+    } finally {
+      setAiLoading(false);
+    }
+  }
 
   // Compute XP from goals + budget adherence
   const goalsHit   = state.goals.filter((g) => g.currentAmount >= g.targetAmount).length;
@@ -61,7 +95,7 @@ export default function ProgressBoard() {
   }
 
   function handleShare() {
-    const shareText = `📊 My Vylos Financial Rank #${myRow.rank} — Health Score: ${score}/850`;
+    const shareText = `📊 My Vylos Financial Rank #${myRow.rank} — Health Score: ${score}/100`;
     navigator.clipboard?.writeText(shareText).then(() => {
       toast("Rank copied to clipboard!", "success");
     }).catch(() => {
@@ -69,15 +103,17 @@ export default function ProgressBoard() {
     });
   }
 
+  if (!isMounted) return null;
+
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-10 pb-20">
 
       {/* HEADER */}
       <header className="flex items-start justify-between">
         <div>
-          <h1 className="text-4xl font-black text-text-main tracking-tight">Operational Status</h1>
+          <h1 className="text-4xl font-black text-text-main tracking-tight">{t("progress")}</h1>
           <p className="text-text-muted font-medium mt-2 max-w-xl">
-            Compare your financial efficiency against the Vylos network. Rank up by maintaining streaks and hitting goals.
+            {t("overview")}
           </p>
         </div>
         <button
@@ -109,10 +145,68 @@ export default function ProgressBoard() {
           </div>
 
           {/* Health score inline */}
-          <div className="relative z-10 bg-white/10 rounded-2xl p-4 mb-6">
-            <div className="flex items-center justify-between">
+          <div className="relative z-10 bg-white/10 rounded-2xl p-5 mb-6">
+            <div className="flex items-center justify-between mb-3">
               <span className="text-indigo-200 text-xs font-bold uppercase tracking-wider">Health Score</span>
-              <span className="text-white font-black text-xl">{score}</span>
+              <div className="flex items-center gap-3">
+                <span className={`text-[11px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                  metrics.label === "Poor" ? "bg-red-500 text-white" :
+                  metrics.label === "Fair" ? "bg-amber-500 text-white" :
+                  metrics.label === "Good" ? "bg-yellow-400 text-black" :
+                  "bg-emerald-500 text-white"
+                }`}>
+                  {metrics.label}
+                </span>
+                <span className="text-white font-black text-2xl">{score}</span>
+              </div>
+            </div>
+            
+            <div className="h-1.5 w-full bg-black/20 rounded-full overflow-hidden mb-4">
+              <div className={`h-full rounded-full transition-all duration-700 ${
+                  metrics.label === "Poor" ? "bg-red-500" :
+                  metrics.label === "Fair" ? "bg-amber-500" :
+                  metrics.label === "Good" ? "bg-yellow-400" :
+                  "bg-emerald-500"
+                }`} style={{ width: `${score}%` }} />
+            </div>
+
+            <p className="text-[11px] text-indigo-300 font-medium italic leading-relaxed mb-4">
+              Your Financial Health Score is based on your income, expenses, savings rate, and debt levels.
+            </p>
+
+            {/* Breakdown Sub-grid */}
+            <div className="grid grid-cols-2 gap-3 text-xs bg-black/10 rounded-xl p-3 border border-white/5 mb-6">
+              <div>
+                <p className="text-indigo-300/70 font-semibold mb-0.5">Cash Flow</p>
+                <p className={`font-bold ${metrics.cashFlowState === "Positive" ? "text-emerald-400" : metrics.cashFlowState === "Tight" ? "text-yellow-400" : "text-red-400"}`}>{metrics.cashFlowState}</p>
+              </div>
+              <div>
+                <p className="text-indigo-300/70 font-semibold mb-0.5">Debt Level</p>
+                <p className={`font-bold ${metrics.debtLevel === "Low" ? "text-emerald-400" : metrics.debtLevel === "Moderate" ? "text-yellow-400" : "text-red-400"}`}>{metrics.debtLevel}</p>
+              </div>
+              <div>
+                <p className="text-indigo-300/70 font-semibold mb-0.5">Savings Rate</p>
+                <p className={`font-bold ${metrics.savingsRate === "High" ? "text-emerald-400" : metrics.savingsRate === "Moderate" ? "text-yellow-400" : "text-red-400"}`}>{metrics.savingsRate}</p>
+              </div>
+              <div>
+                <p className="text-indigo-300/70 font-semibold mb-0.5">Net Worth</p>
+                <p className={`font-bold ${metrics.netWorthState === "High" || metrics.netWorthState === "Healthy" ? "text-emerald-400" : metrics.netWorthState === "Low" ? "text-yellow-400" : "text-red-400"}`}>{metrics.netWorthState}</p>
+              </div>
+            </div>
+
+            {/* AI Operative Intel */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 relative overflow-hidden group">
+               <div className="absolute top-0 right-0 p-2 opacity-20">
+                  <BrainCircuit className="w-8 h-8 text-amber-400" />
+               </div>
+               <p className="text-[9px] font-black text-indigo-200 uppercase tracking-[0.2em] mb-2 font-mono">AI Operative Intel</p>
+               {aiLoading ? (
+                 <div className="h-4 bg-white/10 rounded animate-pulse w-3/4" />
+               ) : (
+                 <p className="text-xs font-bold text-white leading-relaxed italic">
+                   &quot;{aiDirective || "Analyzing your trajectory... stand by."}&quot;
+                 </p>
+               )}
             </div>
           </div>
 
@@ -140,7 +234,7 @@ export default function ProgressBoard() {
                 <Target className="w-5 h-5 text-amber-400" />
                 <div>
                   <p className="text-[10px] text-indigo-300 font-bold uppercase tracking-wider">Score</p>
-                  <p className="font-bold text-lg">{score}/850</p>
+                  <p className="font-bold text-lg">{score}/100</p>
                 </div>
               </div>
             </div>
@@ -184,7 +278,7 @@ export default function ProgressBoard() {
                     </div>
                     <div>
                       <p className={`font-bold text-sm ${user.isYou ? "text-white" : "text-text-main"}`}>
-                        {user.name}
+                        {user.isYou ? (state.userProfile.name || "Alex Morgan") : user.name}
                         {user.isYou && (
                           <span className="ml-2 text-[10px] bg-white text-primary px-1.5 py-0.5 rounded-full font-black uppercase">You</span>
                         )}
@@ -229,6 +323,12 @@ export default function ProgressBoard() {
               rows={3}
               value={broadcastText}
               onChange={(e) => setBroadcastText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleBroadcast();
+                }
+              }}
               placeholder="Share a financial strategy with the network..."
               className="w-full resize-none outline-none bg-transparent placeholder-text-muted text-text-main text-sm font-medium"
             />

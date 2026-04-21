@@ -38,6 +38,7 @@ export interface Goal {
   currentAmount: number;
   targetAmount: number;
   createdAt: string;
+  targetDate?: string; // Optional target date
 }
 
 export interface BudgetCategory {
@@ -53,6 +54,15 @@ export interface UserProfile {
   theme: "Light" | "Dark" | "System Default";
   language: string;
   currency: string;
+  avatarUrl?: string;
+  monthlyIncome?: number;
+  country?: string;
+  age?: number;
+  householdSize?: number;
+  riskTolerance?: number;
+  trialStartedAt?: string;
+  subscriptionPlan?: 'starter' | 'go' | 'pro';
+  subscriptionStatus?: 'active' | 'canceled' | 'trialing';
 }
 
 export interface NotificationPrefs {
@@ -68,81 +78,183 @@ export interface AppState {
   budgets: Record<string, BudgetCategory>;
   userProfile: UserProfile;
   notifications: NotificationPrefs;
+  unreadNotificationCount: number;
 }
 
 // ─── Initial Seed Data ────────────────────────────────────────────────────────
 
 export const initialState: AppState = {
-  transactions: [
-    { id: "t1", date: "2026-03-26", merchant: "City Power", category: "Utilities", amount: -8585 },
-    { id: "t2", date: "2026-03-11", merchant: "Emergency Fund Deposit", category: "Emergency Fund", amount: 5331 },
-    { id: "t3", date: "2026-03-10", merchant: "Freelance Client", category: "Side Hustle", amount: 10000 },
-    { id: "t4", date: "2026-03-05", merchant: "Ocean Basket", category: "Dining Out", amount: -5000 },
-    { id: "t5", date: "2026-03-01", merchant: "Amazon Prime (Recurring)", category: "Subscriptions", amount: -500 },
-  ],
-  subscriptions: [
-    { id: "s1", name: "Amazon Prime", category: "Subscriptions", frequency: "Monthly", nextDue: "2026-04-01", amount: 500 },
-  ],
-  goals: [
-    { id: "g1", title: "Emergency Fund", currentAmount: 5331, targetAmount: 90000, createdAt: "2026-01-01" },
-    { id: "g2", title: "M5", currentAmount: 0, targetAmount: 2000000, createdAt: "2026-01-01" },
-  ],
+  transactions: [],
+  subscriptions: [],
+  goals: [],
   budgets: {
-    Groceries:     { spent: 0,    limit: 3150,    type: "limit" },
-    Subscriptions: { spent: 500,  limit: 900,     type: "limit" },
-    Savings:       { spent: 5331, limit: 1500,    type: "target" },
-    Entertainment: { spent: 0,    limit: 900,     type: "limit" },
-    Housing:       { spent: 0,    limit: 9000,    type: "limit" },
-    Transport:     { spent: 0,    limit: 1575,    type: "limit" },
-    Shopping:      { spent: 0,    limit: 900,     type: "limit" },
-    Utilities:     { spent: 8585, limit: 5000,    type: "limit" },
-    Bills:         { spent: 0,    limit: 1500,    type: "limit" },
-    "Dining Out":  { spent: 5000, limit: 1200,    type: "limit" },
-    "Emergency Fund": { spent: 5331, limit: 90000, type: "target" },
-    M5:            { spent: 0,    limit: 2000000, type: "target" },
+    Utilities:     { spent: 0, limit: 0, type: "limit" },
+    "Emergency Fund": { spent: 0, limit: 0, type: "target" },
   },
   userProfile: {
-    name: "Bilal",
-    email: "bilal.t@gmail.com",
-    phone: "0731099565",
+    name: "",
+    email: "",
+    phone: "",
     theme: "Light",
     language: "English (US)",
     currency: "South African Rand (R)",
+    avatarUrl: "",
+    monthlyIncome: 0,
+    country: "South Africa (ZAR)",
+    age: 0,
+    householdSize: 1,
+    riskTolerance: 65,
   },
   notifications: {
     budgetAlerts: true,
     billReminders: true,
     securityAlerts: false,
   },
+  unreadNotificationCount: 0,
 };
 
 // ─── Derived / Computed Helpers ───────────────────────────────────────────────
 
-export function computeNetWorth(transactions: Transaction[]): number {
-  return transactions.reduce((sum, t) => sum + t.amount, 0);
+export function computeLiquidBalance(state: AppState): number {
+  const accumulatedGoals = state.goals.reduce((acc, g) => acc + g.currentAmount, 0);
+  const netCashFlow = state.transactions.reduce((acc, t) => acc + t.amount, 0);
+  return accumulatedGoals + netCashFlow;
+}
+
+export type HealthScoreMetrics = {
+  score: number;
+  label: "Poor" | "Fair" | "Good" | "Strong" | "Excellent";
+  cashFlowState: "Negative" | "Tight" | "Positive";
+  savingsRate: "Low" | "Moderate" | "High";
+  debtLevel: "Low" | "Moderate" | "High";
+  netWorthState: "Negative" | "Low" | "Healthy" | "High";
+};
+
+export function computeHealthScoreMetrics(state: AppState): HealthScoreMetrics {
+  const { budgets, userProfile } = state;
+  const income = userProfile.monthlyIncome || 0;
+  
+  // Expenses and Cash Flow (Max 50 points)
+  const totalLimit = computeTotalBudgetLimit(budgets);
+  const totalSpent = computeTotalBudgetSpent(budgets);
+
+  let cashFlowScore = 0;
+  let cashFlowState: HealthScoreMetrics["cashFlowState"] = "Tight";
+  if (totalSpent > income) {
+    cashFlowState = "Negative";
+    cashFlowScore = 0;
+  } else if (totalSpent <= income * 0.7) {
+    cashFlowState = "Positive";
+    cashFlowScore = 50;
+  } else if (totalSpent <= income * 0.9) {
+    cashFlowScore = 35;
+    cashFlowState = "Tight";
+  } else {
+    cashFlowScore = 15;
+    cashFlowState = "Tight";
+  }
+
+  // Savings / Targets Execution (Max 50 points)
+  const savingsTargets = Object.values(budgets).filter(b => b.type === "target");
+  const totalSavingsLimit = savingsTargets.reduce((s, b) => s + b.limit, 0);
+  const savingsRatePct = income > 0 ? totalSavingsLimit / income : 0;
+
+  let savingsScore = 0;
+  let savingsRate: HealthScoreMetrics["savingsRate"] = "Moderate";
+  if (savingsRatePct >= 0.2) {
+    savingsRate = "High";
+    savingsScore = 50;
+  } else if (savingsRatePct >= 0.1) {
+    savingsRate = "Moderate";
+    savingsScore = 30;
+  } else {
+    savingsRate = "Low";
+    savingsScore = 10;
+  }
+
+  // Compute final 0-100 score
+  let score = cashFlowScore + savingsScore;
+  score = Math.min(Math.max(score, 0), 100);
+
+  let label: HealthScoreMetrics["label"] = "Good";
+  if (score <= 25) label = "Poor";
+  else if (score <= 50) label = "Fair";
+  else if (score <= 75) label = "Good";
+  else if (score <= 90) label = "Strong";
+  else label = "Excellent";
+
+  return { 
+    score, 
+    label, 
+    cashFlowState, 
+    savingsRate,
+    debtLevel: "Low", // To be refined with real debt/liability tracking
+    netWorthState: score > 70 ? "Healthy" : "Low" 
+  };
 }
 
 export function computeHealthScore(state: AppState): number {
-  const { budgets, goals } = state;
-  // Budget adherence: avg % within limits
-  const limitCats = Object.values(budgets).filter((b) => b.type === "limit");
-  const avgAdherence = limitCats.length
-    ? limitCats.reduce((sum, b) => {
-        const pct = b.limit > 0 ? Math.min(b.spent / b.limit, 1) : 0;
-        return sum + (1 - pct);
-      }, 0) / limitCats.length
-    : 0.5;
+  return computeHealthScoreMetrics(state).score;
+}
 
-  // Goals progress
-  const totalGoalProgress =
-    goals.length > 0
-      ? goals.reduce((sum, g) => sum + Math.min(g.currentAmount / g.targetAmount, 1), 0) / goals.length
-      : 0;
+export type GoalFeasibility = {
+  status: "Realistic" | "Moderate" | "Difficult" | "Unrealistic";
+  monthsRemaining: number;
+  requiredMonthlyDeposit: number;
+  surplusCash: number;
+  message: string;
+};
 
-  // Score out of 850
-  const baseScore = 300;
-  const maxBonus = 550;
-  return Math.round(baseScore + maxBonus * (avgAdherence * 0.7 + totalGoalProgress * 0.3));
+export function computeGoalFeasibility(state: AppState, goal: Goal): GoalFeasibility {
+  const surplus = (state.userProfile.monthlyIncome || 0) - computeTotalBudgetSpent(state.budgets);
+  const remainingAmount = Math.max(0, goal.targetAmount - goal.currentAmount);
+  
+  // If no surplus, any goal with a balance remaining is unrealistic
+  if (surplus <= 0) {
+    return {
+      status: "Unrealistic",
+      monthsRemaining: Infinity,
+      requiredMonthlyDeposit: 0,
+      surplusCash: surplus,
+      message: "At your current savings rate, this goal is not currently realistic unless your income increases or your expenses decrease."
+    };
+  }
+
+  const monthsNeeded = remainingAmount / surplus;
+  let status: GoalFeasibility["status"] = "Realistic";
+  let message = "This goal aligns perfectly with your current financial capacity.";
+
+  if (monthsNeeded > 60) { // > 5 years
+    status = "Difficult";
+    message = "This goal will take over 5 years. Consider increasing your monthly contributions.";
+  } else if (monthsNeeded > 24) { // > 2 years
+    status = "Moderate";
+    message = "Achievable with consistent discipline over the next 2+ years.";
+  }
+
+  // If there's a target date, check if we can actually hit it
+  let requiredDeposit = surplus;
+  if (goal.targetDate) {
+    const target = new Date(goal.targetDate);
+    const now = new Date();
+    const monthsUntil = (target.getFullYear() - now.getFullYear()) * 12 + (target.getMonth() - now.getMonth());
+    
+    if (monthsUntil > 0) {
+      requiredDeposit = remainingAmount / monthsUntil;
+      if (requiredDeposit > surplus) {
+        status = "Unrealistic";
+        message = `To hit this target date, you need to save ${formatMoney(requiredDeposit, state.userProfile.country)}/mo, which exceeds your current surplus of ${formatMoney(surplus, state.userProfile.country)}.`;
+      }
+    }
+  }
+
+  return {
+    status,
+    monthsRemaining: Math.ceil(monthsNeeded),
+    requiredMonthlyDeposit: requiredDeposit,
+    surplusCash: surplus,
+    message
+  };
 }
 
 export function computeTotalBudgetSpent(budgets: Record<string, BudgetCategory>): number {
@@ -157,10 +269,28 @@ export function computeTotalBudgetLimit(budgets: Record<string, BudgetCategory>)
     .reduce((sum, b) => sum + b.limit, 0);
 }
 
-export function formatZAR(val: number): string {
-  return new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR" })
-    .format(val)
-    .replace("ZAR", "R");
+export function getCurrencySymbol(countryStr?: string): string {
+  if (!countryStr) return "R";
+  if (countryStr.includes("ZAR") || countryStr.includes("South Africa")) return "R";
+  if (countryStr.includes("USD") || countryStr.includes("USA") || countryStr.includes("United States")) return "$";
+  if (countryStr.includes("GBP") || countryStr.includes("United Kingdom") || countryStr.includes("Britain")) return "£";
+  if (countryStr.includes("EUR") || countryStr.includes("Germany") || countryStr.includes("France") || countryStr.includes("Europe")) return "€";
+  if (countryStr.includes("Kenya")) return "KSh ";
+  if (countryStr.includes("Nigeria")) return "₦";
+  if (countryStr.includes("India")) return "₹";
+  if (countryStr.includes("Japan")) return "¥";
+  if (countryStr.includes("China")) return "¥";
+  if (countryStr.includes("Brazil")) return "R$";
+  if (countryStr.includes("Mexico") || countryStr.includes("Australia") || countryStr.includes("Canada") || countryStr.includes("New Zealand")) return "$";
+  return "R";
+}
+
+export function formatMoney(val: number, country?: string): string {
+  const symbol = getCurrencySymbol(country);
+  // Ensure we get raw numbers like "50,000" rather than browser locale quirks
+  const formatted = new Intl.NumberFormat("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Math.abs(val));
+  const prefix = val < 0 ? "-" : "";
+  return `${prefix}${symbol}${formatted}`;
 }
 
 export function generateId(): string {

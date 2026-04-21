@@ -8,7 +8,10 @@ import {
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
+  CartesianGrid,
 } from "recharts";
+import { useAppStore } from "@/lib/AppContext";
+import { getCurrencySymbol } from "@/lib/store";
 
 interface DataPoint {
   name: string;
@@ -28,51 +31,60 @@ const defaultData: DataPoint[] = [
 ];
 
 export default function CashFlowChart({ data = defaultData }: CashFlowChartProps) {
+  const { state } = useAppStore();
+  const symbol = getCurrencySymbol(state.userProfile.country);
+
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={data} margin={{ top: 20, right: 10, left: -10, bottom: 0 }}>
+      <AreaChart data={data} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
         <defs>
           <linearGradient id="cashGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%"  stopColor="#4f46e5" stopOpacity={0.15} />
-            <stop offset="95%" stopColor="#4f46e5" stopOpacity={0} />
+            <stop offset="0%"  stopColor="var(--primary)" stopOpacity={0.2} />
+            <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
           </linearGradient>
         </defs>
+
+        {/* Clean, subtle horizontal grid lines */}
+        <CartesianGrid vertical={false} stroke="var(--border-subtle)" strokeDasharray="3 3" />
 
         <XAxis
           dataKey="name"
           axisLine={false}
           tickLine={false}
-          tick={{ fontSize: 11, fill: "#9ca3af", fontFamily: "Inter, sans-serif" }}
+          tick={{ fontSize: 11, fill: "var(--text-muted)", fontWeight: 500 }}
           dy={10}
+          minTickGap={20}
         />
         <YAxis
           axisLine={false}
           tickLine={false}
-          tick={{ fontSize: 11, fill: "#9ca3af", fontFamily: "Inter, sans-serif" }}
-          tickFormatter={(v) => `R${(v / 1000).toFixed(0)}k`}
+          tick={{ fontSize: 11, fill: "var(--text-muted)", fontWeight: 500 }}
+          tickFormatter={(v) => `${symbol}${(v / 1000).toFixed(0)}k`}
           dx={-5}
         />
         <Tooltip
           contentStyle={{
+            backgroundColor: "var(--card)",
             borderRadius: "1rem",
-            border: "1px solid #e0e7ff",
-            boxShadow: "0 10px 25px -5px rgba(79,70,229,0.15)",
+            border: "1px solid var(--border-main)",
+            boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)",
             padding: "10px 14px",
-            fontFamily: "Inter, sans-serif",
           }}
-          itemStyle={{ color: "#4f46e5", fontWeight: "700", fontSize: 13 }}
-          formatter={(value) => [`R${Number(value).toLocaleString()}`, "Balance"]}
-          labelStyle={{ fontWeight: "700", color: "#6b7280", marginBottom: "4px", fontSize: 12 }}
+          itemStyle={{ color: "var(--primary)", fontWeight: "700", fontSize: 14 }}
+          formatter={(value) => [`${symbol}${Number(value).toLocaleString()}`, "Balance"]}
+          labelStyle={{ fontWeight: "600", color: "var(--text-muted)", marginBottom: "4px", fontSize: 12 }}
+          cursor={{ stroke: "var(--border-main)", strokeWidth: 1, strokeDasharray: "4 4" }}
         />
-        <ReferenceLine y={0} stroke="#f59e0b" strokeDasharray="4 4" strokeWidth={1.5} />
+        <ReferenceLine y={0} stroke="var(--border-main)" strokeWidth={1} />
+        
         <Area
           type="monotone"
           dataKey="balance"
-          stroke="#4f46e5"
-          strokeWidth={2.5}
+          stroke="var(--primary)"
+          strokeWidth={3}
           fill="url(#cashGrad)"
-          dot={{ r: 4, fill: "#4f46e5", strokeWidth: 2, stroke: "#fff" }}
-          activeDot={{ r: 6, fill: "#4f46e5", stroke: "#fff", strokeWidth: 2 }}
+          activeDot={{ r: 6, fill: "var(--primary)", stroke: "var(--bg)", strokeWidth: 2 }}
+          dot={false}
         />
       </AreaChart>
     </ResponsiveContainer>

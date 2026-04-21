@@ -4,25 +4,25 @@
 
 /* ─── Design Tokens ─────────────────────────────────────────────────────────── */
 :root {
-  --bg: #f5f5f7;
-  --text: #1d1d1f;
-  --text-muted: #6b7280;
+  --bg: #f5f7f9;
+  --text: #1a1b1e;
+  --text-muted: #64748b;
   --card: #ffffff;
-  --border: #d2d2d7;
-  --border-subtle: #f3f4f6;
-  --sidebar: #f5f5f7;
-  --primary: #0066cc;
+  --border: #e2e8f0;
+  --border-subtle: #f1f5f9;
+  --sidebar: #ffffff;
+  --primary: #00C988;
 }
 
 .dark {
-  --bg: #000000;
-  --text: #ffffff;
-  --text-muted: #9ca3af;
-  --card: #111111;
-  --border: rgba(255, 255, 255, 0.1);
-  --border-subtle: rgba(255, 255, 255, 0.05);
-  --sidebar: #000000;
-  --primary: #0a84ff;
+  --bg: #030712;
+  --text: #f8fafc;
+  --text-muted: #94a3b8;
+  --card: #0f172a;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.03);
+  --sidebar: #0f172a;
+  --primary: #00D084;
 }
 
 @theme inline {
@@ -91,9 +91,28 @@ button:active {
 /* ─── Form elements ─────────────────────────────────────────────────────────── */
 input, textarea, select {
   font-family: inherit;
+  border-radius: 1rem; /* Premium 16px radius */
+  padding-left: 1.5rem;  /* px-6 */
+  padding-right: 1.5rem; /* px-6 */
+}
+textarea {
+  padding-top: 1rem;    /* py-4 */
+  padding-bottom: 1rem; /* py-4 */
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
 }
 
 input:focus, textarea:focus, select:focus {
-  outline: 2px solid var(--primary);
-  outline-offset: 0px;
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--primary);
+  border-color: var(--primary);
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
 }
