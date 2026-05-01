@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { AppState, Transaction, Goal, BudgetCategory, formatMoney } from "../store";
+import { safeJsonParse } from "../utils";
 
 export interface AIRecommendation {
   type: 'spending' | 'savings' | 'budget' | 'goal';
@@ -15,7 +16,7 @@ export class FinancialAdvisor {
 
   constructor() {
     this.genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || "");
-    this.model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    this.model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
   }
 
   /**
@@ -61,7 +62,7 @@ export class FinancialAdvisor {
       const result = await this.model.generateContent(prompt);
       const response = await result.response;
       const text = response.text().replace(/```json/g, "").replace(/```/g, "").trim();
-      return JSON.parse(text);
+      return safeJsonParse(text, { evaluation: "Analysis failed", suggestion: "Analysis failed", score: 0 });
     } catch (err) {
       console.error(`AI Analyze (${mode}) Error:`, err);
       return { error: "Analysis failed" };
@@ -116,7 +117,7 @@ export class FinancialAdvisor {
       const result = await this.model.generateContent(prompt);
       const response = await result.response;
       const text = response.text().replace(/```json/g, "").replace(/```/g, "").trim();
-      return JSON.parse(text);
+      return safeJsonParse(text, { summary: "Analysis failed", recommendations: [] });
     } catch (err) {
       console.error("AI Advisor Error:", err);
       return { 
@@ -159,7 +160,7 @@ export class FinancialAdvisor {
       const result = await this.model.generateContent(prompt);
       const response = await result.response;
       const text = response.text().replace(/```json/g, "").replace(/```/g, "").trim();
-      return JSON.parse(text);
+      return safeJsonParse(text, { isRealistic: false, suggestedTimelineMonths: 0, monthlyContribution: 0, analysis: "Analysis failed" });
     } catch (err) {
       console.error("AI Goal Validation Error:", err);
       return { isRealistic: true, suggestedTimelineMonths: 12, monthlyContribution: target / 12, analysis: "AI validation failed. Using default linear estimate." };

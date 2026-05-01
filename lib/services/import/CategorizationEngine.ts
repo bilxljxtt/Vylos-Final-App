@@ -1,5 +1,6 @@
 import { TransactionCategory } from "../../store";
 import { AIService } from "./AIService";
+import { sanitizeString } from "@/lib/utils";
 
 export interface CategorizedMerchant {
   category: TransactionCategory;
@@ -7,26 +8,24 @@ export interface CategorizedMerchant {
 }
 
 const CATEGORY_KEYWORDS: Record<string, TransactionCategory> = {
-  // Groceries
-  "woolworths": "Groceries",
-  "checkers": "Groceries",
-  "pick n pay": "Groceries",
-  "spar": "Groceries",
-  "shoprite": "Groceries",
-  "food": "Groceries",
-  "market": "Groceries",
-  
-  // Dining Out
-  "mcdonalds": "Dining Out",
-  "kfc": "Dining Out",
-  "starbucks": "Dining Out",
-  "ubereats": "Dining Out",
-  "mr d": "Dining Out",
-  "restaurant": "Dining Out",
-  "cafe": "Dining Out",
-  "coffee": "Dining Out",
-  "pizza": "Dining Out",
-  "burger": "Dining Out",
+  // Food & Dining
+  "woolworths": "Food & Dining",
+  "checkers": "Food & Dining",
+  "pick n pay": "Food & Dining",
+  "spar": "Food & Dining",
+  "shoprite": "Food & Dining",
+  "food": "Food & Dining",
+  "market": "Food & Dining",
+  "mcdonalds": "Food & Dining",
+  "kfc": "Food & Dining",
+  "starbucks": "Food & Dining",
+  "ubereats": "Food & Dining",
+  "mr d": "Food & Dining",
+  "restaurant": "Food & Dining",
+  "cafe": "Food & Dining",
+  "coffee": "Food & Dining",
+  "pizza": "Food & Dining",
+  "burger": "Food & Dining",
   
   // Transport
   "uber": "Transport",
@@ -39,15 +38,15 @@ const CATEGORY_KEYWORDS: Record<string, TransactionCategory> = {
   "caltex": "Transport",
   "total": "Transport",
   
-  // Subscriptions
-  "netflix": "Subscriptions",
-  "spotify": "Subscriptions",
-  "youtube": "Subscriptions",
-  "showmax": "Subscriptions",
-  "icloud": "Subscriptions",
-  "google storage": "Subscriptions",
-  "microsoft": "Subscriptions",
-  "prime": "Subscriptions",
+  // Entertainment (includes subscriptions)
+  "netflix": "Entertainment",
+  "spotify": "Entertainment",
+  "youtube": "Entertainment",
+  "showmax": "Entertainment",
+  "icloud": "Entertainment",
+  "google storage": "Entertainment",
+  "microsoft": "Entertainment",
+  "prime": "Entertainment",
   
   // Utilities & Bills
   "eskom": "Bills",
@@ -81,19 +80,19 @@ const CATEGORY_KEYWORDS: Record<string, TransactionCategory> = {
   "gaming": "Entertainment",
   "ticket": "Entertainment",
   
-  // Housing
-  "rent": "Housing",
-  "levy": "Housing",
-  "property": "Housing",
-  "builders": "Housing",
-  "leroy merlin": "Housing",
+  // Bills (includes housing)
+  "rent": "Bills",
+  "levy": "Bills",
+  "property": "Bills",
+  "builders": "Bills",
+  "leroy merlin": "Bills",
   
-  // Side Hustle (Income usually)
-  "salary": "Side Hustle",
-  "fiverr": "Side Hustle",
-  "upwork": "Side Hustle",
-  "stripe": "Side Hustle",
-  "payment": "Side Hustle",
+  // Income
+  "salary": "Income",
+  "fiverr": "Income",
+  "upwork": "Income",
+  "stripe": "Income",
+  "payment": "Income",
 };
 
 export class CategorizationEngine {
@@ -111,7 +110,7 @@ export class CategorizationEngine {
     }
     
     // Fallback logic by amount/type
-    if (amount > 0) return { category: "Side Hustle", confidence: 0.3 };
+    if (amount > 0) return { category: "Income", confidence: 0.3 };
     
     return { category: "Other", confidence: 0.1 };
   }
@@ -120,11 +119,12 @@ export class CategorizationEngine {
    * AI-powered categorization fallback
    */
   static async categorizeWithAI(merchant: string, amount: number): Promise<CategorizedMerchant> {
+    const safeMerchant = sanitizeString(merchant);
     const prompt = `
       Categorize this transaction merchant and amount into one of these categories:
-      "Utilities", "Emergency Fund", "Side Hustle", "Dining Out", "Subscriptions", "Groceries", "Transport", "Shopping", "Entertainment", "Housing", "Bills", "Other".
+      "Food & Dining", "Transport", "Bills", "Shopping", "Income", "Entertainment", "Health", "Other".
       
-      Merchant: ${merchant}
+      Merchant: ${safeMerchant}
       Amount: ${amount}
       
       Return ONLY the category name.

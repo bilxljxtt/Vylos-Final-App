@@ -2,18 +2,25 @@
 // All app data lives here. AppContext wraps this with React state + localStorage.
 
 export type TransactionCategory =
-  | "Utilities"
-  | "Emergency Fund"
-  | "Side Hustle"
-  | "Dining Out"
-  | "Subscriptions"
-  | "Groceries"
+  | "Food & Dining"
   | "Transport"
-  | "Shopping"
-  | "Entertainment"
-  | "Housing"
   | "Bills"
+  | "Shopping"
+  | "Income"
+  | "Entertainment"
+  | "Health"
   | "Other";
+
+export const CATEGORY_METADATA: Record<TransactionCategory, { icon: string; color: string }> = {
+  "Food & Dining": { icon: "🍔", color: "#00C853" },
+  "Transport": { icon: "🚗", color: "#7C4DFF" },
+  "Bills": { icon: "⚡", color: "#FF6D00" },
+  "Shopping": { icon: "🛍", color: "#0091EA" },
+  "Income": { icon: "💰", color: "#00BFA5" },
+  "Entertainment": { icon: "🎬", color: "#F50057" },
+  "Health": { icon: "❤️", color: "#FF6F00" },
+  "Other": { icon: "📦", color: "#546E7A" },
+};
 
 export interface Transaction {
   id: string;
@@ -63,6 +70,9 @@ export interface UserProfile {
   trialStartedAt?: string;
   subscriptionPlan?: 'starter' | 'go' | 'pro';
   subscriptionStatus?: 'active' | 'canceled' | 'trialing';
+  onboardingCompleted?: boolean;
+  budgetAlertSent?: boolean;
+  budgetAlertEnabled?: boolean;
 }
 
 export interface NotificationPrefs {
@@ -88,8 +98,8 @@ export const initialState: AppState = {
   subscriptions: [],
   goals: [],
   budgets: {
-    Utilities:     { spent: 0, limit: 0, type: "limit" },
-    "Emergency Fund": { spent: 0, limit: 0, type: "target" },
+    "Food & Dining": { spent: 0, limit: 4000, type: "limit" },
+    "Bills": { spent: 0, limit: 3500, type: "limit" },
   },
   userProfile: {
     name: "",
@@ -104,6 +114,8 @@ export const initialState: AppState = {
     age: 0,
     householdSize: 1,
     riskTolerance: 65,
+    budgetAlertSent: false,
+    budgetAlertEnabled: true,
   },
   notifications: {
     budgetAlerts: true,

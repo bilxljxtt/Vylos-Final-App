@@ -19,14 +19,13 @@ export class ParserService {
         skipEmptyLines: true,
         complete: (results) => {
           const txs: ExtractedTransaction[] = results.data.map((row: any) => {
-            // Find columns by common names (case insensitive)
-            const dateStr = row.Date || row.date || row.PostingDate || row.Timestamp || "";
-            const merchantStr = row.Merchant || row.merchant || row.Description || row.description || row.Payee || "";
-            const amountStr = row.Amount || row.amount || row.Value || row.TransactionAmount || "0";
+            const dateStr = this.findValue(row, ["date", "posting", "timestamp", "time"]);
+            const merchantStr = this.findValue(row, ["merchant", "description", "payee", "detail", "vendor"]);
+            const amountStr = this.findValue(row, ["amount", "value", "total", "price", "debit", "credit"]) || "0";
             
             return {
               date: this.standardizeDate(dateStr),
-              merchant: merchantStr,
+              merchant: merchantStr || "Unknown Merchant",
               amount: parseFloat(amountStr.toString().replace(/[^\d.-]/g, "")),
               originalDescription: merchantStr
             };
@@ -49,17 +48,31 @@ export class ParserService {
     const data = XLSX.utils.sheet_to_json(worksheet);
 
     return data.map((row: any) => {
-       const dateStr = row.Date || row.date || row.PostingDate || "";
-       const merchantStr = row.Merchant || row.merchant || row.Description || row.Payee || "";
-       const amountStr = row.Amount || row.amount || "0";
+       const dateStr = this.findValue(row, ["date", "posting", "timestamp"]);
+       const merchantStr = this.findValue(row, ["merchant", "description", "payee", "detail"]);
+       const amountStr = this.findValue(row, ["amount", "value", "debit"]) || "0";
        
        return {
          date: this.standardizeDate(dateStr),
-         merchant: merchantStr,
+         merchant: merchantStr || "Unknown Merchant",
          amount: parseFloat(amountStr.toString().replace(/[^\d.-]/g, "")),
          originalDescription: merchantStr
        };
     }).filter(tx => !isNaN(tx.amount) && tx.date);
+  }
+
+  /**
+   * Fuzzy find a value by key patterns
+   */
+  private static findValue(row: any, searchKeys: string[]): any {
+    const rowKeys = Object.keys(row);
+    for (const sKey of searchKeys) {
+      const match = rowKeys.find(rKey => 
+        rKey.toLowerCase().replace(/[^a-z0-9]/g, "").includes(sKey.toLowerCase())
+      );
+      if (match !== undefined) return row[match];
+    }
+    return "";
   }
 
   /**
@@ -72,12 +85,13 @@ export class ParserService {
        return date.toISOString().split("T")[0];
     }
 
+    if (!dateStr) return "";
+
     try {
       const d = new Date(dateStr);
       if (!isNaN(d.getTime())) return d.toISOString().split("T")[0];
-    } catch (e) {
-      // Logic for DD/MM/YYYY or MM/DD/YYYY can be added if native fails
-    }
+    } catch (e) {}
+    
     return "";
   }
 }

@@ -19,6 +19,7 @@ import {
   UserProfile,
   NotificationPrefs,
   generateId,
+  formatMoney,
 } from "./store";
 
 // ─── Action Types ─────────────────────────────────────────────────────────────
@@ -159,6 +160,9 @@ function reducer(state: AppState, action: Action): AppState {
     case "SET_UNREAD_COUNT":
       return { ...state, unreadNotificationCount: action.payload };
     case "RESET":
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('vylos-last-page');
+      }
       return initialState;
     default:
       return state;
@@ -181,6 +185,7 @@ interface AppContextValue {
   updateBudgetLimit: (category: string, limit: number) => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
   updateNotifications: (updates: Partial<NotificationPrefs>) => void;
+  formatCurrency: (val: number) => string;
   sessionUser: any;
   isAuthLoaded: boolean;
 }
@@ -242,6 +247,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             trialStartedAt: prof.trial_started_at,
             subscriptionPlan: prof.subscription_plan,
             subscriptionStatus: prof.subscription_status,
+            onboardingCompleted: prof.onboarding_completed || false,
+            budgetAlertSent: prof.budget_alert_sent || false,
+            budgetAlertEnabled: prof.budget_alert_enabled !== false, // default true
           } : initialState.userProfile,
           notifications: prof?.notifications ? (prof.notifications as any) : initialState.notifications,
           unreadNotificationCount: unreadNoteCount?.length || 0
@@ -312,6 +320,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 type: 'threshold',
                 read: false
               }]);
+              
+              // Trigger Resend email if >= 95 and alerts are enabled and not already sent
+              if (threshold >= 95 && state.userProfile.budgetAlertEnabled && !state.userProfile.budgetAlertSent) {
+                try {
+                  const res = await fetch('/api/send-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      to: state.userProfile.email,
+                      subject: `Vylos Budget Alert: ${cat}`,
+                      html: `<h2>Budget Alert</h2><p>${msg}</p><p>You have spent R${newSpent.toFixed(2)} out of your R${budget.limit.toFixed(2)} limit.</p>`
+                    })
+                  });
+                  if (res.ok) {
+                    // Update user profile immediately to prevent duplicates
+                    const { error } = await supabase.from('user_profiles').update({ budget_alert_sent: true }).eq('id', sessionUser.id);
+                    if (!error) {
+                      dispatch({ type: "UPDATE_PROFILE", payload: { budgetAlertSent: true } });
+                    }
+                  }
+                } catch (e) {
+                  console.error("Failed to send budget alert email", e);
+                }
+              }
             }
           }
         }
@@ -319,7 +351,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         dispatch({ type: "ADD_TRANSACTION", payload: { ...tx, id: data.id, hasAlert } });
       }
     },
-    [sessionUser, state.budgets, supabase]
+    [sessionUser, state.budgets, state.userProfile, supabase]
   );
   const deleteTransaction = useCallback(
     async (id: string) => {
@@ -433,7 +465,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const updateProfile = useCallback(
     async (updates: Partial<UserProfile>) => {
       if (!sessionUser) return;
+
+      const previousProfile = { ...state.userProfile };
       dispatch({ type: "UPDATE_PROFILE", payload: updates });
+
       const pgUpdates: any = {};
       if (updates.name) pgUpdates.name = updates.name;
       if (updates.email) pgUpdates.email = updates.email;
@@ -446,11 +481,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (updates.theme !== undefined) pgUpdates.theme = updates.theme;
       if (updates.language !== undefined) pgUpdates.language = updates.language;
       if (updates.currency !== undefined) pgUpdates.currency = updates.currency;
+      if (updates.onboardingCompleted !== undefined) pgUpdates.onboarding_completed = updates.onboardingCompleted;
+      if (updates.budgetAlertSent !== undefined) pgUpdates.budget_alert_sent = updates.budgetAlertSent;
+      if (updates.budgetAlertEnabled !== undefined) pgUpdates.budget_alert_enabled = updates.budgetAlertEnabled;
       
       const { error } = await supabase.from('user_profiles').update(pgUpdates).eq('id', sessionUser.id);
-      if (error) throw new Error(error.message);
+      if (error) {
+        dispatch({ type: "UPDATE_PROFILE", payload: previousProfile });
+        throw new Error(error.message);
+      }
 
-      dispatch({ type: "UPDATE_PROFILE", payload: updates });
     },
     [sessionUser]
   );
@@ -468,6 +508,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [sessionUser, state.notifications]
   );
 
+  const formatCurrency = useCallback((val: number) => {
+    return formatMoney(val, state.userProfile.currency);
+  }, [state.userProfile.currency]);
+
   return (
     <AppContext.Provider
       value={{
@@ -484,6 +528,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         updateBudgetLimit,
         updateProfile,
         updateNotifications,
+        formatCurrency,
         sessionUser,
         isAuthLoaded,
       }}

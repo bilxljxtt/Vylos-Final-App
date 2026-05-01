@@ -5,7 +5,10 @@
 ALTER TABLE public.user_profiles 
 ADD COLUMN IF NOT EXISTS trial_started_at TIMESTAMPTZ DEFAULT now(),
 ADD COLUMN IF NOT EXISTS subscription_plan TEXT DEFAULT 'starter',
-ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'trialing';
+ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'trialing',
+ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS budget_alert_sent BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS budget_alert_enabled BOOLEAN DEFAULT true;
 
 -- 2. Create Notifications Table for extensible alert history
 CREATE TABLE IF NOT EXISTS public.notifications (

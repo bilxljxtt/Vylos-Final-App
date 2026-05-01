@@ -4,25 +4,32 @@
 
 /* ─── Design Tokens ─────────────────────────────────────────────────────────── */
 :root {
-  --bg: #f5f7f9;
-  --text: #1a1b1e;
-  --text-muted: #64748b;
-  --card: #ffffff;
-  --border: #e2e8f0;
-  --border-subtle: #f1f5f9;
-  --sidebar: #ffffff;
-  --primary: #00C988;
+  --bg: #F9FAFB;
+  --text: #0F172A;
+  --text-muted: #64748B;
+  --card: #FFFFFF;
+  --border: #F1F5F9;
+  --border-strong: #E2E8F0;
+  --sidebar: #FFFFFF;
+  --primary: #10B981;
+  --primary-dark: #059669;
+  --bg-mint: #F0FDF4;
+  --accent-purple: #7C3AED;
+  --accent-blue: #2563EB;
 }
 
 .dark {
-  --bg: #030712;
-  --text: #f8fafc;
-  --text-muted: #94a3b8;
-  --card: #0f172a;
-  --border: rgba(255, 255, 255, 0.08);
-  --border-subtle: rgba(255, 255, 255, 0.03);
-  --sidebar: #0f172a;
-  --primary: #00D084;
+  --bg: #020617;
+  --text: #F8FAFC;
+  --text-muted: #94A3B8;
+  --card: #0F172A;
+  --border: rgba(255, 255, 255, 0.05);
+  --border-strong: rgba(255, 255, 255, 0.1);
+  --sidebar: #020617;
+  --primary: #10B981;
+  --accent-purple: #A78BFA;
+  --accent-blue: #60A5FA;
+  --bg-mint: rgba(16, 185, 129, 0.1);
 }
 
 @theme inline {
@@ -31,9 +38,44 @@
   --color-text-muted: var(--text-muted);
   --color-card: var(--card);
   --color-border-main: var(--border);
-  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
   --color-sidebar: var(--sidebar);
   --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-dark);
+  --color-bg-mint: var(--bg-mint);
+  --color-acc-purple: var(--accent-purple);
+  --color-acc-blue: var(--accent-blue);
+}
+
+/* ─── Premium Components ───────────────────────────────────────────────────── */
+.glass-card {
+  @apply bg-card/80 backdrop-blur-xl border border-border-main shadow-lg;
+}
+
+.dashboard-card {
+  @apply bg-card border border-border-main rounded-[1.5rem] p-6 transition-all duration-300;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.01), 0 2px 4px -2px rgb(0 0 0 / 0.01);
+}
+
+.dashboard-card:hover {
+  @apply border-border-strong;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.03), 0 4px 6px -4px rgb(0 0 0 / 0.03);
+}
+
+.login-btn {
+  background: var(--primary);
+  color: white;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.login-btn:hover {
+  background: var(--primary-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px -5px rgba(16, 185, 129, 0.4);
+}
+
+.social-btn {
+  @apply flex items-center justify-center gap-3 px-4 py-3 border border-border-main rounded-xl bg-card text-sm font-medium transition-all hover:bg-border-main hover:border-border-strong;
 }
 
 /* ─── Base ──────────────────────────────────────────────────────────────────── */
@@ -44,7 +86,6 @@
 body {
   background-color: var(--bg);
   color: var(--text);
-  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -58,7 +99,7 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #c7d2fe;
+  background: rgba(148, 163, 184, 0.12);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
@@ -72,42 +113,12 @@ body {
 }
 
 .shimmer {
-  background: linear-gradient(90deg, var(--card) 25%, var(--border-subtle) 50%, var(--card) 75%);
+  background: linear-gradient(90deg, var(--card) 25%, var(--border) 50%, var(--card) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.4s ease-in-out infinite;
 }
 
-/* ─── Smooth transitions on interactive elements ────────────────────────────── */
-button, a, [role="button"] {
-  transition-property: color, background-color, border-color, opacity, transform, box-shadow;
-  transition-duration: 150ms;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-button:active {
-  transform: scale(0.97);
-}
-
-/* ─── Form elements ─────────────────────────────────────────────────────────── */
-input, textarea, select {
-  font-family: inherit;
-  border-radius: 1rem; /* Premium 16px radius */
-  padding-left: 1.5rem;  /* px-6 */
-  padding-right: 1.5rem; /* px-6 */
-}
-textarea {
-  padding-top: 1rem;    /* py-4 */
-  padding-bottom: 1rem; /* py-4 */
-  padding-left: 1.5rem;
-  padding-right: 1.5rem;
-}
-
-input:focus, textarea:focus, select:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--primary);
-  border-color: var(--primary);
-}
-
+/* ─── Form elements resets ──────────────────────────────────────────────────── */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {
   -webkit-appearance: none;
@@ -115,4 +126,12 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 input[type="number"] {
   -moz-appearance: textfield;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

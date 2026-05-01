@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ParserService, ExtractedTransaction } from "@/lib/services/import/ParserService";
 import { AIService } from "@/lib/services/import/AIService";
 import { CategorizationEngine } from "@/lib/services/import/CategorizationEngine";
-import { createClient } from "@/utils/supabase/client"; // Note: This might need server-side auth check
+import { createClient } from "@/utils/supabase/server";
 
 // Note: Using a dynamic dynamic import for pdf-parse if needed, or assuming text extraction is passed
 // For this implementation, we will expect the client to handle raw file reading for PDF/Word to text 
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Add Smart Categorization & Confidence
-    const supabase = createClient();
+    const supabase = await createClient();
     
     // Fetch user rules and recent transactions for duplicate detection
     const [{ data: userRules }, { data: recentTxs }] = await Promise.all([

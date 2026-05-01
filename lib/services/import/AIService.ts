@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { ExtractedTransaction } from "./ParserService";
+import { safeJsonParse } from "@/lib/utils";
 
 export class AIService {
   private static genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || "");
@@ -35,7 +36,7 @@ export class AIService {
       const result = await this.model.generateContent(prompt);
       const response = await result.response;
       const jsonText = response.text().replace(/```json/g, "").replace(/```/g, "").trim();
-      return JSON.parse(jsonText);
+      return safeJsonParse<ExtractedTransaction[]>(jsonText, []);
     } catch (err) {
       console.error("AI Extraction Error:", err);
       return [];
