@@ -7,6 +7,7 @@ import React, {
   useEffect,
   useCallback,
   useState,
+  useMemo,
 } from "react";
 import { createClient } from "@/utils/supabase/client";
 import {
@@ -15,31 +16,43 @@ import {
   Transaction,
   Subscription,
   Goal,
+  GoalContribution,
   BudgetCategory,
   UserProfile,
   NotificationPrefs,
-  generateId,
   formatMoney,
+  Reminder,
+  getMonthStart,
+  TransactionCategory
 } from "./store";
+import { CategorizationEngine, MerchantRule } from "./services/CategorizationEngine";
 
 // ─── Action Types ─────────────────────────────────────────────────────────────
 
 type Action =
   | { type: "HYDRATE_STATE"; payload: AppState }
+  | { type: "UPDATE_TRANSACTIONS"; payload: Transaction[] }
+  | { type: "UPDATE_GOALS"; payload: Goal[] }
+  | { type: "UPDATE_CONTRIBUTIONS"; payload: GoalContribution[] }
   | { type: "ADD_TRANSACTION"; payload: Transaction & { hasAlert?: boolean } }
+  | { type: "UPDATE_TRANSACTION"; payload: { id: string; updates: Partial<Transaction> } }
   | { type: "DELETE_TRANSACTION"; payload: string }
   | { type: "ADD_SUBSCRIPTION"; payload: Subscription }
   | { type: "DELETE_SUBSCRIPTION"; payload: string }
   | { type: "ADD_GOAL"; payload: Goal }
   | { type: "UPDATE_GOAL"; payload: { id: string; updates: Partial<Goal> } }
   | { type: "DELETE_GOAL"; payload: string }
-  | { type: "DEPOSIT_TO_GOAL"; payload: { id: string; amount: number } }
-  | { type: "WITHDRAW_FROM_GOAL"; payload: { id: string; amount: number } }
+  | { type: "ADD_CONTRIBUTION"; payload: GoalContribution }
   | { type: "UPDATE_BUDGET_LIMIT"; payload: { category: string; limit: number } }
-  | { type: "UPDATE_BUDGET_SPENT"; payload: { category: string; spent: number } }
+  | { type: "UPDATE_BUDGETS"; payload: Record<string, number> }
   | { type: "UPDATE_PROFILE"; payload: Partial<UserProfile> }
   | { type: "UPDATE_NOTIFICATIONS"; payload: Partial<NotificationPrefs> }
   | { type: "SET_UNREAD_COUNT"; payload: number }
+  | { type: "ADD_REMINDER"; payload: Reminder }
+  | { type: "DELETE_REMINDER"; payload: string }
+  | { type: "SET_SELECTED_MONTH"; payload: string }
+  | { type: "UPDATE_MERCHANT_RULES"; payload: MerchantRule[] }
+  | { type: "ADD_MERCHANT_RULE"; payload: MerchantRule }
   | { type: "RESET" };
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────
@@ -47,53 +60,35 @@ type Action =
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case "HYDRATE_STATE":
-      return action.payload;
+      return { ...initialState, ...action.payload };
+    case "UPDATE_TRANSACTIONS":
+      return { ...state, transactions: action.payload };
+    case "UPDATE_GOALS":
+      return { ...state, goals: action.payload };
+    case "UPDATE_CONTRIBUTIONS":
+      return { ...state, goalContributions: action.payload };
     case "ADD_TRANSACTION": {
-      const newTx: Transaction = action.payload;
-      // Also update budget spent for the category
-      const cat = action.payload.category;
-      const existing = state.budgets[cat];
-      const updatedBudgets = existing
-        ? {
-            ...state.budgets,
-            [cat]: {
-              ...existing,
-              spent: existing.spent + Math.abs(action.payload.amount),
-            },
-          }
-        : state.budgets;
       return {
         ...state,
         transactions: [action.payload, ...state.transactions],
-        budgets: updatedBudgets,
         unreadNotificationCount: state.unreadNotificationCount + (action.payload.hasAlert ? 1 : 0)
       };
     }
-    case "DELETE_TRANSACTION": {
-      const txToDelete = state.transactions.find((t) => t.id === action.payload);
-      if (!txToDelete) return state;
-
-      const cat = txToDelete.category;
-      const existing = state.budgets[cat];
-      const updatedBudgets = existing
-        ? {
-            ...state.budgets,
-            [cat]: {
-              ...existing,
-              spent: Math.max(0, existing.spent - Math.abs(txToDelete.amount)),
-            },
-          }
-        : state.budgets;
-
+    case "UPDATE_TRANSACTION": {
+      const { id, updates } = action.payload;
       return {
         ...state,
-        transactions: state.transactions.filter((t) => t.id !== action.payload),
-        budgets: updatedBudgets,
+        transactions: state.transactions.map(t => t.id === id ? { ...t, ...updates } : t)
+      };
+    }
+    case "DELETE_TRANSACTION": {
+      return {
+        ...state,
+        transactions: state.transactions.filter((t) => t.id !== action.payload)
       };
     }
     case "ADD_SUBSCRIPTION": {
-      const newSub: Subscription = action.payload;
-      return { ...state, subscriptions: [newSub, ...state.subscriptions] };
+      return { ...state, subscriptions: [action.payload, ...state.subscriptions] };
     }
     case "DELETE_SUBSCRIPTION":
       return {
@@ -101,8 +96,7 @@ function reducer(state: AppState, action: Action): AppState {
         subscriptions: state.subscriptions.filter((s) => s.id !== action.payload),
       };
     case "ADD_GOAL": {
-      const newGoal: Goal = action.payload;
-      return { ...state, goals: [...state.goals, newGoal] };
+      return { ...state, goals: [...state.goals, action.payload] };
     }
     case "UPDATE_GOAL":
       return {
@@ -112,25 +106,22 @@ function reducer(state: AppState, action: Action): AppState {
         ),
       };
     case "DELETE_GOAL":
-      return { ...state, goals: state.goals.filter((g) => g.id !== action.payload) };
-    case "DEPOSIT_TO_GOAL":
+      return { 
+        ...state, 
+        goals: state.goals.filter((g) => g.id !== action.payload),
+        goalContributions: state.goalContributions.filter((c) => c.goalId !== action.payload)
+      };
+    case "ADD_CONTRIBUTION": {
+      const contribution = action.payload;
       return {
         ...state,
-        goals: state.goals.map((g) =>
-          g.id === action.payload.id
-            ? { ...g, currentAmount: Math.min(g.currentAmount + action.payload.amount, g.targetAmount) }
-            : g
-        ),
+        goalContributions: [...state.goalContributions, contribution],
+        goals: state.goals.map(g => g.id === contribution.goalId 
+          ? { ...g, currentAmount: g.currentAmount + contribution.amount }
+          : g
+        )
       };
-    case "WITHDRAW_FROM_GOAL":
-      return {
-        ...state,
-        goals: state.goals.map((g) =>
-          g.id === action.payload.id
-            ? { ...g, currentAmount: Math.max(g.currentAmount - action.payload.amount, 0) }
-            : g
-        ),
-      };
+    }
     case "UPDATE_BUDGET_LIMIT":
       return {
         ...state,
@@ -142,15 +133,18 @@ function reducer(state: AppState, action: Action): AppState {
           },
         },
       };
-    case "UPDATE_BUDGET_SPENT":
+    case "UPDATE_BUDGETS":
       return {
         ...state,
         budgets: {
           ...state.budgets,
-          [action.payload.category]: {
-            ...state.budgets[action.payload.category],
-            spent: action.payload.spent,
-          },
+          ...Object.entries(action.payload as Record<string, number>).reduce((acc, [cat, limit]) => ({
+            ...acc,
+            [cat]: {
+              ...(state.budgets[cat] || { limit: 0, type: "limit" }),
+              limit
+            }
+          }), {})
         },
       };
     case "UPDATE_PROFILE":
@@ -159,6 +153,16 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, notifications: { ...state.notifications, ...action.payload } };
     case "SET_UNREAD_COUNT":
       return { ...state, unreadNotificationCount: action.payload };
+    case "ADD_REMINDER":
+      return { ...state, reminders: [action.payload, ...state.reminders] };
+    case "DELETE_REMINDER":
+      return { ...state, reminders: state.reminders.filter(r => r.id !== action.payload) };
+    case "SET_SELECTED_MONTH":
+      return { ...state, selectedMonth: action.payload };
+    case "UPDATE_MERCHANT_RULES":
+      return { ...state, merchantRules: action.payload };
+    case "ADD_MERCHANT_RULE":
+      return { ...state, merchantRules: [...state.merchantRules, action.payload] };
     case "RESET":
       if (typeof window !== 'undefined') {
         localStorage.removeItem('vylos-last-page');
@@ -174,20 +178,27 @@ function reducer(state: AppState, action: Action): AppState {
 interface AppContextValue {
   state: AppState;
   addTransaction: (tx: Omit<Transaction, "id">) => Promise<void>;
+  updateTransaction: (id: string, updates: Partial<Transaction>) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
   addSubscription: (sub: Omit<Subscription, "id">) => Promise<void>;
   deleteSubscription: (id: string) => Promise<void>;
-  addGoal: (goal: Omit<Goal, "id" | "createdAt">) => Promise<void>;
+  addGoal: (goal: Omit<Goal, "id" | "createdAt" | "status">) => Promise<void>;
   updateGoal: (id: string, updates: Partial<Goal>) => Promise<void>;
   deleteGoal: (id: string) => Promise<void>;
-  depositToGoal: (id: string, amount: number) => Promise<void>;
-  withdrawFromGoal: (id: string, amount: number) => Promise<void>;
+  addGoalContribution: (contribution: Omit<GoalContribution, "id">) => Promise<void>;
   updateBudgetLimit: (category: string, limit: number) => Promise<void>;
+  updateBudgets: (updates: Record<string, number>) => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
   updateNotifications: (updates: Partial<NotificationPrefs>) => void;
+  addReminder: (rem: Omit<Reminder, "id">) => Promise<void>;
+  deleteReminder: (id: string) => Promise<void>;
+  addMerchantRule: (rule: Omit<MerchantRule, "id">) => Promise<void>;
+  categorizeTransaction: (desc: string, type: "income" | "expense") => TransactionCategory;
   formatCurrency: (val: number) => string;
   sessionUser: any;
   isAuthLoaded: boolean;
+  lastSynced: Date | null;
+  setSelectedMonth: (date: string) => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -196,7 +207,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [sessionUser, setSessionUser] = useState<any>(null);
   const [isAuthLoaded, setIsAuthLoaded] = useState(false);
-  const supabase = createClient();
+  const [lastSynced, setLastSynced] = useState<Date | null>(null);
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     async function hydrateCloudState(user: any) {
@@ -208,28 +220,56 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       setSessionUser(user);
 
-      const [{ data: prof }, { data: txs }, { data: subs }, { data: gps }, { data: budgets }, { data: unreadNoteCount }] = await Promise.all([
+      const results = await Promise.all([
         supabase.from('user_profiles').select('*').eq('id', user.id).single(),
         supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false }),
         supabase.from('subscriptions').select('*').eq('user_id', user.id),
-        supabase.from('goals').select('*').eq('user_id', user.id),
+        supabase.from('goals').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('goal_contributions').select('*').eq('user_id', user.id),
         supabase.from('budgets').select('*').eq('user_id', user.id),
-        supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('read', false)
+        supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('read', false),
+        supabase.from('reminders').select('*').eq('user_id', user.id).order('date', { ascending: true }),
+        supabase.from('merchant_rules').select('*').eq('user_id', user.id)
       ]);
+
+      const [profRes, txsRes, subsRes, gpsRes, contribsRes, budgetsRes, unreadRes, remRes, rulesRes] = results;
+      const prof = profRes.data;
+      const txs = txsRes.data;
+      const subs = subsRes.data;
+      const gps = gpsRes.data;
+      const contribs = contribsRes.data;
+      const budgets = budgetsRes.data;
+      const rems = remRes.data;
+      const rules = rulesRes.data;
 
       const budgetsObj: Record<string, BudgetCategory> = {};
       if (budgets) {
         budgets.forEach(b => {
-          budgetsObj[b.category] = { spent: parseFloat(b.spent), limit: parseFloat(b.limit), type: b.type as any };
+          budgetsObj[b.category] = { limit: parseFloat(b.limit), type: b.type as any };
         });
       }
 
       dispatch({
         type: "HYDRATE_STATE",
         payload: {
-          transactions: txs ? txs.map(t => ({ id: t.id, merchant: t.title, amount: parseFloat(t.amount), date: t.date, category: t.category })) : [],
+          transactions: txs ? txs.map(t => ({ id: t.id, merchant: t.title, amount: parseFloat(t.amount), date: t.date, category: t.category, createdAt: t.created_at })) : [],
           subscriptions: subs ? subs.map(s => ({ id: s.id, name: s.name, amount: parseFloat(s.amount), category: s.category, frequency: s.frequency, nextDue: s.next_due })) : [],
-          goals: gps ? gps.map(g => ({ id: g.id, title: g.title, targetAmount: parseFloat(g.target_amount), currentAmount: parseFloat(g.current_amount), createdAt: g.created_at })) : [],
+          goals: gps ? gps.map(g => ({ 
+            id: g.id, 
+            title: g.title, 
+            targetAmount: parseFloat(g.target_amount), 
+            currentAmount: parseFloat(g.current_amount), 
+            deadline: g.deadline || new Date().toISOString(),
+            status: g.status || "On Track",
+            category: g.category,
+            notes: g.notes,
+            icon: g.icon,
+            color: g.color,
+            createdAt: g.created_at 
+          })) : [],
+          goalContributions: contribs ? contribs.map(c => ({ id: c.id, goalId: c.goal_id, amount: parseFloat(c.amount), date: c.date, notes: c.notes })) : [],
+          reminders: rems ? rems.map(r => ({ id: r.id, title: r.title, amount: parseFloat(r.amount), date: r.date, category: r.category, repeat: r.repeat, isPaid: r.is_paid })) : [],
+          merchantRules: rules ? rules.map(r => ({ id: r.id, user_id: r.user_id, merchant_keyword: r.merchant_keyword, category: r.category })) : [],
           budgets: Object.keys(budgetsObj).length > 0 ? budgetsObj : initialState.budgets,
           userProfile: prof ? {
             name: prof.name || "",
@@ -252,9 +292,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             budgetAlertEnabled: prof.budget_alert_enabled !== false, // default true
           } : initialState.userProfile,
           notifications: prof?.notifications ? (prof.notifications as any) : initialState.notifications,
-          unreadNotificationCount: unreadNoteCount?.length || 0
+          unreadNotificationCount: unreadRes?.count || 0,
+          selectedMonth: getMonthStart()
         }
       });
+      setLastSynced(new Date());
       setIsAuthLoaded(true);
     }
 
@@ -272,123 +314,92 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
+    // Realtime Listeners
+    let txChannel: any = null;
+    let goalsChannel: any = null;
+    let contribChannel: any = null;
+
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        txChannel = supabase.channel('public:transactions')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${user.id}` }, async () => {
+            const { data: txs } = await supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false });
+            if (txs) dispatch({ type: "UPDATE_TRANSACTIONS", payload: txs.map(t => ({ id: t.id, merchant: t.title, amount: parseFloat(t.amount), date: t.date, category: t.category })) });
+            setLastSynced(new Date());
+          }).subscribe();
+
+        goalsChannel = supabase.channel('public:goals')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'goals', filter: `user_id=eq.${user.id}` }, async () => {
+            const { data: gps } = await supabase.from('goals').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+            if (gps) dispatch({ type: "UPDATE_GOALS", payload: gps.map(g => ({ id: g.id, title: g.title, targetAmount: parseFloat(g.target_amount), currentAmount: parseFloat(g.current_amount), deadline: g.deadline, status: g.status, category: g.category, notes: g.notes, icon: g.icon, color: g.color, createdAt: g.created_at })) });
+            setLastSynced(new Date());
+          }).subscribe();
+
+        contribChannel = supabase.channel('public:goal_contributions')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'goal_contributions', filter: `user_id=eq.${user.id}` }, async () => {
+            const { data: contribs } = await supabase.from('goal_contributions').select('*').eq('user_id', user.id);
+            if (contribs) dispatch({ type: "UPDATE_CONTRIBUTIONS", payload: contribs.map(c => ({ id: c.id, goalId: c.goal_id, amount: parseFloat(c.amount), date: c.date, notes: c.notes })) });
+            setLastSynced(new Date());
+          }).subscribe();
+      }
+    });
+
     return () => {
       subscription.unsubscribe();
+      if (txChannel) supabase.removeChannel(txChannel);
+      if (goalsChannel) supabase.removeChannel(goalsChannel);
+      if (contribChannel) supabase.removeChannel(contribChannel);
     };
   }, []);
 
   const addTransaction = useCallback(
     async (tx: Omit<Transaction, "id">) => {
       if (!sessionUser) return;
-      const pgTx = {
-        title: tx.merchant,
-        amount: tx.amount,
-        date: tx.date,
-        category: tx.category,
-        type: tx.amount < 0 ? "expense" : "income",
-        user_id: sessionUser.id
-      };
+      const pgTx = { title: tx.merchant, amount: tx.amount, date: tx.date, category: tx.category, type: tx.amount < 0 ? "expense" : "income", user_id: sessionUser.id };
       const { data, error } = await supabase.from('transactions').insert([pgTx]).select().single();
       if (error) throw new Error(error.message);
       if (data) {
-        // Calculate threshold BEFORE dispatch to ensure hasAlert is accurate
-        let hasAlert = false;
-        if (tx.amount < 0) {
-          const cat = tx.category;
-          const budget = state.budgets[cat];
-          if (budget && budget.limit > 0) {
-            const oldSpent = budget.spent;
-            const newSpent = budget.spent + Math.abs(tx.amount);
-            const oldPct = (oldSpent / budget.limit) * 100;
-            const newPct = (newSpent / budget.limit) * 100;
-            
-            let threshold = 0;
-            if (oldPct < 90 && newPct >= 90) threshold = 90;
-            else if (oldPct < 95 && newPct >= 95) threshold = 95;
-            else if (oldPct < 100 && newPct >= 100) threshold = 100;
-
-            if (threshold > 0) {
-              hasAlert = true;
-              const msg = threshold === 100 
-                ? `Budget Exceeded! You have used 100% of your ${cat} budget.`
-                : `Budget Warning: You have reached ${threshold}% of your ${cat} budget.`;
-              
-              await supabase.from('notifications').insert([{
-                user_id: sessionUser.id,
-                title: threshold === 100 ? 'Budget Exceeded' : 'Budget Warning',
-                message: msg,
-                type: 'threshold',
-                read: false
-              }]);
-              
-              // Trigger Resend email if >= 95 and alerts are enabled and not already sent
-              if (threshold >= 95 && state.userProfile.budgetAlertEnabled && !state.userProfile.budgetAlertSent) {
-                try {
-                  const res = await fetch('/api/send-email', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      to: state.userProfile.email,
-                      subject: `Vylos Budget Alert: ${cat}`,
-                      html: `<h2>Budget Alert</h2><p>${msg}</p><p>You have spent R${newSpent.toFixed(2)} out of your R${budget.limit.toFixed(2)} limit.</p>`
-                    })
-                  });
-                  if (res.ok) {
-                    // Update user profile immediately to prevent duplicates
-                    const { error } = await supabase.from('user_profiles').update({ budget_alert_sent: true }).eq('id', sessionUser.id);
-                    if (!error) {
-                      dispatch({ type: "UPDATE_PROFILE", payload: { budgetAlertSent: true } });
-                    }
-                  }
-                } catch (e) {
-                  console.error("Failed to send budget alert email", e);
-                }
-              }
-            }
-          }
-        }
-
-        dispatch({ type: "ADD_TRANSACTION", payload: { ...tx, id: data.id, hasAlert } });
+        dispatch({ type: "ADD_TRANSACTION", payload: { ...tx, id: data.id } });
       }
     },
-    [sessionUser, state.budgets, state.userProfile, supabase]
+    [sessionUser, state.budgets, supabase]
   );
+
+  const updateTransaction = useCallback(
+    async (id: string, updates: Partial<Transaction>) => {
+      if (!sessionUser) return;
+      const pgUpdates: any = {};
+      if (updates.merchant) pgUpdates.title = updates.merchant;
+      if (updates.amount !== undefined) pgUpdates.amount = updates.amount;
+      if (updates.date) pgUpdates.date = updates.date;
+      if (updates.category) pgUpdates.category = updates.category;
+      const { error } = await supabase.from('transactions').update(pgUpdates).eq('id', id);
+      if (error) throw new Error(error.message);
+      dispatch({ type: "UPDATE_TRANSACTION", payload: { id, updates } });
+    },
+    [sessionUser, supabase]
+  );
+
   const deleteTransaction = useCallback(
     async (id: string) => {
-      const txToDelete = state.transactions.find(t => t.id === id);
-      if (txToDelete && txToDelete.amount < 0) {
-        // Find existing budget
-        const { data: currentBudget } = await supabase
-          .from("budgets")
-          .select("spent")
-          .eq("user_id", sessionUser.id)
-          .eq("category", txToDelete.category)
-          .single();
-        
-        if (currentBudget) {
-          await supabase.from("budgets").update({ 
-            spent: Math.max(0, (currentBudget.spent || 0) - Math.abs(txToDelete.amount)) 
-          }).eq("user_id", sessionUser.id).eq("category", txToDelete.category);
-        }
-      }
-
+      if (!sessionUser) return;
       const { error } = await supabase.from('transactions').delete().eq('id', id);
       if (error) throw new Error(error.message);
       dispatch({ type: "DELETE_TRANSACTION", payload: id });
     },
-    []
+    [sessionUser, state.transactions, supabase]
   );
+
   const addSubscription = useCallback(
     async (sub: Omit<Subscription, "id">) => {
       if (!sessionUser) return;
-      const { data, error } = await supabase.from('subscriptions').insert([{
-        user_id: sessionUser.id, name: sub.name, amount: sub.amount, category: sub.category, frequency: sub.frequency, next_due: sub.nextDue
-      }]).select().single();
+      const { data, error } = await supabase.from('subscriptions').insert([{ user_id: sessionUser.id, name: sub.name, amount: sub.amount, category: sub.category, frequency: sub.frequency, next_due: sub.nextDue }]).select().single();
       if (error) throw new Error(error.message);
       if (data) dispatch({ type: "ADD_SUBSCRIPTION", payload: { ...sub, id: data.id } });
     },
-    [sessionUser]
+    [sessionUser, supabase]
   );
+
   const deleteSubscription = useCallback(
     async (id: string) => {
       const { error } = await supabase.from('subscriptions').delete().eq('id', id);
@@ -397,30 +408,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     },
     []
   );
+
   const addGoal = useCallback(
-    async (goal: Omit<Goal, "id" | "createdAt">) => {
+    async (goal: Omit<Goal, "id" | "createdAt" | "status">) => {
       if (!sessionUser) return;
       const createdAt = new Date().toISOString();
+      const status = "On Track";
       const { data, error } = await supabase.from('goals').insert([{
-        user_id: sessionUser.id, title: goal.title, target_amount: goal.targetAmount, current_amount: goal.currentAmount, created_at: createdAt
+        user_id: sessionUser.id, 
+        title: goal.title, 
+        target_amount: goal.targetAmount, 
+        current_amount: goal.currentAmount, 
+        deadline: goal.deadline,
+        category: goal.category,
+        notes: goal.notes,
+        status,
+        icon: goal.icon,
+        color: goal.color,
+        created_at: createdAt
       }]).select().single();
       if (error) throw new Error(error.message);
-      if (data) dispatch({ type: "ADD_GOAL", payload: { ...goal, id: data.id, createdAt } });
+      if (data) dispatch({ type: "ADD_GOAL", payload: { ...goal, id: data.id, createdAt, status } });
     },
     [sessionUser]
   );
+
   const updateGoal = useCallback(
     async (id: string, updates: Partial<Goal>) => {
       const pgUpdates: any = {};
       if (updates.title) pgUpdates.title = updates.title;
       if (updates.targetAmount !== undefined) pgUpdates.target_amount = updates.targetAmount;
       if (updates.currentAmount !== undefined) pgUpdates.current_amount = updates.currentAmount;
+      if (updates.deadline) pgUpdates.deadline = updates.deadline;
+      if (updates.status) pgUpdates.status = updates.status;
+      if (updates.category) pgUpdates.category = updates.category;
+      if (updates.notes) pgUpdates.notes = updates.notes;
+      if (updates.icon) pgUpdates.icon = updates.icon;
+      if (updates.color) pgUpdates.color = updates.color;
+
       const { error } = await supabase.from('goals').update(pgUpdates).eq('id', id);
       if (error) throw new Error(error.message);
       dispatch({ type: "UPDATE_GOAL", payload: { id, updates } });
     },
     []
   );
+
   const deleteGoal = useCallback(
     async (id: string) => {
       const { error } = await supabase.from('goals').delete().eq('id', id);
@@ -429,46 +461,58 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     },
     []
   );
-  const depositToGoal = useCallback(
-    async (id: string, amount: number) => {
-      const current = state.goals.find(g => g.id === id);
-      if (current) {
-         const { error } = await supabase.from('goals').update({ current_amount: Math.min(current.currentAmount + amount, current.targetAmount) }).eq('id', id);
-         if (error) throw new Error(error.message);
+
+  const addGoalContribution = useCallback(
+    async (contribution: Omit<GoalContribution, "id">) => {
+      if (!sessionUser) return;
+      const { data, error } = await supabase.from('goal_contributions').insert([{
+        user_id: sessionUser.id,
+        goal_id: contribution.goalId,
+        amount: contribution.amount,
+        date: contribution.date,
+        notes: contribution.notes
+      }]).select().single();
+
+      if (error) throw new Error(error.message);
+      if (data) {
+        // Update the goal's current amount in Supabase
+        const currentGoal = state.goals.find(g => g.id === contribution.goalId);
+        if (currentGoal) {
+          const newAmount = currentGoal.currentAmount + contribution.amount;
+          await supabase.from('goals').update({ current_amount: newAmount }).eq('id', contribution.goalId);
+        }
+        dispatch({ type: "ADD_CONTRIBUTION", payload: { ...contribution, id: data.id } });
       }
-      dispatch({ type: "DEPOSIT_TO_GOAL", payload: { id, amount } });
     },
-    [state.goals]
+    [sessionUser, state.goals, supabase]
   );
-  const withdrawFromGoal = useCallback(
-    async (id: string, amount: number) => {
-      const current = state.goals.find(g => g.id === id);
-      if (current) {
-         const { error } = await supabase.from('goals').update({ current_amount: Math.max(current.currentAmount - amount, 0) }).eq('id', id);
-         if (error) throw new Error(error.message);
-      }
-      dispatch({ type: "WITHDRAW_FROM_GOAL", payload: { id, amount } });
-    },
-    [state.goals]
-  );
+
   const updateBudgetLimit = useCallback(
     async (category: string, limit: number) => {
       if (!sessionUser) return;
-      
-      const { error } = await supabase.from('budgets').upsert({ user_id: sessionUser.id, category, "limit": limit, spent: state.budgets[category]?.spent || 0, type: state.budgets[category]?.type || "limit" });
+      const { error } = await supabase.from('budgets').upsert({ user_id: sessionUser.id, category, limit, type: state.budgets[category]?.type || "limit" }, { onConflict: "user_id,category" });
       if (error) throw new Error(error.message);
-
       dispatch({ type: "UPDATE_BUDGET_LIMIT", payload: { category, limit } });
     },
-    [sessionUser, state.budgets]
+    [sessionUser, state.budgets, supabase]
   );
+
+  const updateBudgets = useCallback(
+    async (updates: Record<string, number>) => {
+      if (!sessionUser) return;
+      const rows = Object.entries(updates).map(([cat, limit]) => ({ user_id: sessionUser.id, category: cat, limit, type: state.budgets[cat]?.type || "limit" }));
+      const { error } = await supabase.from('budgets').upsert(rows, { onConflict: "user_id,category" });
+      if (error) throw new Error(error.message);
+      dispatch({ type: "UPDATE_BUDGETS", payload: updates });
+    },
+    [sessionUser, state.budgets, supabase]
+  );
+
   const updateProfile = useCallback(
     async (updates: Partial<UserProfile>) => {
       if (!sessionUser) return;
-
       const previousProfile = { ...state.userProfile };
       dispatch({ type: "UPDATE_PROFILE", payload: updates });
-
       const pgUpdates: any = {};
       if (updates.name) pgUpdates.name = updates.name;
       if (updates.email) pgUpdates.email = updates.email;
@@ -482,55 +526,91 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (updates.language !== undefined) pgUpdates.language = updates.language;
       if (updates.currency !== undefined) pgUpdates.currency = updates.currency;
       if (updates.onboardingCompleted !== undefined) pgUpdates.onboarding_completed = updates.onboardingCompleted;
-      if (updates.budgetAlertSent !== undefined) pgUpdates.budget_alert_sent = updates.budgetAlertSent;
-      if (updates.budgetAlertEnabled !== undefined) pgUpdates.budget_alert_enabled = updates.budgetAlertEnabled;
-      
       const { error } = await supabase.from('user_profiles').update(pgUpdates).eq('id', sessionUser.id);
-      if (error) {
-        dispatch({ type: "UPDATE_PROFILE", payload: previousProfile });
-        throw new Error(error.message);
-      }
-
+      if (error) { dispatch({ type: "UPDATE_PROFILE", payload: previousProfile }); throw new Error(error.message); }
     },
-    [sessionUser]
+    [sessionUser, state.userProfile, supabase]
   );
+
   const updateNotifications = useCallback(
     async (updates: Partial<NotificationPrefs>) => {
       if (!sessionUser) return;
-      
       const newSettings = { ...state.notifications, ...updates };
       const { error } = await supabase.from('user_profiles').update({ notifications: newSettings }).eq('id', sessionUser.id);
-      
       if (error) throw new Error(error.message);
-      
       dispatch({ type: "UPDATE_NOTIFICATIONS", payload: updates });
     },
-    [sessionUser, state.notifications]
+    [sessionUser, state.notifications, supabase]
   );
+
+  const addReminder = useCallback(
+    async (rem: Omit<Reminder, "id">) => {
+      if (!sessionUser) return;
+      const id = Math.random().toString(36).substr(2, 9);
+      const { error } = await supabase.from('reminders').insert([{ id, user_id: sessionUser.id, title: rem.title, amount: rem.amount, date: rem.date, category: rem.category, repeat: rem.repeat, is_paid: false }]);
+      if (error) throw new Error(error.message);
+      dispatch({ type: "ADD_REMINDER", payload: { ...rem, id, isPaid: false } });
+    },
+    [sessionUser, supabase]
+  );
+
+  const deleteReminder = useCallback(
+    async (id: string) => {
+      const { error } = await supabase.from('reminders').delete().eq('id', id);
+      if (error) throw new Error(error.message);
+      dispatch({ type: "DELETE_REMINDER", payload: id });
+    },
+    [supabase]
+  );
+
+  const addMerchantRule = useCallback(
+    async (rule: Omit<MerchantRule, "id">) => {
+      if (!sessionUser) return;
+      const { data, error } = await supabase.from('merchant_rules').insert([{ user_id: sessionUser.id, merchant_keyword: rule.merchant_keyword, category: rule.category }]).select().single();
+      if (error) { dispatch({ type: "ADD_MERCHANT_RULE", payload: { ...rule, user_id: sessionUser.id } }); return; }
+      if (data) dispatch({ type: "ADD_MERCHANT_RULE", payload: { id: data.id, user_id: data.user_id, merchant_keyword: data.merchant_keyword, category: data.category } });
+    },
+    [sessionUser, supabase]
+  );
+
+  const categorizeTransaction = useCallback((desc: string, type: "income" | "expense") => {
+    return CategorizationEngine.categorize(desc, type, state.merchantRules);
+  }, [state.merchantRules]);
 
   const formatCurrency = useCallback((val: number) => {
     return formatMoney(val, state.userProfile.currency);
   }, [state.userProfile.currency]);
+
+  const setSelectedMonth = useCallback((date: string) => {
+    dispatch({ type: "SET_SELECTED_MONTH", payload: date });
+  }, []);
 
   return (
     <AppContext.Provider
       value={{
         state,
         addTransaction,
+        updateTransaction,
         deleteTransaction,
         addSubscription,
         deleteSubscription,
         addGoal,
         updateGoal,
         deleteGoal,
-        depositToGoal,
-        withdrawFromGoal,
+        addGoalContribution,
         updateBudgetLimit,
+        updateBudgets,
         updateProfile,
         updateNotifications,
+        addReminder,
+        deleteReminder,
+        addMerchantRule,
+        categorizeTransaction,
         formatCurrency,
         sessionUser,
         isAuthLoaded,
+        lastSynced,
+        setSelectedMonth,
       }}
     >
       {children}
@@ -538,8 +618,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useAppStore(): AppContextValue {
-  const ctx = useContext(AppContext);
-  if (!ctx) throw new Error("useAppStore must be used inside AppProvider");
-  return ctx;
+export function useAppStore() {
+  const context = useContext(AppContext);
+  if (!context) throw new Error("useAppStore must be used within an AppProvider");
+  return context;
 }

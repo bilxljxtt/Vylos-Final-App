@@ -64,20 +64,29 @@ export const StatCard: React.FC<StatCardProps> = ({
 
 interface CircularHealthScoreProps {
   score: number;
+  category: string;
+  onClick?: () => void;
 }
 
-export const CircularHealthScore: React.FC<CircularHealthScoreProps> = ({ score }) => {
+export const CircularHealthScore: React.FC<CircularHealthScoreProps> = ({ score, category, onClick }) => {
+  const getStatusColor = () => {
+    if (score >= 80) return "text-emerald-500";
+    if (score >= 60) return "text-primary";
+    if (score >= 40) return "text-amber-500";
+    return "text-red-500";
+  };
+
   return (
-    <div className="dashboard-card flex items-center justify-between gap-8 h-full min-w-[320px]">
+    <div className="dashboard-card flex items-center justify-between gap-8 h-full min-w-[320px] bg-card border-border-main">
       <div className="flex items-center gap-5">
         <div className="relative w-16 h-16 flex items-center justify-center">
           <svg className="w-full h-full transform -rotate-90">
-            <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="6" fill="transparent" className="text-border-strong/50" />
+            <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="6" fill="transparent" className="text-border-strong/30" />
             <circle
               cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="6" fill="transparent"
               strokeDasharray={175.8}
               strokeDashoffset={175.8 * (1 - score / 100)}
-              className="text-primary transition-all duration-1000 ease-out"
+              className={`${getStatusColor()} transition-all duration-1000 ease-out`}
               strokeLinecap="round"
             />
           </svg>
@@ -85,15 +94,50 @@ export const CircularHealthScore: React.FC<CircularHealthScoreProps> = ({ score 
         </div>
         
         <div className="flex flex-col">
-          <div className="text-xs font-bold text-text-muted uppercase tracking-widest mb-1">Financial Health Score</div>
+          <div className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-1">Financial Health</div>
           <div className="flex items-center gap-2">
-            <span className="text-sm font-black text-primary uppercase">Excellent</span>
+            <span className={`text-sm font-black uppercase ${getStatusColor()}`}>{category}</span>
           </div>
         </div>
       </div>
-      <button className="text-primary font-bold text-xs flex items-center gap-1 hover:underline">
-        View Details <ChevronRight size={14} />
+      <button 
+        onClick={onClick}
+        className="text-primary font-black text-xs flex items-center gap-1 hover:underline uppercase tracking-tight"
+      >
+        Details <ChevronRight size={14} />
       </button>
+    </div>
+  );
+};
+
+export const InsightCard: React.FC<{ 
+  severity: 'positive' | 'neutral' | 'warning' | 'critical'; 
+  reason: string; 
+  action: string; 
+  buttonLabel?: string; 
+  onClick?: () => void;
+}> = ({ severity, reason, action, buttonLabel, onClick }) => {
+  const colors = {
+    positive: "bg-emerald-500/10 border-emerald-500/20 text-emerald-500",
+    neutral: "bg-blue-500/10 border-blue-500/20 text-blue-500",
+    warning: "bg-amber-500/10 border-amber-500/20 text-amber-500",
+    critical: "bg-red-500/10 border-red-500/20 text-red-500",
+  };
+
+  return (
+    <div className={`p-6 rounded-3xl border ${colors[severity]} flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-sm mb-4 last:mb-0`}>
+      <div className="flex flex-col gap-1.5">
+        <h4 className="text-xs font-black uppercase tracking-widest opacity-80">{reason}</h4>
+        <p className="text-sm font-bold text-text-main leading-snug">{action}</p>
+      </div>
+      {buttonLabel && (
+        <button 
+          onClick={onClick}
+          className="shrink-0 px-6 py-3 bg-white/10 hover:bg-white/20 border border-white/10 rounded-2xl text-xs font-black uppercase tracking-widest transition-all"
+        >
+          {buttonLabel}
+        </button>
+      )}
     </div>
   );
 };

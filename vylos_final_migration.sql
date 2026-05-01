@@ -51,3 +51,28 @@ END $$;
 -- 6. Indexes
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON public.notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_ai_conversations_user ON public.ai_conversations(user_id);
+
+-- 7. Reminders used by the dashboard reminder modal
+CREATE TABLE IF NOT EXISTS public.reminders (
+  id TEXT PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  title TEXT NOT NULL,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  date TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT 'Bills',
+  repeat TEXT,
+  is_paid BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.reminders ENABLE ROW LEVEL SECURITY;
+
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can manage their own reminders') THEN
+        CREATE POLICY "Users can manage their own reminders" ON public.reminders
+          FOR ALL USING (auth.uid() = user_id);
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_reminders_user_date ON public.reminders(user_id, date);

@@ -13,10 +13,10 @@ export function LandingPage() {
       {/* Content Side */}
       <div className="flex-1 flex flex-col justify-center px-12 lg:px-24 xl:px-32 z-10">
         <div className="absolute top-12 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center shadow-2xl shadow-primary/40">
-            <Layout className="w-7 h-7 text-white" strokeWidth={3} />
+          <div className="w-14 h-14 rounded-full border border-[#00A86B]/10 overflow-hidden flex items-center justify-center">
+            <img src="/logo.png" alt="Vylos Logo" className="w-full h-full object-cover scale-[1.1]" />
           </div>
-          <span className="text-3xl font-black tracking-tighter text-text-main">Vylos</span>
+          <span className="text-4xl font-bold tracking-tight text-[#00A86B]">Vylos</span>
         </div>
 
         <div className="max-w-xl">

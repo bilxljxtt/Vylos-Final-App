@@ -66,11 +66,11 @@ export default function Login() {
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-primary/10 rounded-full translate-y-1/3 -translate-x-1/4 blur-3xl" />
         
         {/* Logo */}
-        <div className="flex items-center gap-2 mb-16 relative z-10">
-          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-            <Layout className="w-6 h-6 text-white" strokeWidth={2.5} />
+        <div className="flex items-center gap-4 mb-16 relative z-10">
+          <div className="w-14 h-14 rounded-full border border-[#00A86B]/10 overflow-hidden flex items-center justify-center">
+            <img src="/logo.png" alt="Vylos Logo" className="w-full h-full object-cover scale-[1.1]" />
           </div>
-          <span className="text-2xl font-bold tracking-tight text-slate-900">Vylos</span>
+          <span className="text-4xl font-bold tracking-tight text-[#00A86B]">Vylos</span>
         </div>
 
         <div className="relative z-10">

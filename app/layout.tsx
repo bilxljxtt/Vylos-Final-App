@@ -17,11 +17,13 @@ const sora = Sora({
 });
 
 export const metadata: Metadata = {
-  title: "Vylos — Financial Overview",
+  title: "Vylos — Financial Intelligence Engine",
   description:
-    "Vylos is your personal financial command center. Track spending, build goals, and get AI-powered budget insights.",
-  keywords: ["personal finance", "budgeting", "savings", "AI finance"],
+    "Vylos is a deterministic financial intelligence platform. Track spending, build resilience, and get formula-based insights.",
+  keywords: ["personal finance", "budgeting", "savings", "financial engine"],
 };
+
+import Script from "next/script";
 
 export default function RootLayout({
   children,
@@ -31,16 +33,18 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geistMono.variable} ${sora.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: `
-          try {
-            const theme = JSON.parse(localStorage.getItem('vylos-storage')).state.userProfile.theme;
-            if (theme === 'Dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-              document.documentElement.classList.add('dark');
-            } else {
-              document.documentElement.classList.remove('dark');
-            }
-          } catch (e) {}
-        `}} />
+        <Script id="theme-detection" strategy="beforeInteractive">
+          {`
+            try {
+              const theme = JSON.parse(localStorage.getItem('vylos-storage')).state.userProfile.theme;
+              if (theme === 'Dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+              } else {
+                document.documentElement.classList.remove('dark');
+              }
+            } catch (e) {}
+          `}
+        </Script>
       </head>
       <body className="min-h-screen bg-bg text-text-main font-sora selection:bg-primary/20 selection:text-primary" suppressHydrationWarning>
         <AppProvider>

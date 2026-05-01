@@ -32,7 +32,7 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   const isAuthRoute = request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname.startsWith('/signup')
-  const isPublicRoute = isAuthRoute || request.nextUrl.pathname.startsWith('/api') || request.nextUrl.pathname.match(/\.(png|jpg|ico|css|js)$/)
+  const isPublicRoute = isAuthRoute || request.nextUrl.pathname.startsWith('/reset-password') || request.nextUrl.pathname.startsWith('/api') || request.nextUrl.pathname.match(/\.(png|jpg|ico|css|js)$/)
 
   if (!user && !isPublicRoute && request.nextUrl.pathname !== '/login' && request.nextUrl.pathname !== '/signup') {
     const url = request.nextUrl.clone()

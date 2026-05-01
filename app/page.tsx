@@ -3,9 +3,13 @@
 import { useState, useEffect, useRef } from "react";
 import { Chart, registerables } from 'chart.js';
 import { useAppStore } from "@/lib/AppContext";
-import { TransactionCategory } from "@/lib/store";
+import { TransactionCategory, getMonthStart } from "@/lib/store";
+import { VylosEngine } from "@/lib/vylosEngine";
 import { sanitizeString } from "@/lib/utils";
-import { ParserService, ExtractedTransaction } from "@/lib/services/import/ParserService";
+import { ExtractedTransaction } from "@/lib/services/import/ParserService";
+import { ImportPreviewTransaction, ImportService } from "@/lib/services/import/ImportService";
+import { normalizeTransactionCategory } from "@/lib/services/CategorizationEngine";
+import { BudgetService, BudgetSummary } from "@/lib/services/BudgetService";
 
 // Standardized Components
 import { Sidebar } from "@/components/ui/Sidebar";
@@ -18,9 +22,16 @@ import { AIAdvisorView } from "@/components/views/AIAdvisorView";
 import { ImportView } from "@/components/views/ImportView";
 import { SettingsView } from "@/components/views/SettingsView";
 import { AnalyticsView } from "@/components/views/AnalyticsView";
+import { CalendarView } from "@/components/views/CalendarView";
+import { PricingView } from "@/components/views/PricingView";
 import { OnboardingView } from "@/components/views/OnboardingView";
 import { LandingPage } from "@/components/ui/LandingPage";
 import { TransactionModal, GoalModal } from "@/components/ui/Modals";
+import { HealthDetailModal } from "@/components/modals/HealthDetailModal";
+import { AddReminderModal } from "@/components/modals/AddReminderModal";
+import { EditBudgetModal } from "@/components/modals/EditBudgetModal";
+import { FundCategoryModal } from "@/components/modals/FundCategoryModal";
+import { FeedbackModal } from "@/components/modals/FeedbackModal";
 import { useToast } from "@/components/Toast";
 
 // Register Chart.js
@@ -28,44 +39,21 @@ Chart.register(...registerables);
 
 const ACCENT = "#00D8A5";
 
-const KEYWORD_MAP = [
-  {kw:["uber","bolt","taxi","lyft","petrol","fuel","garage"],cat:"Transport"},
-  {kw:["checkers","pick n pay","woolworths","spar","shoprite","grocery","food","restaurant","mcdonald","kfc","steers","nando"],cat:"Food & Dining"},
-  {kw:["salary","income","payment received","deposit","payroll"],cat:"Income"},
-  {kw:["netflix","showmax","spotify","dstv","youtube","apple","hbo","disney"],cat:"Entertainment"},
-  {kw:["electricity","water","rates","insurance","internet","vodacom","mtn","telkom","wifi","medical aid"],cat:"Bills"},
-  {kw:["clicks","dischem","pharmacy","doctor","hospital","dentist"],cat:"Health"},
-  {kw:["mall","clothing","takealot","amazon","zara","h&m","mr price","fashion"],cat:"Shopping"},
-];
-
-function autocat(desc: string): TransactionCategory {
-  const d = desc.toLowerCase();
-  for (const {kw,cat} of KEYWORD_MAP) if (kw.some(k=>d.includes(k))) return cat as TransactionCategory;
-  return "Other";
-}
 
 export default function App() {
-  const { state, addTransaction, deleteTransaction, addGoal, deleteGoal, updateBudgetLimit, updateProfile, sessionUser, isAuthLoaded } = useAppStore();
+  const { state, addTransaction, deleteTransaction, addGoal, deleteGoal, updateBudgetLimit, updateBudgets, updateProfile, sessionUser, isAuthLoaded, formatCurrency, categorizeTransaction } = useAppStore();
   const { toast: showToast } = useToast();
   
-  const [dark, setDark] = useState(true);
-  const [isThemeLoaded, setIsThemeLoaded] = useState(false);
+  const [dark, setDark] = useState(() => {
+    if (typeof window === "undefined") return true;
+    const savedTheme = localStorage.getItem('vylos-theme');
+    if (savedTheme === 'light') return false;
+    if (savedTheme === 'dark') return true;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
 
   // Sync theme to document element
   useEffect(() => {
-    const savedTheme = localStorage.getItem('vylos-theme');
-    if (savedTheme === 'light') {
-      setDark(false);
-    } else if (savedTheme === 'dark') {
-      setDark(true);
-    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setDark(true);
-    }
-    setIsThemeLoaded(true);
-  }, []);
-
-  useEffect(() => {
-    if (!isThemeLoaded) return;
     if (dark) {
       document.documentElement.classList.add('dark');
       localStorage.setItem('vylos-theme', 'dark');
@@ -73,30 +61,103 @@ export default function App() {
       document.documentElement.classList.remove('dark');
       localStorage.setItem('vylos-theme', 'light');
     }
-  }, [dark, isThemeLoaded]);
-  const [page, setPage] = useState<string>("dashboard");
-  const [isPageLoaded, setIsPageLoaded] = useState(false);
-
-  // Sync page from localStorage
-  useEffect(() => {
+  }, [dark]);
+  const [page, setPage] = useState<string>(() => {
+    if (typeof window === "undefined") return "dashboard";
     const savedPage = localStorage.getItem('vylos-last-page');
-    if (savedPage) {
-      setPage(savedPage);
-    }
-    setIsPageLoaded(true);
-  }, []);
+    return savedPage || "dashboard";
+  });
 
   // Persist page to localStorage
   useEffect(() => {
-    if (isPageLoaded) {
-      localStorage.setItem('vylos-last-page', page);
-    }
-  }, [page, isPageLoaded]);
+    localStorage.setItem('vylos-last-page', page);
+  }, [page]);
   const [showAddTx, setShowAddTx] = useState(false);
   const [showAddGoal, setShowAddGoal] = useState(false);
-  const [txForm, setTxForm] = useState({desc:"",amount:"",cat: "Food & Dining" as TransactionCategory,date:new Date().toISOString().slice(0,10),type:"expense"});
-  const [goalForm, setGoalForm] = useState({name:"",target:"",saved:"",icon:"🎯",color:"#00D8A5"});
-  const [importPreview, setImportPreview] = useState<any[] | null>(null);
+  const [txForm, setTxForm] = useState({desc:"",amount:"",cat: "Groceries" as TransactionCategory,date:new Date().toISOString().slice(0,10),type:"expense"});
+  const [goalForm, setGoalForm] = useState({
+    name: "",
+    target: "",
+    saved: "0",
+    deadline: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
+    category: "Savings",
+    notes: "",
+    icon: "🎯",
+    color: ACCENT
+  });
+  const [importPreview, setImportPreview] = useState<ImportPreviewTransaction[] | null>(null);
+
+  const [showHealthDetail, setShowHealthDetail] = useState(false);
+  const [showAddReminder, setShowAddReminder] = useState(false);
+  const [showNewBudget, setShowNewBudget] = useState(false);
+  const [showFundCategory, setShowFundCategory] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
+
+  // Compute stats (Real-time Calculation Engine)
+  const selectedMonth = /^\d{4}-\d{2}-\d{2}$/.test(state.selectedMonth)
+    ? state.selectedMonth
+    : getMonthStart();
+  const [refYear, refMonth] = selectedMonth.split('-').map(Number);
+  const currentMonthStart = new Date(refYear, refMonth - 1, 1).getTime();
+  const currentMonthEnd = new Date(refYear, refMonth, 0, 23, 59, 59, 999).getTime();
+  const prevMonthStart = new Date(refYear, refMonth - 2, 1).getTime();
+  const prevMonthEnd = new Date(refYear, refMonth - 1, 0, 23, 59, 59, 999).getTime();
+
+  const getMonthStr = (d: number) => {
+    const date = new Date(d);
+    return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-01`;
+  };
+  
+  const currentMonthStr = getMonthStr(currentMonthStart);
+  const previousMonthStr = getMonthStr(prevMonthStart);
+
+  const budgetSummary = BudgetService.getBudgetSummary(state, currentMonthStr);
+  const previousSummary = BudgetService.getBudgetSummary(state, previousMonthStr);
+
+  const income = state.transactions
+    .filter(t => {
+      const d = new Date(t.date).getTime();
+      return d >= currentMonthStart && d <= currentMonthEnd && t.amount > 0;
+    })
+    .reduce((acc, t) => acc + t.amount, 0);
+  
+  const expense = budgetSummary.totalSpent;
+  const spendByCat = Object.fromEntries(budgetSummary.categories.map(c => [c.category, c.spent]));
+
+  const prevIncome = state.transactions
+    .filter(t => {
+      const d = new Date(t.date).getTime();
+      return d >= prevMonthStart && d <= prevMonthEnd && t.amount > 0;
+    })
+    .reduce((acc, t) => acc + t.amount, 0);
+
+  const prevExpense = previousSummary.totalSpent;
+
+  const netWorth = state.transactions.reduce((s, t) => s + t.amount, 0);
+  const savingsRate = income > 0 ? Math.round(((income - expense) / income) * 100) : (expense === 0 ? 100 : 0);
+  const prevNetWorth = netWorth - (income - expense);
+  
+  const incomeTrend = prevIncome > 0 ? ((income - prevIncome) / prevIncome) * 100 : 0;
+  const expenseTrend = prevExpense > 0 ? ((expense - prevExpense) / prevExpense) * 100 : 0;
+  const netWorthTrend = prevNetWorth > 0 ? ((netWorth - prevNetWorth) / prevNetWorth) * 100 : 0;
+
+  const engineOutput = VylosEngine.run(state);
+  const healthMetrics = {
+    score: engineOutput.healthScore,
+    label: engineOutput.healthCategory,
+    breakdown: {
+      spending: Math.round(VylosEngine.computeHealthScore(state).components.C * 25),
+      savings: Math.round(VylosEngine.computeHealthScore(state).components.Q * 25),
+      budget: Math.round(VylosEngine.computeHealthScore(state).components.D * 25),
+      goals: Math.round(VylosEngine.computeHealthScore(state).components.G * 25),
+    },
+    stats: {
+      runwayMonths: engineOutput.burnRateMonths,
+      budgetUtilization: Math.round((expense / engineOutput.monthlyBudget) * 100),
+      savingsRate: savingsRate
+    },
+    explanation: VylosEngine.explainHealthScoreChange(engineOutput.healthScore, engineOutput.healthScore, { Q: 0, D: 0, C: 0, G: 0 })
+  };
   const [filterCat, setFilterCat] = useState("All");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiMessages, setAiMessages] = useState([
@@ -139,17 +200,22 @@ export default function App() {
     }
   }
 
-  // Compute stats
-  const income = state.transactions.filter(t=>t.amount>0).reduce((s,t)=>s+t.amount,0);
-  const expense = Math.abs(state.transactions.filter(t=>t.amount<0).reduce((s,t)=>s+t.amount,0));
-  const netWorth = income - expense;
-  const savingsRate = income > 0 ? Math.round(((income - expense) / income) * 100) : 0;
+
   const totalSaved = state.goals.reduce((acc, g) => acc + g.currentAmount, 0);
 
-  const spendByCat: Record<string, number> = {};
-  state.transactions.filter(t=>t.amount<0).forEach(t=>{ 
-    spendByCat[t.category]=(spendByCat[t.category]||0)+Math.abs(t.amount); 
+  // Calculate dynamic dashboard stats
+  const monthlySpendMap: Record<string, number> = {};
+  state.transactions.filter(t => t.amount < 0).forEach(t => {
+    const d = new Date(t.date);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    monthlySpendMap[key] = (monthlySpendMap[key] || 0) + Math.abs(t.amount);
   });
+  const spendValues = Object.values(monthlySpendMap);
+  const avgMonthlySpend = spendValues.length > 0 ? spendValues.reduce((a, b) => a + b, 0) / spendValues.length : 0;
+  const lowestMonthSpend = spendValues.length > 0 ? Math.min(...spendValues) : 0;
+  const highestMonthSpend = spendValues.length > 0 ? Math.max(...spendValues) : 0;
+
+  const isPro = state.userProfile?.subscriptionPlan === "pro" || state.userProfile?.isAdmin;
 
   // Handle Charts
   useEffect(()=>{
@@ -157,18 +223,31 @@ export default function App() {
       const monthlySpend = new Array(6).fill(0);
       const labels = new Array(6).fill("");
       const now = new Date();
+      const monthlyHealth: number[] = new Array(6).fill(0);
       for (let i = 5; i >= 0; i--) {
-        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const d = new Date(refYear, refMonth - 1 - i, 1);
         labels[5 - i] = d.toLocaleString('default', { month: 'short' });
-      }
+        
+        // Compute health for this specific month
+        const monthStart = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+        const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999).getTime();
+        const monthTxs = state.transactions.filter(t => {
+            const ts = new Date(t.date).getTime();
+            return ts >= monthStart && ts <= monthEnd;
+        });
 
-      state.transactions.filter(t => t.amount < 0).forEach(t => {
-        const d = new Date(t.date);
-        const diffMonths = (now.getFullYear() - d.getFullYear()) * 12 + now.getMonth() - d.getMonth();
-        if (diffMonths >= 0 && diffMonths <= 5) {
-          monthlySpend[5 - diffMonths] += Math.abs(t.amount);
-        }
-      });
+        // Create a mock state for this month
+        const monthState = {
+            ...state,
+            transactions: monthTxs,
+            // Re-calculate spent for budgets based on these txs
+            budgets: Object.fromEntries(Object.entries(state.budgets).map(([k, b]: [string, any]) => {
+                const catSpend = monthTxs.filter(t => t.category === k && t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
+                return [k, { ...b, spent: catSpend }];
+            }))
+        };
+        monthlyHealth[5 - i] = VylosEngine.computeHealthScore(monthState).score;
+      }
 
       if(chartRef.current) {
         if(chartInst.current) chartInst.current.destroy();
@@ -177,8 +256,8 @@ export default function App() {
           data: {
             labels,
             datasets: [{ 
-              label: "Spending",
-              data: monthlySpend,
+              label: "Health Score",
+              data: monthlyHealth,
               borderColor: "#10B981", 
               backgroundColor: (context: any) => {
                 const chart = context.chart;
@@ -189,7 +268,7 @@ export default function App() {
                 gradient.addColorStop(1, "rgba(16, 185, 129, 0.15)");
                 return gradient;
               },
-              fill:true, tension:0.4, borderWidth:3, pointRadius:0, pointHoverRadius: 6, pointHoverBackgroundColor: "#10B981", pointHoverBorderColor: "#fff", pointHoverBorderWidth: 2
+              fill:true, tension:0.4, borderWidth:4, pointRadius:4, pointBackgroundColor: "#10B981", pointBorderColor: "#fff", pointBorderWidth: 2, pointHoverRadius: 8
             }]
           },
           options: {
@@ -207,7 +286,7 @@ export default function App() {
                 boxPadding: 6,
                 usePointStyle: true,
                 callbacks: {
-                  label: (context: any) => ` $${context.parsed.y.toLocaleString()}`
+                  label: (context: any) => ` Health Score: ${context.parsed.y}`
                 }
               }
             },
@@ -220,14 +299,16 @@ export default function App() {
       }
       if(donutRef.current) {
         if(donutInst.current) donutInst.current.destroy();
-        const catData = Object.entries(spendByCat).filter(([,v])=>v>0);
+        const catData = budgetSummary.categories
+          .map(c => [c.category, c.available] as [string, number])
+          .filter(([, v]) => v > 0);
         donutInst.current = new Chart(donutRef.current, {
           type: 'doughnut',
           data: {
             labels: catData.map(([k])=>k),
             datasets: [{
               data: catData.map(([,v])=>v),
-              backgroundColor: ["#10B981", "#3B82F6", "#8B5CF6", "#F59E0B", "#EF4444", "#6B7280"],
+              backgroundColor: ["#00C853", "#FF7043", "#7C4DFF", "#FF6D00", "#795548", "#0091EA", "#FF1744", "#3F51B5", "#F50057", "#00BCD4", "#4CAF50", "#607D8B", "#546E7A"],
               borderWidth: 0,
               hoverOffset: 10,
               spacing: 4,
@@ -242,13 +323,11 @@ export default function App() {
       }
     };
 
-    const timer = setTimeout(drawCharts, 500);
+    const timer = setTimeout(drawCharts, 300);
     return () => { 
       clearTimeout(timer);
-      chartInst.current?.destroy(); 
-      donutInst.current?.destroy(); 
     };
-  }, [page, dark, expense]);
+  }, [page, dark, state.transactions, spendByCat]);
 
   // Actions
   async function handleAddTransaction() {
@@ -261,7 +340,7 @@ export default function App() {
       amount: amt
     });
     setShowAddTx(false);
-    setTxForm({desc:"",amount:"",cat:"Food & Dining",date:new Date().toISOString().slice(0,10),type:"expense"});
+    setTxForm({desc:"",amount:"",cat:"Groceries",date:new Date().toISOString().slice(0,10),type:"expense"});
     showToast("Transaction added!");
   }
 
@@ -270,16 +349,39 @@ export default function App() {
     showToast("Transaction deleted","info");
   }
 
+  async function handleDeleteCategory(cat: string) {
+    const newBudgets = { ...state.budgets };
+    delete newBudgets[cat];
+    const limitUpdates: Record<string, number> = {};
+    Object.keys(newBudgets).forEach(k => { limitUpdates[k] = newBudgets[k].limit; });
+    await updateBudgets(limitUpdates);
+    showToast(`${cat} budget removed`, "info");
+  }
+
   async function handleAddGoal() {
     if(!goalForm.name||!goalForm.target) return;
     await addGoal({
       title: goalForm.name,
       targetAmount: parseFloat(goalForm.target),
       currentAmount: parseFloat(goalForm.saved||"0"),
+      deadline: new Date(goalForm.deadline).toISOString(),
+      category: goalForm.category,
+      notes: goalForm.notes,
+      icon: goalForm.icon,
+      color: goalForm.color
     });
     setShowAddGoal(false);
-    setGoalForm({name:"",target:"",saved:"",icon:"🎯",color:ACCENT});
-    showToast("Goal created!");
+    setGoalForm({
+      name: "",
+      target: "",
+      saved: "0",
+      deadline: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
+      category: "Savings",
+      notes: "",
+      icon: "🎯",
+      color: ACCENT
+    });
+    showToast("Goal created!", "success");
   }
 
   async function sendAI() {
@@ -289,11 +391,16 @@ export default function App() {
     setAiInput("");
     setAiLoading(true);
 
+    const metrics = { score: engineOutput.healthScore, label: engineOutput.healthCategory, stats: { savingsRate: savingsRate, budgetUtilization: Math.round((expense / engineOutput.monthlyBudget) * 100), runwayMonths: engineOutput.burnRateMonths } };
     const context = `
-      Income: R${income.toLocaleString()}
-      Expenses: R${expense.toLocaleString()}
-      Savings Rate: ${savingsRate}%
-      Top Expenses: ${Object.entries(spendByCat).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,v])=>`${k}: R${v}`).join(", ")}
+      Income: ${formatCurrency(income)}
+      Expenses: ${formatCurrency(expense)}
+      Savings Rate: ${metrics.stats.savingsRate}%
+      Budget Utilization: ${metrics.stats.budgetUtilization}%
+      Financial Health Score: ${metrics.score}/100 (${metrics.label})
+      Emergency Runway: ${metrics.stats.runwayMonths} months
+      Top Expenses: ${Object.entries(spendByCat).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,v])=>`${k}: ${formatCurrency(v)}`).join(", ")}
+      Active Goals: ${state.goals.map(g => `${g.title} (${Math.round((g.currentAmount/g.targetAmount)*100)}% complete)`).join(", ")}
     `;
 
     try {
@@ -311,20 +418,36 @@ export default function App() {
   }
 
   function handleImportResults(txs: ExtractedTransaction[]) {
-    const rows = txs.map(tx => ({
-      id: Math.random().toString(36).substr(2, 9),
-      date: tx.date || new Date().toISOString().slice(0, 10),
-      desc: sanitizeString(tx.merchant || "Imported"),
-      amount: tx.amount,
-      cat: autocat(tx.merchant || ""),
-      _preview: true
-    }));
+    const rows: ImportPreviewTransaction[] = txs.map(tx => {
+      const cat = tx.category ? normalizeTransactionCategory(tx.category) : categorizeTransaction(tx.merchant || "", tx.amount >= 0 ? "income" : "expense");
+      // If it's not income, ensure it's negative
+      let amt = tx.amount;
+      const isIncome = ["Salary", "Business Income", "Refund", "Other Income"].includes(cat);
+      if (!isIncome && amt > 0) amt = -amt;
+      if (isIncome && amt < 0) amt = Math.abs(amt);
+
+      return {
+        id: Math.random().toString(36).substr(2, 9),
+        date: tx.date || new Date().toISOString().slice(0, 10),
+        desc: sanitizeString(tx.merchant || "Imported"),
+        merchant: sanitizeString(tx.merchant || "Imported"),
+        amount: amt,
+        cat: cat,
+        category: cat,
+        confidence: cat === "Other" ? 0.1 : 0.85,
+        isDuplicate: false,
+        _preview: true as const
+      };
+    });
     setImportPreview(rows);
   }
 
   async function confirmImport() {
     if (!importPreview) return;
     const count = importPreview.length;
+    showToast(`Processing ${count} transactions...`, "info");
+    
+    // Batch add transactions
     for (const tx of importPreview) {
       await addTransaction({
         date: tx.date,
@@ -333,11 +456,12 @@ export default function App() {
         amount: tx.amount
       });
     }
+    
     setImportPreview(null);
-    showToast(`${count} transactions imported!`);
+    showToast(`Successfully imported ${count} transactions!`, "success");
   }
 
-  if (!isAuthLoaded || !isPageLoaded) return (
+  if (!isAuthLoaded) return (
     <div className="h-screen w-full flex items-center justify-center bg-bg">
       <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
     </div>
@@ -349,52 +473,123 @@ export default function App() {
     return <OnboardingView userName={state.userProfile.name} onComplete={handleOnboardingComplete} />;
   }
 
+  const filteredTransactions = state.transactions
+    .filter(t => {
+      const d = new Date(t.date || t.createdAt || new Date()).getTime();
+      return d >= currentMonthStart && d <= currentMonthEnd;
+    })
+    .sort((a, b) => new Date(b.date || b.createdAt || 0).getTime() - new Date(a.date || a.createdAt || 0).getTime());
+
   return (
     <div className="flex min-h-screen bg-bg text-text-main transition-colors duration-500 overflow-hidden">
-      <Sidebar 
-        currentPage={page} 
-        setPage={setPage} 
-        dark={dark} 
-        setDark={setDark} 
-        userName="Alex Morgan" 
-      />
+        <Sidebar 
+          currentPage={page} 
+          setPage={setPage} 
+          dark={dark} 
+          setDark={setDark} 
+          userName={state.userProfile.name || "User"} 
+          avatarUrl={state.userProfile.avatarUrl}
+          isPro={isPro}
+          onShowFeedback={() => setShowFeedback(true)}
+        />
 
       <main className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        <TopHeader title={page === "analytics" ? "Progress Analysis" : page} />
+        <TopHeader 
+          title={
+            page === "dashboard" ? "Dashboard" :
+            page === "calendar" ? "Financial Calendar" :
+            page === "budget" ? "Budget" :
+            page === "goals" ? "Goals" :
+            page === "transactions" ? "Transactions" :
+            page === "ai" ? "Vylos Advisor" :
+            page === "analytics" ? "Progress" :
+            page === "pricing" ? "Upgrade" :
+            page === "settings" ? "Settings" :
+            page === "import" ? "Import" :
+            page.charAt(0).toUpperCase() + page.slice(1)
+          } 
+          setPage={setPage} 
+          userProfile={state.userProfile} 
+        />
 
         <div className="flex-1 overflow-y-auto scrollbar-hide">
           {page === "dashboard" && (
             <DashboardMain 
-              income={income} expense={expense} netWorth={netWorth} savingsRate={savingsRate} 
-              transactions={state.transactions} goals={state.goals} chartRef={chartRef} 
-              donutRef={donutRef} setPage={setPage}
+              income={income} 
+              expense={expense} 
+              netWorth={netWorth} 
+              savingsRate={savingsRate} 
+              transactions={filteredTransactions} 
+              goals={state.goals}
+              subscriptions={state.subscriptions}
+              chartRef={chartRef} 
+              donutRef={donutRef} 
+              setPage={setPage} 
+              trends={{ incomeTrend, expenseTrend, netWorthTrend }}
+              chartStats={{ avgMonthlySpend, lowestMonthSpend, highestMonthSpend }}
+              spendByCat={spendByCat}
+              setShowHealthDetail={setShowHealthDetail}
+              setShowAddReminder={setShowAddReminder}
+              healthScore={engineOutput.healthScore}
+              engineOutput={engineOutput}
+              userName={state.userProfile.name}
+              setShowNewBudget={setShowNewBudget}
             />
           )}
           {page === "transactions" && (
             <TransactionsView 
-              transactions={state.transactions} filterCat={filterCat} setFilterCat={setFilterCat} 
-              setShowAddTx={setShowAddTx} deleteTx={handleDeleteTx} 
+              transactions={filteredTransactions} filterCat={filterCat} setFilterCat={setFilterCat} 
+              setShowAddTx={setShowAddTx} deleteTx={handleDeleteTx} setPage={setPage}
+              trends={{ incomeTrend, expenseTrend, netWorthTrend }}
             />
           )}
+          {page === "calendar" && (
+            <CalendarView />
+          )}
+
+          {page === "pricing" && (
+            <PricingView />
+          )}
+
           {page === "budget" && (
             <BudgetView 
-              budgets={state.budgets} spendByCat={spendByCat} donutRef={donutRef} 
-              updateBudgetLimit={updateBudgetLimit} showToast={showToast} savingsRate={savingsRate}
+              budgets={state.budgets} 
+              spendByCat={spendByCat} 
+              transactions={filteredTransactions}
+              savingsRate={savingsRate}
+              setShowNewBudget={setShowNewBudget} 
+              setShowFundCategory={setShowFundCategory}
+              handleDeleteCategory={handleDeleteCategory}
             />
           )}
           {page === "goals" && (
-            <GoalsView goals={state.goals} setShowAddGoal={setShowAddGoal} deleteGoal={deleteGoal} ACCENT={ACCENT} />
+            <GoalsView goals={state.goals} setShowAddGoal={setShowAddGoal} deleteGoal={deleteGoal} showToast={showToast} />
           )}
           {page === "ai" && (
             <AIAdvisorView 
               aiMessages={aiMessages} aiInput={aiInput} setAiInput={setAiInput} 
               sendAI={sendAI} aiLoading={aiLoading} showToast={showToast}
-              healthMetrics={require("@/lib/store").computeHealthScoreMetrics(state)}
+              healthMetrics={healthMetrics}
               spendByCat={spendByCat}
               totalSpend={expense}
+              goals={state.goals}
+              setPage={setPage}
+              setShowHealthDetail={setShowHealthDetail}
+              setAiMessages={setAiMessages}
+              isPro={isPro}
             />
           )}
-          {page === "analytics" && <AnalyticsView chartRef={chartRef} netWorth={netWorth} totalSaved={totalSaved} />}
+          {page === "analytics" && (
+            <AnalyticsView 
+              chartRef={chartRef} 
+              netWorth={netWorth} 
+              totalSaved={totalSaved} 
+              transactions={state.transactions}
+              budgets={state.budgets}
+              goals={state.goals}
+              userProfile={state.userProfile}
+            />
+          )}
           {page === "import" && (
             <ImportView 
               handleCSV={()=>{}} 
@@ -404,19 +599,17 @@ export default function App() {
               setImportPreview={setImportPreview} 
               confirmImport={confirmImport} 
               processFile={async (file) => {
-                const isExcel = file.name.endsWith(".xlsx") || file.name.endsWith(".xls");
                 try {
-                  let results: ExtractedTransaction[] = [];
-                  if (isExcel) {
-                    const buffer = await file.arrayBuffer();
-                    results = await ParserService.parseExcel(buffer);
+                  const results = await ImportService.processFile(file);
+                  if (results.length === 0) {
+                    showToast("No valid transactions found in file.", "info");
                   } else {
-                    results = await ParserService.parseCSV(file);
+                    setImportPreview(results);
+                    const summary = ImportService.getSummary(results);
+                    showToast(`Found ${summary.total} transactions (${summary.categorized} auto-categorized).`, "success");
                   }
-                  if (results.length === 0) showToast("No transactions found.", "info");
-                  else handleImportResults(results);
                 } catch (err) {
-                  showToast("Failed to parse file.", "error");
+                  showToast("Error parsing file. Ensure it's a valid CSV or Excel document.", "error");
                 }
               }}
             />
@@ -428,7 +621,7 @@ export default function App() {
       {showAddTx && (
         <TransactionModal 
           txForm={txForm} setTxForm={setTxForm} setShowAddTx={setShowAddTx} 
-          handleAddTransaction={handleAddTransaction} autocat={autocat} 
+          handleAddTransaction={handleAddTransaction} autocat={categorizeTransaction} 
         />
       )}
       {showAddGoal && (
@@ -437,6 +630,29 @@ export default function App() {
           handleAddGoal={handleAddGoal} 
         />
       )}
+      <HealthDetailModal 
+        isOpen={showHealthDetail} 
+        onClose={() => setShowHealthDetail(false)} 
+        metrics={healthMetrics}
+      />
+      <AddReminderModal 
+        isOpen={showAddReminder} 
+        onClose={() => setShowAddReminder(false)}
+      />
+      <EditBudgetModal 
+        isOpen={showNewBudget} 
+        onClose={() => setShowNewBudget(false)}
+      />
+      <FundCategoryModal 
+        isOpen={showFundCategory}
+        onClose={() => setShowFundCategory(false)}
+        showToast={showToast}
+      />
+      <FeedbackModal 
+        isOpen={showFeedback}
+        onClose={() => setShowFeedback(false)}
+        showToast={showToast}
+      />
     </div>
   );
 }

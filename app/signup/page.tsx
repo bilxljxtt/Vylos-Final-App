@@ -47,13 +47,18 @@ export default function Signup() {
         monthly_income: parseFloat(form.income) || 0,
         risk_tolerance: riskValue,
         theme: 'Dark',
-        subscription_plan: 'Pro Plan',
+        subscription_plan: 'pro',
       };
 
-      await supabase.from('user_profiles').insert([{
+      const { error: profileError } = await supabase.from('user_profiles').upsert([{
         ...profile,
         onboarding_completed: false
-      }]);
+      }], { onConflict: "id" });
+      if (profileError) {
+        toast(profileError.message, "error");
+        setLoading(false);
+        return;
+      }
       toast("Architectural account created!", "success");
       router.push("/");
     }
@@ -71,10 +76,11 @@ export default function Signup() {
             Back to Entry
           </Link>
 
-          <div className="flex items-center gap-3 mb-10">
-            <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center shadow-xl shadow-primary/20">
-              <Layout className="w-7 h-7 text-white" strokeWidth={3} />
+          <div className="flex items-center gap-4 mb-10">
+            <div className="w-14 h-14 rounded-full border border-[#00A86B]/10 overflow-hidden flex items-center justify-center">
+              <img src="/logo.png" alt="Vylos Logo" className="w-full h-full object-cover scale-[1.1]" />
             </div>
+            <span className="text-4xl font-bold tracking-tight text-[#00A86B]">Vylos</span>
           </div>
 
           <h1 className="text-5xl xl:text-7xl font-black leading-[0.95] tracking-tighter mb-8">

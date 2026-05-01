@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ParserService, ExtractedTransaction } from "@/lib/services/import/ParserService";
 import { AIService } from "@/lib/services/import/AIService";
-import { CategorizationEngine } from "@/lib/services/import/CategorizationEngine";
+import { CategorizationEngine } from "@/lib/services/CategorizationEngine";
 import { createClient } from "@/utils/supabase/server";
 
 // Note: Using a dynamic dynamic import for pdf-parse if needed, or assuming text extraction is passed
@@ -53,11 +53,12 @@ export async function POST(req: NextRequest) {
     ]);
 
     const processed = await Promise.all(extracted.map(async (tx) => {
-      const { category, confidence } = await CategorizationEngine.categorizeWithRules(
+      const category = CategorizationEngine.categorize(
         tx.merchant, 
-        tx.amount, 
+        tx.amount >= 0 ? "income" : "expense", 
         userRules || []
       );
+      const confidence = 0.85;
 
       // Simple duplicate detection: exact amount and date, fuzzy merchant
       const isDuplicate = recentTxs?.some(rt => 

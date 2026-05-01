@@ -2,32 +2,51 @@
 // All app data lives here. AppContext wraps this with React state + localStorage.
 
 export type TransactionCategory =
-  | "Food & Dining"
+  | "Salary"
+  | "Business Income"
+  | "Refund"
+  | "Other Income"
+  | "Groceries"
+  | "Eating Out"
   | "Transport"
   | "Bills"
+  | "Rent / Housing"
   | "Shopping"
-  | "Income"
-  | "Entertainment"
   | "Health"
+  | "Education"
+  | "Entertainment"
+  | "Subscriptions"
+  | "Savings"
+  | "Debt Payments"
   | "Other";
 
 export const CATEGORY_METADATA: Record<TransactionCategory, { icon: string; color: string }> = {
-  "Food & Dining": { icon: "🍔", color: "#00C853" },
+  "Salary": { icon: "💰", color: "#00BFA5" },
+  "Business Income": { icon: "📈", color: "#00BFA5" },
+  "Refund": { icon: "🔄", color: "#00BFA5" },
+  "Other Income": { icon: "💸", color: "#00BFA5" },
+  "Groceries": { icon: "🛒", color: "#00C853" },
+  "Eating Out": { icon: "🍔", color: "#FF7043" },
   "Transport": { icon: "🚗", color: "#7C4DFF" },
   "Bills": { icon: "⚡", color: "#FF6D00" },
+  "Rent / Housing": { icon: "🏠", color: "#795548" },
   "Shopping": { icon: "🛍", color: "#0091EA" },
-  "Income": { icon: "💰", color: "#00BFA5" },
+  "Health": { icon: "❤️", color: "#FF1744" },
+  "Education": { icon: "📚", color: "#3F51B5" },
   "Entertainment": { icon: "🎬", color: "#F50057" },
-  "Health": { icon: "❤️", color: "#FF6F00" },
+  "Subscriptions": { icon: "📱", color: "#00BCD4" },
+  "Savings": { icon: "🏦", color: "#4CAF50" },
+  "Debt Payments": { icon: "💳", color: "#607D8B" },
   "Other": { icon: "📦", color: "#546E7A" },
 };
 
 export interface Transaction {
   id: string;
-  date: string; // ISO string
+  date: string; // ISO string (User-selected date)
   merchant: string;
   category: TransactionCategory;
   amount: number; // negative = expense, positive = income
+  createdAt?: string; // System fallback
 }
 
 export interface Subscription {
@@ -44,12 +63,24 @@ export interface Goal {
   title: string;
   currentAmount: number;
   targetAmount: number;
+  deadline: string; // ISO date
+  category?: string;
+  notes?: string;
+  status: "On Track" | "Behind" | "Completed" | "At Risk";
+  icon?: string;
+  color?: string;
   createdAt: string;
-  targetDate?: string; // Optional target date
+}
+
+export interface GoalContribution {
+  id: string;
+  goalId: string;
+  amount: number;
+  date: string;
+  notes?: string;
 }
 
 export interface BudgetCategory {
-  spent: number;
   limit: number;
   type: "limit" | "target";
 }
@@ -73,6 +104,7 @@ export interface UserProfile {
   onboardingCompleted?: boolean;
   budgetAlertSent?: boolean;
   budgetAlertEnabled?: boolean;
+  isAdmin?: boolean;
 }
 
 export interface NotificationPrefs {
@@ -81,14 +113,56 @@ export interface NotificationPrefs {
   securityAlerts: boolean;
 }
 
+export interface Reminder {
+  id: string;
+  title: string;
+  amount: number;
+  date: string; // ISO string
+  category: string;
+  repeat?: string;
+  isPaid?: boolean;
+}
+
+import { MerchantRule } from "./services/CategorizationEngine";
+
 export interface AppState {
   transactions: Transaction[];
   subscriptions: Subscription[];
   goals: Goal[];
+  goalContributions: GoalContribution[];
+  reminders: Reminder[];
+  merchantRules: MerchantRule[];
   budgets: Record<string, BudgetCategory>;
   userProfile: UserProfile;
   notifications: NotificationPrefs;
   unreadNotificationCount: number;
+  selectedMonth: string; // ISO format "YYYY-MM-DD"
+}
+
+export const TRANSACTION_CATEGORIES: TransactionCategory[] = [
+  "Salary",
+  "Business Income",
+  "Refund",
+  "Other Income",
+  "Groceries",
+  "Eating Out",
+  "Transport",
+  "Bills",
+  "Rent / Housing",
+  "Shopping",
+  "Health",
+  "Education",
+  "Entertainment",
+  "Subscriptions",
+  "Savings",
+  "Debt Payments",
+  "Other",
+];
+
+export function getMonthStart(date = new Date()): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  return `${y}-${m}-01`;
 }
 
 // ─── Initial Seed Data ────────────────────────────────────────────────────────
@@ -97,9 +171,15 @@ export const initialState: AppState = {
   transactions: [],
   subscriptions: [],
   goals: [],
+  goalContributions: [],
+  reminders: [],
+  merchantRules: [],
+  unreadNotificationCount: 0,
+  selectedMonth: getMonthStart(),
   budgets: {
-    "Food & Dining": { spent: 0, limit: 4000, type: "limit" },
-    "Bills": { spent: 0, limit: 3500, type: "limit" },
+    "Groceries": { limit: 3000, type: "limit" },
+    "Bills": { limit: 3500, type: "limit" },
+    "Rent / Housing": { limit: 8000, type: "limit" },
   },
   userProfile: {
     name: "",
@@ -122,10 +202,11 @@ export const initialState: AppState = {
     billReminders: true,
     securityAlerts: false,
   },
-  unreadNotificationCount: 0,
 };
 
 // ─── Derived / Computed Helpers ───────────────────────────────────────────────
+
+import { VylosEngine } from "./vylosEngine";
 
 export function computeLiquidBalance(state: AppState): number {
   const accumulatedGoals = state.goals.reduce((acc, g) => acc + g.currentAmount, 0);
@@ -135,82 +216,53 @@ export function computeLiquidBalance(state: AppState): number {
 
 export type HealthScoreMetrics = {
   score: number;
-  label: "Poor" | "Fair" | "Good" | "Strong" | "Excellent";
-  cashFlowState: "Negative" | "Tight" | "Positive";
-  savingsRate: "Low" | "Moderate" | "High";
-  debtLevel: "Low" | "Moderate" | "High";
-  netWorthState: "Negative" | "Low" | "Healthy" | "High";
+  label: string;
+  breakdown: {
+    spending: number; // Mapping C
+    savings: number; // Mapping Q
+    budget: number; // Mapping D
+    goals: number; // Mapping G
+  };
+  stats: {
+    runwayMonths: number;
+    budgetUtilization: number;
+    savingsRate: number;
+  }
 };
 
 export function computeHealthScoreMetrics(state: AppState): HealthScoreMetrics {
-  const { budgets, userProfile } = state;
-  const income = userProfile.monthlyIncome || 0;
-  
-  // Expenses and Cash Flow (Max 50 points)
-  const totalLimit = computeTotalBudgetLimit(budgets);
-  const totalSpent = computeTotalBudgetSpent(budgets);
-
-  let cashFlowScore = 0;
-  let cashFlowState: HealthScoreMetrics["cashFlowState"] = "Tight";
-  if (totalSpent > income) {
-    cashFlowState = "Negative";
-    cashFlowScore = 0;
-  } else if (totalSpent <= income * 0.7) {
-    cashFlowState = "Positive";
-    cashFlowScore = 50;
-  } else if (totalSpent <= income * 0.9) {
-    cashFlowScore = 35;
-    cashFlowState = "Tight";
-  } else {
-    cashFlowScore = 15;
-    cashFlowState = "Tight";
-  }
-
-  // Savings / Targets Execution (Max 50 points)
-  const savingsTargets = Object.values(budgets).filter(b => b.type === "target");
-  const totalSavingsLimit = savingsTargets.reduce((s, b) => s + b.limit, 0);
-  const savingsRatePct = income > 0 ? totalSavingsLimit / income : 0;
-
-  let savingsScore = 0;
-  let savingsRate: HealthScoreMetrics["savingsRate"] = "Moderate";
-  if (savingsRatePct >= 0.2) {
-    savingsRate = "High";
-    savingsScore = 50;
-  } else if (savingsRatePct >= 0.1) {
-    savingsRate = "Moderate";
-    savingsScore = 30;
-  } else {
-    savingsRate = "Low";
-    savingsScore = 10;
-  }
-
-  // Compute final 0-100 score
-  let score = cashFlowScore + savingsScore;
-  score = Math.min(Math.max(score, 0), 100);
-
-  let label: HealthScoreMetrics["label"] = "Good";
-  if (score <= 25) label = "Poor";
-  else if (score <= 50) label = "Fair";
-  else if (score <= 75) label = "Good";
-  else if (score <= 90) label = "Strong";
-  else label = "Excellent";
+  const engine = VylosEngine.run(state);
+  const { score, category, components } = VylosEngine.computeHealthScore(state);
+  const budget = VylosEngine.computeBudget(state);
+  const burnRate = VylosEngine.computeBurnRate(state);
+  const income = state.userProfile.monthlyIncome || 1;
+  const expenses = state.transactions
+    .filter(t => t.date >= getMonthStart() && t.amount < 0)
+    .reduce((acc, t) => acc + Math.abs(t.amount), 0);
 
   return { 
     score, 
-    label, 
-    cashFlowState, 
-    savingsRate,
-    debtLevel: "Low", // To be refined with real debt/liability tracking
-    netWorthState: score > 70 ? "Healthy" : "Low" 
+    label: category,
+    breakdown: {
+      spending: Math.round(components.C * 25),
+      savings: Math.round(components.Q * 25),
+      budget: Math.round(components.D * 25),
+      goals: Math.round(components.G * 25)
+    },
+    stats: {
+      runwayMonths: burnRate.months,
+      budgetUtilization: budget.monthlyBudget > 0 ? Math.round((expenses / budget.monthlyBudget) * 100) : 0,
+      savingsRate: Math.round(((income - expenses) / income) * 100)
+    }
   };
 }
 
 export function computeHealthScore(state: AppState): number {
-  return computeHealthScoreMetrics(state).score;
+  return VylosEngine.computeHealthScore(state).score;
 }
 
 export type GoalFeasibility = {
-  status: "Realistic" | "Moderate" | "Difficult" | "Unrealistic";
+  status: string;
   monthsRemaining: number;
   requiredMonthlyDeposit: number;
   surplusCash: number;
@@ -218,54 +270,16 @@ export type GoalFeasibility = {
 };
 
 export function computeGoalFeasibility(state: AppState, goal: Goal): GoalFeasibility {
-  const surplus = (state.userProfile.monthlyIncome || 0) - computeTotalBudgetSpent(state.budgets);
-  const remainingAmount = Math.max(0, goal.targetAmount - goal.currentAmount);
+  const engineRes = VylosEngine.computeGoalFeasibility({ ...state, goals: [goal] });
+  const income = state.userProfile.monthlyIncome || 0;
+  const survivalCost = (state.budgets["Bills"]?.limit || 0) + (state.budgets["Groceries"]?.limit || 0);
   
-  // If no surplus, any goal with a balance remaining is unrealistic
-  if (surplus <= 0) {
-    return {
-      status: "Unrealistic",
-      monthsRemaining: Infinity,
-      requiredMonthlyDeposit: 0,
-      surplusCash: surplus,
-      message: "At your current savings rate, this goal is not currently realistic unless your income increases or your expenses decrease."
-    };
-  }
-
-  const monthsNeeded = remainingAmount / surplus;
-  let status: GoalFeasibility["status"] = "Realistic";
-  let message = "This goal aligns perfectly with your current financial capacity.";
-
-  if (monthsNeeded > 60) { // > 5 years
-    status = "Difficult";
-    message = "This goal will take over 5 years. Consider increasing your monthly contributions.";
-  } else if (monthsNeeded > 24) { // > 2 years
-    status = "Moderate";
-    message = "Achievable with consistent discipline over the next 2+ years.";
-  }
-
-  // If there's a target date, check if we can actually hit it
-  let requiredDeposit = surplus;
-  if (goal.targetDate) {
-    const target = new Date(goal.targetDate);
-    const now = new Date();
-    const monthsUntil = (target.getFullYear() - now.getFullYear()) * 12 + (target.getMonth() - now.getMonth());
-    
-    if (monthsUntil > 0) {
-      requiredDeposit = remainingAmount / monthsUntil;
-      if (requiredDeposit > surplus) {
-        status = "Unrealistic";
-        message = `To hit this target date, you need to save ${formatMoney(requiredDeposit, state.userProfile.country)}/mo, which exceeds your current surplus of ${formatMoney(surplus, state.userProfile.country)}.`;
-      }
-    }
-  }
-
   return {
-    status,
-    monthsRemaining: Math.ceil(monthsNeeded),
-    requiredMonthlyDeposit: requiredDeposit,
-    surplusCash: surplus,
-    message
+    status: engineRes.status,
+    monthsRemaining: 12, // Default assumption
+    requiredMonthlyDeposit: (goal.targetAmount - goal.currentAmount) / 12,
+    surplusCash: income - survivalCost,
+    message: engineRes.recommendation
   };
 }
 
@@ -280,6 +294,7 @@ export function computeTotalBudgetLimit(budgets: Record<string, BudgetCategory>)
     .filter((b) => b.type === "limit")
     .reduce((sum, b) => sum + b.limit, 0);
 }
+
 
 export function getCurrencySymbol(countryStr?: string): string {
   if (!countryStr) return "R";

@@ -21,7 +21,7 @@ import { Bot,
   Settings,
   Bell
 } from "lucide-react";
-import { } from "@/lib/store";
+import { VylosEngine } from "@/lib/vylosEngine";
 import { useAppStore } from "@/lib/AppContext";
 import { ViewContainer } from "../ui/ViewContainer";
 
@@ -32,9 +32,14 @@ interface AIAdvisorViewProps {
   sendAI: () => void;
   aiLoading: boolean;
   showToast: (msg: string, type?: any) => void;
-  healthMetrics: any;
+  healthMetrics: import("@/lib/store").HealthScoreMetrics;
   spendByCat: Record<string, number>;
   totalSpend: number;
+  goals: any[];
+  setPage: (page: string) => void;
+  setShowHealthDetail: (show: boolean) => void;
+  setAiMessages: React.Dispatch<React.SetStateAction<any[]>>;
+  isPro?: boolean;
 }
 
 export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({ 
@@ -45,24 +50,128 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
   aiLoading,
   showToast,
   healthMetrics,
+  setAiMessages,
   spendByCat,
-  totalSpend
+  totalSpend,
+  goals,
+  setPage,
+  setShowHealthDetail,
+  isPro = false
 }) => {
-  const { formatCurrency } = useAppStore();
-  // Use mock data for percentages and trends if not provided
-  const score = healthMetrics?.score || 82;
-  const label = healthMetrics?.label || "Excellent";
+  const { formatCurrency, lastSynced, state } = useAppStore();
+  const chatInputRef = React.useRef<HTMLInputElement>(null);
+  const score = healthMetrics?.score || 0;
+  const label = healthMetrics?.label || "Good";
+  const breakdown = healthMetrics?.breakdown || { spending: 0, savings: 0, budget: 0, goals: 0 };
+  const stats = healthMetrics?.stats || { runwayMonths: 0, budgetUtilization: 0, savingsRate: 0 };
 
   const spendingData = Object.entries(spendByCat).map(([cat, amount]) => ({
     name: cat,
     value: amount,
     percent: totalSpend > 0 ? Math.round((amount / totalSpend) * 100) : 0,
-    color: cat === "Housing" ? "#10B981" : 
-           cat === "Food & Dining" ? "#3B82F6" : 
-           cat === "Transportation" ? "#8B5CF6" : 
-           cat === "Shopping" ? "#F43F5E" : 
-           cat === "Entertainment" ? "#F59E0B" : "#94A3B8"
+    color: cat.includes("Food") ? "#3B82F6" : 
+           cat.includes("Transport") ? "#8B5CF6" : 
+           cat.includes("Shopping") ? "#F43F5E" : 
+           cat.includes("Entertain") ? "#F59E0B" : "#94A3B8"
   })).sort((a, b) => b.value - a.value);
+
+  const getDynamicRecs = () => {
+    const recs = [];
+    const engine = VylosEngine.run(state);
+    
+    // Rec 1: Health / Insight
+    recs.push({
+        title: `${engine.healthCategory} Health`,
+        text: engine.insightSummary,
+        benefit: `Score: ${engine.healthScore}/100`,
+        icon: <ShieldCheck size={20} strokeWidth={2.5} />,
+        color: engine.healthScore >= 60 ? "text-emerald-500" : "text-amber-500",
+        bg: engine.healthScore >= 60 ? "bg-emerald-500/10" : "bg-amber-500/10"
+    });
+
+    // Rec 2: Burn Rate
+    recs.push({
+        title: "Survival Runway",
+        text: `You have ${engine.burnRateMonths} months of runway. Your status is ${engine.burnRateCategory}.`,
+        benefit: engine.burnRateMonths >= 6 ? "Secure" : "Build Buffer",
+        icon: <TrendingUp size={20} strokeWidth={2.5} />,
+        color: "text-indigo-500",
+        bg: "bg-indigo-500/10"
+    });
+
+    // Rec 3: Goal Feasibility
+    recs.push({
+        title: "Goal Feasibility",
+        text: engine.goalRecommendation,
+        benefit: engine.goalFeasibilityStatus,
+        icon: <Target size={20} strokeWidth={2.5} />,
+        color: "text-amber-500",
+        bg: "bg-amber-500/10"
+    });
+
+    return recs;
+  };
+
+  const dynamicRecs = getDynamicRecs();
+
+  if (!isPro) {
+      return (
+        <ViewContainer className="flex flex-col items-center justify-center pt-20 relative overflow-hidden min-h-[80vh]">
+            <div className="absolute inset-0 bg-bg/40 backdrop-blur-xl z-20 flex flex-col items-center justify-center p-8 text-center">
+                <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mb-8 border border-primary/20 animate-pulse">
+                    <Zap size={48} className="text-primary" fill="currentColor" />
+                </div>
+                <h1 className="text-4xl font-black text-text-main tracking-tight mb-4">Vylos AI is Locked</h1>
+                <p className="text-text-muted font-medium text-center max-w-md leading-relaxed mb-10">
+                    Unlock the full power of Vylos Intelligence. Get personalized recommendations, daily spending limits, and goal optimization.
+                </p>
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                    <button 
+                        onClick={() => setPage("pricing")}
+                        className="px-10 py-4 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/20 hover:bg-emerald-400 transition-all active:scale-95 flex items-center gap-2"
+                    >
+                        <Sparkles size={18} />
+                        Upgrade to Pro
+                    </button>
+                    <button 
+                        onClick={() => setPage("dashboard")}
+                        className="px-10 py-4 bg-card border border-border-main text-text-muted font-black rounded-2xl hover:bg-border-main transition-all active:scale-95"
+                    >
+                        Return Home
+                    </button>
+                </div>
+            </div>
+
+            {/* Blurred Content Background */}
+            <div className="w-full opacity-20 pointer-events-none filter blur-md">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 w-full">
+                    <div className="lg:col-span-2 h-96 bg-card rounded-[2.5rem]" />
+                    <div className="h-96 bg-card rounded-[2.5rem]" />
+                </div>
+            </div>
+        </ViewContainer>
+      );
+  }
+
+  if (totalSpend === 0 && goals.length === 0) {
+      return (
+        <ViewContainer className="flex flex-col items-center justify-center pt-20">
+            <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mb-8">
+                <Bot size={48} className="text-primary animate-bounce" strokeWidth={1.5} />
+            </div>
+            <h1 className="text-3xl font-black text-text-main tracking-tight mb-4">Awaiting Financial Data...</h1>
+            <p className="text-text-muted font-medium text-center max-w-md leading-relaxed mb-10">
+                I'm ready to analyze your finances, but I need some data first! Add transactions, set goals, or connect your accounts to unlock AI insights.
+            </p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="px-10 py-4 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/20 hover:bg-emerald-400 transition-all active:scale-95"
+            >
+                Refresh Data
+            </button>
+        </ViewContainer>
+      );
+  }
 
   return (
     <ViewContainer className="flex flex-col pt-8 pb-12">
@@ -79,11 +188,16 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
         
         <div className="flex flex-col relative z-10">
           <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-black text-text-main tracking-tight">Hi Alex! I'm your AI financial advisor.</h1>
-            <span className="text-2xl">👋</span>
+            <h1 className="text-3xl font-black text-text-main tracking-tight">Vylos Advisor</h1>
+            {lastSynced && (
+              <div className="px-2 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center gap-1.5 animate-in fade-in zoom-in duration-500 mt-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Live</span>
+              </div>
+            )}
           </div>
           <p className="text-lg font-medium text-text-muted max-w-2xl leading-relaxed">
-            I analyze your financial data to provide smart insights and personalized recommendations.
+            I analyze your financial data to provide deterministic insights and personalized recommendations.
           </p>
         </div>
 
@@ -121,56 +235,26 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                {/* Rec 1 */}
-                <div className="bg-card border border-border-main rounded-[2rem] p-6 flex flex-col group hover:border-border-strong transition-all shadow-sm">
-                    <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 mb-6 group-hover:scale-110 transition-transform">
-                        <DollarSign size={20} strokeWidth={2.5} />
+                {dynamicRecs.map((rec, idx) => (
+                    <div key={idx} className="bg-card border border-border-main rounded-[2rem] p-6 flex flex-col group hover:border-border-strong transition-all shadow-sm">
+                        <div className={`w-12 h-12 rounded-xl ${rec.bg} flex items-center justify-center ${rec.color} mb-6 group-hover:scale-110 transition-transform`}>
+                            {rec.icon}
+                        </div>
+                        <h3 className="text-sm font-black text-text-main mb-2">{rec.title}</h3>
+                        <p className="text-[11px] font-medium text-text-muted leading-relaxed mb-6 flex-1">
+                            {rec.text}
+                        </p>
+                        <div className={`${rec.bg} ${rec.color} text-[10px] font-bold px-3 py-1.5 rounded-lg mb-4 inline-flex items-center gap-1.5 border border-emerald-500/10 self-start`}>
+                            {rec.benefit}
+                        </div>
+                        <button 
+                            onClick={() => showToast(`Deep analysis for ${rec.title} is being processed.`, "info")}
+                            className={`flex items-center gap-1.5 text-xs font-black ${rec.color} hover:underline`}
+                        >
+                            View Details <ArrowRight size={14} />
+                        </button>
                     </div>
-                    <h3 className="text-sm font-black text-text-main mb-2">Reduce Dining Expenses</h3>
-                    <p className="text-[11px] font-medium text-text-muted leading-relaxed mb-6 flex-1">
-                        You spent $324 on dining out this month. Consider reducing by 20% to save more.
-                    </p>
-                    <div className="bg-emerald-500/5 text-primary text-[10px] font-bold px-3 py-1.5 rounded-lg mb-4 inline-flex items-center gap-1.5 border border-emerald-500/10 self-start">
-                        Potential savings: $65/month
-                    </div>
-                    <button className="flex items-center gap-1.5 text-xs font-black text-primary hover:underline">
-                        View Details <ArrowRight size={14} />
-                    </button>
-                </div>
-
-                {/* Rec 2 */}
-                <div className="bg-card border border-border-main rounded-[2rem] p-6 flex flex-col group hover:border-border-strong transition-all shadow-sm">
-                    <div className="w-12 h-12 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 mb-6 group-hover:scale-110 transition-transform">
-                        <TrendingUp size={20} strokeWidth={2.5} />
-                    </div>
-                    <h3 className="text-sm font-black text-text-main mb-2">Increase Emergency Fund</h3>
-                    <p className="text-[11px] font-medium text-text-muted leading-relaxed mb-6 flex-1">
-                        You have 2.1 months of expenses saved. Aim for at least 6 months.
-                    </p>
-                    <div className="bg-indigo-500/5 text-indigo-500 text-[10px] font-bold px-3 py-1.5 rounded-lg mb-4 inline-flex items-center gap-1.5 border border-indigo-500/10 self-start">
-                        Recommended: {formatCurrency(8500)}
-                    </div>
-                    <button className="flex items-center gap-1.5 text-xs font-black text-indigo-500 hover:underline">
-                        View Details <ArrowRight size={14} />
-                    </button>
-                </div>
-
-                {/* Rec 3 */}
-                <div className="bg-card border border-border-main rounded-[2rem] p-6 flex flex-col group hover:border-border-strong transition-all shadow-sm">
-                    <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 mb-6 group-hover:scale-110 transition-transform">
-                        <Smile size={20} strokeWidth={2.5} />
-                    </div>
-                    <h3 className="text-sm font-black text-text-main mb-2">Great Savings Rate!</h3>
-                    <p className="text-[11px] font-medium text-text-muted leading-relaxed mb-6 flex-1">
-                        You're saving 26% of your income. Keep it up! You're above average.
-                    </p>
-                    <div className="bg-amber-500/5 text-amber-500 text-[10px] font-bold px-3 py-1.5 rounded-lg mb-4 inline-flex items-center gap-1.5 border border-amber-500/10 self-start">
-                        Keep going! 🚀
-                    </div>
-                    <button className="flex items-center gap-1.5 text-xs font-black text-amber-500 hover:underline">
-                        View Details <ArrowRight size={14} />
-                    </button>
-                </div>
+                ))}
             </div>
           </section>
 
@@ -178,7 +262,10 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
           <section className="bg-card border border-border-main rounded-[2.5rem] p-8 shadow-sm">
             <div className="flex items-center justify-between mb-8">
                 <h2 className="text-lg font-black text-text-main tracking-tight">Spending Insights</h2>
-                <button className="flex items-center gap-1.5 text-xs font-black text-primary hover:underline">
+                <button 
+                    onClick={() => setPage("analytics")}
+                    className="flex items-center gap-1.5 text-xs font-black text-primary hover:underline"
+                >
                     View Report <ArrowRight size={14} />
                 </button>
             </div>
@@ -222,12 +309,15 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
                         <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
                             <Sparkles size={20} strokeWidth={2.5} />
                         </div>
-                        <h3 className="text-sm font-black text-text-main">AI Insight</h3>
+                    <h3 className="text-sm font-black text-text-main">Vylos Analysis</h3>
                     </div>
                     <p className="text-sm font-medium text-text-muted leading-relaxed mb-6 relative z-10">
-                        Your transportation costs are 15% higher than last month. Consider carpooling or public transport to save more.
+                        {VylosEngine.run(state).insightSummary}
                     </p>
-                    <button className="flex items-center gap-2 text-xs font-black text-primary hover:underline relative z-10">
+                    <button 
+                        onClick={() => chatInputRef.current?.focus()}
+                        className="flex items-center gap-2 text-xs font-black text-primary hover:underline relative z-10"
+                    >
                         View Suggestions <ChevronRight size={14} />
                     </button>
                 </div>
@@ -259,7 +349,10 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
             <div className="bg-card border border-border-main rounded-[2.5rem] p-8 shadow-sm flex flex-col items-center">
                 <div className="flex items-center justify-between w-full mb-10">
                     <h2 className="text-sm font-black text-text-main uppercase tracking-widest opacity-80">Financial Health Score</h2>
-                    <button className="flex items-center gap-1 text-[10px] font-black text-primary hover:underline">
+                    <button 
+                        onClick={() => setShowHealthDetail(true)}
+                        className="flex items-center gap-1 text-[10px] font-black text-primary hover:underline"
+                    >
                         View Details <ChevronRight size={14} />
                     </button>
                 </div>
@@ -275,9 +368,24 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
                     </div>
                 </div>
 
-                <p className="text-xs font-medium text-text-muted text-center leading-relaxed">
-                    You're in great shape! Keep making smart financial decisions.
-                </p>
+                <div className="space-y-4 w-full px-2">
+                    {[
+                        { label: "Spending Discipline", val: breakdown.spending },
+                        { label: "Savings Rate", val: breakdown.savings },
+                        { label: "Budget Adherence", val: breakdown.budget },
+                        { label: "Goal Progress", val: breakdown.goals }
+                    ].map((item, i) => (
+                        <div key={i} className="space-y-1.5">
+                            <div className="flex justify-between text-[10px] font-black text-text-muted uppercase tracking-widest">
+                                <span>{item.label}</span>
+                                <span>{item.val}/25</span>
+                            </div>
+                            <div className="h-1.5 bg-border-main rounded-full overflow-hidden">
+                                <div className="h-full bg-primary rounded-full" style={{ width: `${(item.val / 25) * 100}%` }} />
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </div>
 
             {/* Ask AI Anything */}
@@ -286,6 +394,7 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
                 
                 <div className="relative mb-8">
                     <input 
+                        ref={chatInputRef}
                         type="text" 
                         value={aiInput}
                         onChange={(e) => setAiInput(e.target.value)}
@@ -303,19 +412,33 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
                 </div>
 
                 <div className="space-y-3">
-                    <span className="text-[10px] font-black text-text-muted uppercase tracking-widest px-1 opacity-50">Try asking:</span>
-                    <button onClick={() => setAiInput("How can I reduce my expenses?")} className="w-full bg-border-main/30 border border-border-main hover:bg-border-main/50 transition-all rounded-xl p-3.5 flex items-center justify-between group">
-                        <span className="text-[11px] font-bold text-text-muted group-hover:text-text-main transition-colors text-left">How can I reduce my expenses?</span>
-                        <ChevronRight size={14} className="text-text-muted group-hover:translate-x-1 transition-transform" />
-                    </button>
-                    <button onClick={() => setAiInput("Is my savings on track?")} className="w-full bg-border-main/30 border border-border-main hover:bg-border-main/50 transition-all rounded-xl p-3.5 flex items-center justify-between group">
-                        <span className="text-[11px] font-bold text-text-muted group-hover:text-text-main transition-colors text-left">Is my savings on track?</span>
-                        <ChevronRight size={14} className="text-text-muted group-hover:translate-x-1 transition-transform" />
-                    </button>
-                    <button onClick={() => setAiInput("Should I invest more?")} className="w-full bg-border-main/30 border border-border-main hover:bg-border-main/50 transition-all rounded-xl p-3.5 flex items-center justify-between group">
-                        <span className="text-[11px] font-bold text-text-muted group-hover:text-text-main transition-colors text-left">Should I invest more?</span>
-                        <ChevronRight size={14} className="text-text-muted group-hover:translate-x-1 transition-transform" />
-                    </button>
+                    <span className="text-[10px] font-black text-text-muted uppercase tracking-widest px-1 opacity-50">Quick Analysis:</span>
+                    {[
+                        "Why did my health score drop?",
+                        "What should I fix first?",
+                        "Am I overspending?",
+                        "Can I afford my goal?",
+                        "How long can I survive if income stops?"
+                    ].map(q => (
+                        <button 
+                            key={q}
+                            onClick={() => {
+                                const engine = VylosEngine.run(state);
+                                let answer = "";
+                                if (q.includes("health score")) answer = VylosEngine.explainHealthScoreChange(engine.healthScore, engine.healthScore, { Q: 0, D: 0, C: 0, G: 0 });
+                                else if (q.includes("fix first")) answer = engine.insightSummary;
+                                else if (q.includes("overspending")) answer = engine.dailySpendingLimit > 0 ? `Your daily limit is ${formatCurrency(engine.dailySpendingLimit)}. ${engine.insightSummary}` : "Set up a budget to track spending.";
+                                else if (q.includes("afford my goal")) answer = engine.goalRecommendation;
+                                else if (q.includes("survive")) answer = `Based on your liquid savings, you can survive for ${engine.burnRateMonths} months.`;
+                                
+                                setAiMessages(prev => [...prev, { role: "user", content: q }, { role: "assistant", content: answer }]);
+                            }} 
+                            className="w-full bg-border-main/30 border border-border-main hover:bg-border-main/50 transition-all rounded-xl p-3.5 flex items-center justify-between group"
+                        >
+                            <span className="text-[11px] font-bold text-text-muted group-hover:text-text-main transition-colors text-left">{q}</span>
+                            <ChevronRight size={14} className="text-text-muted group-hover:translate-x-1 transition-transform" />
+                        </button>
+                    ))}
                 </div>
             </div>
 
@@ -349,7 +472,10 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
                     <ChevronRight size={18} className="text-text-muted group-hover:translate-x-1 transition-transform" />
                 </button>
 
-                <button className="bg-card border border-border-main p-5 rounded-2xl flex items-center justify-between group hover:border-border-strong transition-all shadow-sm active:scale-[0.98]">
+                <button 
+                    onClick={() => showToast("AI Recommendation Engine is analyzing your risk profile...", "info")}
+                    className="bg-card border border-border-main p-5 rounded-2xl flex items-center justify-between group hover:border-border-strong transition-all shadow-sm active:scale-[0.98]"
+                >
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500">
                             <TrendingUp size={18} />

@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { AppState, Transaction, Goal, BudgetCategory, formatMoney } from "../store";
 import { safeJsonParse } from "../utils";
+import { VylosEngine } from "../vylosEngine";
 
 export interface AIRecommendation {
   type: 'spending' | 'savings' | 'budget' | 'goal';
@@ -20,95 +21,41 @@ export class FinancialAdvisor {
   }
 
   /**
-   * Generic analysis method for various app features
-   */
-  async analyze(mode: 'budget' | 'progress' | 'personality', data: any): Promise<any> {
-    if (!process.env.GOOGLE_AI_API_KEY) {
-      throw new Error("GOOGLE_AI_API_KEY not found.");
-    }
-
-    let prompt = "";
-    if (mode === 'budget') {
-      prompt = `
-        As a Vylos Financial Strategist, analyze this budget data:
-        ${JSON.stringify(data)}
-        Provide:
-        1. A high-level strategic evaluation (2 sentences).
-        2. One specific "Tactical Reallocation" suggestion.
-        3. A "Discipline Score" out of 100.
-        
-        Return VALID JSON:
-        { "evaluation": "...", "suggestion": "...", "score": 85 }
-      `;
-    } else if (mode === 'progress') {
-      prompt = `
-        Analyze this user's progress and rank:
-        ${JSON.stringify(data)}
-        Provide a short, punchy "Operative Directive" (1 sentence) to help them improve their financial efficiency.
-        Return VALID JSON:
-        { "directive": "..." }
-      `;
-    } else if (mode === 'personality') {
-      prompt = `
-        Based on these traits: ${JSON.stringify(data)}, 
-        define this user's "Financial Persona" (e.g., The Aggressive Architect, The Cautious Guardian).
-        Provide a 1-sentence description.
-        Return VALID JSON:
-        { "persona": "...", "description": "..." }
-      `;
-    }
-
-    try {
-      const result = await this.model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text().replace(/```json/g, "").replace(/```/g, "").trim();
-      return safeJsonParse(text, { evaluation: "Analysis failed", suggestion: "Analysis failed", score: 0 });
-    } catch (err) {
-      console.error(`AI Analyze (${mode}) Error:`, err);
-      return { error: "Analysis failed" };
-    }
-  }
-
-  /**
-   * Generates a comprehensive financial health summary and recommendations
+   * REFACTORED: Now uses VylosEngine for deterministic stats, Gemini for text generation only.
    */
   async getHealthOverview(state: AppState): Promise<{ summary: string; recommendations: AIRecommendation[] }> {
     if (!process.env.GOOGLE_AI_API_KEY) {
        return { 
-         summary: "AI services are currently offline. Please provide an API key in .env.local.", 
+         summary: "Vylos Intelligence is active, but AI summaries are offline. Check your .env file.", 
          recommendations: [] 
        };
     }
 
-    const { transactions, budgets, goals, userProfile } = state;
-    const recentTx = transactions.slice(0, 20);
+    const engineOutput = VylosEngine.run(state);
     
-    // Prepare a structured prompt
+    // Provide DETERMINISTIC stats to Gemini to ensure it DOES NOT perform calculations
     const prompt = `
-      You are Vylos AI, a premium personal financial advisor. 
-      Analyze the following user data and provide:
-      1. A concise (2-3 sentence) summary of their current financial status.
-      2. Exactly 3 distinct, high-impact recommendations for improvement.
+      You are Vylos AI Advisor. I will provide you with DETERMINISTIC financial metrics calculated by our engine.
+      Your task is to explain these metrics to the user in a friendly, professional tone.
+      DO NOT PERFORM ANY CALCULATIONS. Use the provided numbers as truth.
+
+      Financial Metrics:
+      - Health Score: ${engineOutput.healthScore}/100 (${engineOutput.healthCategory})
+      - Monthly Budget: ${formatMoney(engineOutput.monthlyBudget, state.userProfile.country)}
+      - Daily Spending Limit: ${formatMoney(engineOutput.dailySpendingLimit, state.userProfile.country)}
+      - Survival Runway: ${engineOutput.burnRateMonths} months (${engineOutput.burnRateCategory})
+      - Goal Status: ${engineOutput.goalFeasibilityStatus}
+      - Engine Insight: ${engineOutput.insightSummary}
 
       User Profile:
-      - Monthly Income: ${formatMoney(userProfile.monthlyIncome || 0, userProfile.country)}
-      - Risk Tolerance: ${userProfile.riskTolerance}/100
-      - Age: ${userProfile.age}
-      
-      Budgets:
-      ${JSON.stringify(budgets)}
+      - Monthly Income: ${formatMoney(state.userProfile.monthlyIncome || 0, state.userProfile.country)}
+      - Risk Tolerance: ${state.userProfile.riskTolerance}/100
 
-      Goals:
-      ${goals.map(g => `${g.title}: ${g.currentAmount}/${g.targetAmount}`).join(", ")}
-
-      Recent Transactions:
-      ${recentTx.map(t => `${t.date} | ${t.merchant} | ${t.amount} | ${t.category}`).join("\n")}
-
-      Return your response as a VALID JSON object with the following structure:
+      Return your response as a VALID JSON object:
       {
-        "summary": "...",
+        "summary": "2-3 sentence human-readable summary of their situation based on the metrics.",
         "recommendations": [
-          { "type": "spending", "title": "Reduce Eating Out", "message": "You spent 15% more on dining this month.", "actionableStep": "Try meal prepping 2 days a week.", "impactScore": 8 }
+          { "type": "spending", "title": "...", "message": "...", "actionableStep": "...", "impactScore": 8 }
         ]
       }
     `;
@@ -117,53 +64,41 @@ export class FinancialAdvisor {
       const result = await this.model.generateContent(prompt);
       const response = await result.response;
       const text = response.text().replace(/```json/g, "").replace(/```/g, "").trim();
-      return safeJsonParse(text, { summary: "Analysis failed", recommendations: [] });
+      return safeJsonParse(text, { summary: engineOutput.insightSummary, recommendations: [] });
     } catch (err) {
       console.error("AI Advisor Error:", err);
       return { 
-        summary: "Unable to generate AI analysis at this time. Our systems are experiencing high traffic.", 
+        summary: engineOutput.insightSummary, 
         recommendations: [] 
       };
     }
   }
 
   /**
-   * Validates a goal and suggests a realistic timeline
+   * REFACTORED: Uses VylosEngine for goal validation.
    */
-  async validateGoal(state: AppState, goal: { title: string; targetAmount: number }): Promise<{ 
-    isRealistic: boolean; 
-    suggestedTimelineMonths: number; 
-    monthlyContribution: number;
-    analysis: string;
-  }> {
-    const income = state.userProfile.monthlyIncome || 0;
-    const totalExpenses = Object.values(state.budgets).reduce((acc, b) => acc + b.spent, 0);
-    const freeCash = income - totalExpenses;
-    const target = goal.targetAmount || 0;
+  async validateGoal(state: AppState, goal: { title: string; targetAmount: number }) {
+    const engineRes = VylosEngine.computeGoalFeasibility({ ...state, goals: [{ title: goal.title, targetAmount: goal.targetAmount, currentAmount: 0, id: 'temp', createdAt: new Date().toISOString(), deadline: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString(), status: 'On Track', category: 'Savings', notes: '', icon: '🎯', color: '#00D8A5' }] });
+    
+    return {
+      isRealistic: engineRes.score >= 1.0,
+      suggestedTimelineMonths: 12,
+      monthlyContribution: goal.targetAmount / 12,
+      analysis: engineRes.recommendation
+    };
+  }
 
-    const prompt = `
-      As a financial advisor, analyze if this goal is realistic given the surplus cash.
-      Target Amount: ${target}
-      User's Monthly Surplus Cash: ${freeCash}
-      Goal Description: ${goal.title}
-
-      Return JSON:
-      {
-        "isRealistic": true,
-        "suggestedTimelineMonths": 12,
-        "monthlyContribution": 2500,
-        "analysis": "This goal is very realistic..."
-      }
-    `;
-
-    try {
-      const result = await this.model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text().replace(/```json/g, "").replace(/```/g, "").trim();
-      return safeJsonParse(text, { isRealistic: false, suggestedTimelineMonths: 0, monthlyContribution: 0, analysis: "Analysis failed" });
-    } catch (err) {
-      console.error("AI Goal Validation Error:", err);
-      return { isRealistic: true, suggestedTimelineMonths: 12, monthlyContribution: target / 12, analysis: "AI validation failed. Using default linear estimate." };
+  /**
+   * General analysis endpoint used by the API
+   */
+  async analyze(mode: string, data: any): Promise<any> {
+    switch (mode) {
+      case "health":
+        return this.getHealthOverview(data as AppState);
+      case "goal":
+        return this.validateGoal(data.state as AppState, data.goal);
+      default:
+        return { error: "Unknown mode" };
     }
   }
 

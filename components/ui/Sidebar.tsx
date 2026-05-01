@@ -5,16 +5,14 @@ import {
   LayoutGrid, 
   Wallet, 
   Target, 
-  Brain, 
+  MessageSquare, 
   BarChart3, 
   Settings, 
-  Moon, 
-  Sun,
   LogOut,
   CreditCard,
-  Sparkles,
-  ChevronRight,
-  Layout
+  Calendar as CalendarIcon,
+  Zap,
+  MessageCircle
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
@@ -26,16 +24,20 @@ interface SidebarProps {
   dark: boolean;
   setDark: (dark: boolean) => void;
   userName: string;
+  avatarUrl?: string;
   isPro?: boolean;
+  onShowFeedback?: () => void;
 }
 
 const NAV_ITEMS = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutGrid },
+  { id: "dashboard", label: "Home", icon: LayoutGrid },
+  { id: "calendar", label: "Calendar", icon: CalendarIcon },
   { id: "budget", label: "Budget", icon: Wallet },
   { id: "goals", label: "Goals", icon: Target },
-  { id: "ai", label: "AI Advisor", icon: Brain },
-  { id: "analytics", label: "Progress", icon: BarChart3 },
   { id: "transactions", label: "Transactions", icon: CreditCard },
+  { id: "ai", label: "Vylos Advisor", icon: MessageSquare },
+  { id: "analytics", label: "Progress", icon: BarChart3 },
+  { id: "pricing", label: "Upgrade", icon: Zap },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
@@ -45,7 +47,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   dark, 
   setDark, 
   userName,
-  isPro = true 
+  avatarUrl,
+  isPro = true,
+  onShowFeedback
 }) => {
   const router = useRouter();
   const supabase = createClient();
@@ -64,11 +68,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <aside className="w-64 h-screen bg-sidebar border-r border-border-main flex flex-col py-8 px-6 shrink-0 sticky top-0 transition-all duration-300">
       {/* Logo Section */}
-      <div className="flex items-center gap-2 mb-10 px-2">
-        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-          <Layout className="w-5 h-5 text-white" strokeWidth={2.5} />
+      <div className="flex items-center gap-4 mb-12 px-1">
+        <div className="w-12 h-12 rounded-full border border-[#00A86B]/10 flex items-center justify-center overflow-hidden shrink-0">
+          <img src="/logo.png" alt="Vylos Logo" className="w-full h-full object-cover scale-[1.1]" />
         </div>
-        <span className="text-2xl font-bold tracking-tight text-text-main">
+        <span className="text-3xl font-bold tracking-tight text-[#00A86B]">
           Vylos
         </span>
       </div>
@@ -99,18 +103,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </nav>
 
       {/* Footer Section */}
-      <div className="mt-auto flex flex-col gap-6 pt-6">
-
+      <div className="mt-auto flex flex-col gap-4 pt-6">
+        {/* Feedback Button */}
+        <button 
+          onClick={onShowFeedback}
+          className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-text-muted hover:bg-border-main hover:text-text-main transition-all group"
+        >
+          <MessageCircle className="w-5 h-5 group-hover:text-primary transition-colors" />
+          <span className="tracking-tight">Give Feedback</span>
+        </button>
 
         {/* User Profile */}
         <div className="flex items-center justify-between gap-3 bg-card border border-border-main p-3 rounded-2xl shadow-sm hover:border-border-strong transition-all">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#fd8489] via-[#f9a6d4] to-[#80aefe] flex items-center justify-center text-white font-bold text-xs shadow-sm cursor-pointer hover:scale-105 transition-transform shrink-0" />
+            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#fd8489] via-[#f9a6d4] to-[#80aefe] flex items-center justify-center text-white font-bold text-xs shadow-sm cursor-pointer hover:scale-105 transition-transform shrink-0 overflow-hidden">
+               {avatarUrl ? <img src={avatarUrl} alt={userName} className="w-full h-full object-cover" /> : null}
+            </div>
             <div className="flex flex-col min-w-0">
               <span className="text-xs font-bold text-text-main truncate tracking-tight">{userName}</span>
               {isPro && (
                 <span className="text-[9px] font-bold text-primary flex items-center gap-1">
-                  Pro Account
+                  Vylos Intelligence
                 </span>
               )}
             </div>

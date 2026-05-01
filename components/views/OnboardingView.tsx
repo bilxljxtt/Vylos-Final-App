@@ -65,11 +65,11 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
         <div className="absolute top-[-10%] left-[-10%] w-[400px] h-[400px] bg-primary/5 rounded-full blur-[100px]" />
         
         <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-20">
-             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-               <Layout className="w-5 h-5 text-white" strokeWidth={2.5} />
+          <div className="flex items-center gap-4 mb-20">
+             <div className="w-12 h-12 rounded-full border border-[#00A86B]/10 overflow-hidden flex items-center justify-center">
+               <img src="/logo.png" alt="Vylos Logo" className="w-full h-full object-cover scale-[1.1]" />
              </div>
-             <span className="text-2xl font-bold tracking-tight text-text-main">Vylos</span>
+             <span className="text-3xl font-bold tracking-tight text-[#00A86B]">Vylos</span>
           </div>
 
           <h2 className="text-5xl font-black text-text-main tracking-tighter leading-[0.95] mb-6">

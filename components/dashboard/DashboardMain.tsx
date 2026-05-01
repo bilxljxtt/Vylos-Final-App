@@ -1,10 +1,7 @@
-"use client";
-
-import React from "react";
 import { StatCard, 
   CircularHealthScore, 
   TransactionItem, 
-  BillItem 
+  InsightCard
 } from "../ui/DashboardUi";
 import { 
   CATEGORY_METADATA, 
@@ -27,7 +24,21 @@ import {
   Wallet,
   ArrowDown,
   ArrowUp,
-  ArrowRight
+  ArrowRight,
+  AlertTriangle,
+  ChevronRight,
+  AlertCircle,
+  FileText,
+  Activity,
+  Heart,
+  Frown,
+  HelpCircle,
+  ClipboardCheck,
+  X,
+  Flag,
+  BarChart3,
+  Trophy,
+  Layout
 } from "lucide-react";
 import { ViewContainer } from "../ui/ViewContainer";
 
@@ -38,9 +49,19 @@ interface DashboardMainProps {
   savingsRate: number;
   transactions: any[];
   goals: any[];
+  subscriptions?: any[];
   chartRef: React.RefObject<HTMLCanvasElement | null>;
   donutRef?: React.RefObject<HTMLCanvasElement | null>;
   setPage: (page: string) => void;
+  trends?: { incomeTrend: number; expenseTrend: number; netWorthTrend: number; };
+  chartStats?: { avgMonthlySpend: number; lowestMonthSpend: number; highestMonthSpend: number; };
+  spendByCat?: Record<string, number>;
+  setShowHealthDetail: (show: boolean) => void;
+  setShowAddReminder: (show: boolean) => void;
+  healthScore: number;
+  engineOutput: any;
+  userName?: string;
+  setShowNewBudget: (show: boolean) => void;
 }
 
 export const DashboardMain: React.FC<DashboardMainProps> = ({
@@ -50,227 +71,408 @@ export const DashboardMain: React.FC<DashboardMainProps> = ({
   savingsRate,
   transactions,
   goals,
+  subscriptions = [],
   chartRef,
   donutRef,
-  setPage
+  setPage,
+  trends = { incomeTrend: 0, expenseTrend: 0, netWorthTrend: 0 },
+  chartStats = { avgMonthlySpend: 0, lowestMonthSpend: 0, highestMonthSpend: 0 },
+  spendByCat = {},
+  setShowHealthDetail,
+  setShowAddReminder,
+  healthScore,
+  engineOutput,
+  userName,
+  setShowNewBudget
 }) => {
-  const { formatCurrency } = useAppStore();
-  const healthScore = 82; // Static for now as per design
-  const recentTxs = transactions.slice(0, 5);
+  const { formatCurrency, lastSynced } = useAppStore();
+  const recentTxs = [...transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
   
-  // Mock upcoming bills as per design
-  const upcomingBills = [
-    { id: "1", title: "Rent Payment", date: "Jun 30, 2024", amount: 1200, icon: <Calendar size={18} /> },
-    { id: "2", title: "Electricity Bill", date: "Jul 02, 2024", amount: 120.50, icon: <Zap size={18} /> },
-    { id: "3", title: "Internet Bill", date: "Jul 05, 2024", amount: 60.00, icon: <Globe size={18} /> },
-  ];
+  const hasIncome = income > 0;
+  const hasBudgets = Object.keys(spendByCat).length > 0;
+  const hasTransactions = transactions.length > 0;
+  const hasGoals = goals.length > 0;
 
   return (
-    <ViewContainer className="flex flex-col gap-8 pt-2 pb-10">
-      {/* Header Row: Greeting & Health Score */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-        <div className="flex flex-col">
-          <h2 className="text-3xl font-black text-text-main tracking-tight flex items-center gap-2">
-            Good morning, Alex! <span className="animate-bounce">👋</span>
-          </h2>
-          <p className="text-sm font-bold text-text-muted mt-1 uppercase tracking-widest">Here's your financial overview for today.</p>
-        </div>
-        <CircularHealthScore score={healthScore} />
+    <ViewContainer className="flex flex-col gap-10 pt-4 pb-20 max-w-6xl mx-auto">
+      {/* Header */}
+      <div className="flex flex-col gap-1">
+        <h2 className="text-3xl font-black text-text-main tracking-tight">
+          Good morning, {userName?.split(' ')[0] || 'Bilal'}! 👋
+        </h2>
+        <p className="text-sm font-bold text-text-muted">Here's your financial overview for today.</p>
       </div>
 
-      {/* Stats Cards Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard 
-          label="Net Worth" 
-          value={formatCurrency(netWorth)} 
-          trend="5.2% from last month" 
-          trendPositive={true} 
-          icon={<Wallet className="w-5 h-5 text-primary" />}
-          iconBg="bg-bg-mint"
-        />
-        <StatCard 
-          label="Monthly Income" 
-          value={formatCurrency(income)} 
-          sublabel="June 2024" 
-          icon={<DollarSign className="w-5 h-5 text-blue-500" />}
-          iconBg="bg-blue-500/10"
-        />
-        <StatCard 
-          label="Monthly Expenses" 
-          value={formatCurrency(expense)} 
-          trend="7.4% of income" 
-          trendPositive={false} 
-          icon={<CreditCard className="w-5 h-5 text-red-500" />}
-          iconBg="bg-red-500/10"
-        />
-        <StatCard 
-          label="Savings Rate" 
-          value={`${savingsRate}%`} 
-          trend="On track to goal"
-          trendPositive={true}
-          icon={<TrendingUp className="w-5 h-5 text-purple-500" />}
-          iconBg="bg-purple-500/10"
-        />
-      </div>
-
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-start">
-        {/* Left Column: Spending Overview & Budget/Goals */}
-        <div className="xl:col-span-2 flex flex-col gap-8">
-          {/* Spending Overview */}
-          <div className="dashboard-card">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-black text-text-main uppercase tracking-widest">Spending Overview</h3>
-                <Info size={14} className="text-text-muted cursor-help" />
+      {/* 1. HERO HEALTH SCORE CARD */}
+      <section className="bg-card border border-border-main rounded-3xl p-10 shadow-sm">
+        <div className="grid grid-cols-1 lg:grid-cols-3 items-center gap-12">
+          {/* Left: Score */}
+          <div className="flex flex-col items-center lg:items-start gap-4">
+            <h4 className="text-[11px] font-black text-text-muted uppercase tracking-widest">Your Financial Health</h4>
+            <div className="flex flex-col items-center lg:items-start">
+              <div className="flex items-baseline gap-2">
+                <span className={`text-8xl font-black ${healthScore >= 80 ? 'text-emerald-500' : healthScore >= 60 ? 'text-blue-500' : healthScore >= 40 ? 'text-amber-500' : 'text-red-500'}`}>{healthScore}</span>
               </div>
-              <button className="flex items-center gap-2 text-[10px] font-black text-text-muted bg-border-main hover:bg-border-strong transition-colors px-3 py-2 rounded-xl border border-border-main uppercase tracking-widest">
-                This Month <ChevronDown size={14} />
+              <span className="text-sm font-bold text-text-muted mt-1">out of 100</span>
+              <div className={`mt-6 px-6 py-2 rounded-full border flex items-center justify-center 
+                ${healthScore >= 80 ? 'bg-emerald-50 border-emerald-100 text-emerald-500' : 
+                  healthScore >= 60 ? 'bg-blue-50 border-blue-100 text-blue-500' : 
+                  healthScore >= 40 ? 'bg-amber-50 border-amber-100 text-amber-500' : 
+                  'bg-red-50 border-red-100 text-red-500'}`}
+              >
+                <span className="text-xs font-black uppercase tracking-widest">{engineOutput.healthCategory}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Middle: Explanation & CTA */}
+          <div className="flex flex-col gap-6">
+            <div>
+                <h4 className="text-lg font-black text-text-main mb-2">
+                  {healthScore >= 80 ? "Your score is excellent" : 
+                   healthScore >= 60 ? "Your score is good" : 
+                   healthScore >= 40 ? "Your score needs attention" : "Your score is low"}
+                </h4>
+                <p className="text-sm font-medium text-text-muted leading-relaxed">
+                   {healthScore >= 80 ? "You’re in a strong financial position. Keep maintaining your budget, savings, and goals." : 
+                    healthScore >= 60 ? "You’re doing well, but there are still a few areas you can improve." : 
+                    healthScore >= 40 ? "Some parts of your finances need work. Review your budget, savings, or goals." : 
+                    "Your financial setup or spending habits need attention."}
+                </p>
+            </div>
+            <div className="flex flex-col gap-3">
+              <button 
+                onClick={() => setPage(healthScore >= 80 ? "analytics" : healthScore >= 60 ? "analytics" : healthScore >= 40 ? "budget" : "settings")}
+                className="w-full py-4 bg-[#00A86B] hover:bg-[#00925d] text-white font-black rounded-xl shadow-lg shadow-[#00A86B]/20 transition-all flex items-center justify-center"
+              >
+                {healthScore >= 80 ? "View Breakdown" : 
+                 healthScore >= 60 ? "Improve Score" : 
+                 healthScore >= 40 ? "Review Issues" : "Fix This Now"}
+              </button>
+              <button 
+                onClick={() => setShowHealthDetail(true)}
+                className="flex items-center justify-center gap-1 text-xs font-black text-[#00A86B] hover:underline transition-colors"
+              >
+                See score details <ArrowRight size={14} />
               </button>
             </div>
-            <div className="w-full relative h-[300px]">
-              <canvas ref={chartRef}></canvas>
-            </div>
-            {/* Chart Sub-stats */}
-            <div className="grid grid-cols-3 gap-4 mt-8 pt-8 border-t border-border-main">
-              <div>
-                <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-1">Avg. Monthly Spend</div>
-                <div className="text-lg font-black text-text-main tracking-tight">$3,247.45</div>
-              </div>
-              <div>
-                <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-1">Lowest Month</div>
-                <div className="text-lg font-black text-text-main tracking-tight flex items-center gap-2">
-                  $2,350.20 <ArrowDown size={16} className="text-primary" />
-                </div>
-              </div>
-              <div>
-                <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-1">Highest Month</div>
-                <div className="text-lg font-black text-text-main tracking-tight flex items-center gap-2">
-                  $4,320.50 <ArrowUp size={16} className="text-red-500" />
-                </div>
-              </div>
-            </div>
           </div>
 
-          {/* Budget Summary & Savings Goal Side-by-Side */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Budget Summary */}
-            <div className="dashboard-card">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-sm font-black text-text-main uppercase tracking-widest">Budget Summary</h3>
-                <button onClick={() => setPage("budget")} className="text-[10px] font-bold text-primary uppercase hover:underline">View Budget</button>
-              </div>
-              <div className="flex items-center gap-8">
-                <div className="relative w-32 h-32 flex items-center justify-center">
-                  <canvas ref={donutRef}></canvas>
-                  <div className="absolute flex flex-col items-center">
-                    <span className="text-lg font-black text-text-main">$3,847</span>
-                    <span className="text-[8px] font-bold text-text-muted uppercase tracking-tighter">of $5,200</span>
-                  </div>
+          {/* Right: Illustration */}
+          <div className="hidden lg:flex items-center justify-center">
+             <div className="relative w-40 h-48 bg-bg rounded-2xl border-4 border-border-main p-6 flex flex-col gap-4 shadow-inner">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-12 h-6 bg-border-main rounded-md" />
+                <div className="flex items-center gap-3">
+                   <X className="text-red-500" size={20} strokeWidth={3} />
+                   <div className="h-2 w-full bg-border-main rounded-full" />
                 </div>
-                <div className="flex-1 flex flex-col gap-2">
-                   {[
-                    { label: "Housing", amount: 1500, pct: 38, color: "bg-primary" },
-                    { label: "Food & Dining", amount: 687, pct: 18, color: "bg-acc-blue" },
-                    { label: "Transportation", amount: 456, pct: 12, color: "bg-acc-purple" },
-                  ].map(item => (
-                    <div key={item.label} className="flex items-center justify-between text-[10px]">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${item.color}`} />
-                        <span className="font-bold text-text-muted">{item.label}</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="font-black text-text-main">${item.amount}</span>
-                        <span className="font-bold text-text-muted w-6 text-right">{item.pct}%</span>
-                      </div>
-                    </div>
-                  ))}
+                <div className="flex items-center gap-3">
+                   <X className="text-red-500" size={20} strokeWidth={3} />
+                   <div className="h-2 w-full bg-border-main rounded-full" />
                 </div>
-              </div>
-            </div>
-
-            {/* Savings Goal */}
-            <div className="dashboard-card">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-sm font-black text-text-main uppercase tracking-widest">Savings Goal</h3>
-                <button onClick={() => setPage("goals")} className="text-[10px] font-bold text-primary uppercase hover:underline">View Goals</button>
-              </div>
-              <div className="flex items-start gap-4 mb-6">
-                <div className="w-12 h-12 rounded-2xl bg-bg-mint flex items-center justify-center shrink-0">
-                  <Target className="w-6 h-6 text-primary" />
+                <div className="flex items-center gap-3">
+                   <X className="text-red-500" size={20} strokeWidth={3} />
+                   <div className="h-2 w-full bg-border-main rounded-full" />
                 </div>
-                <div className="flex-1">
-                  <div className="text-sm font-black text-text-main">Emergency Fund</div>
-                  <div className="text-xs font-bold text-text-muted">$8,500 of $10,000</div>
-                  <div className="w-full h-2 bg-border-main rounded-full mt-3 overflow-hidden">
-                    <div className="h-full bg-primary rounded-full transition-all duration-1000" style={{ width: "85%" }} />
-                  </div>
-                </div>
-                <span className="text-xs font-black text-text-main">85%</span>
-              </div>
-              {/* AI Insight Note */}
-              <div className="p-4 bg-bg-mint/30 rounded-2xl border border-primary/10">
-                <div className="flex items-center gap-2 mb-2">
-                  <Sparkles size={14} className="text-primary" />
-                  <span className="text-[10px] font-black text-primary uppercase tracking-widest">AI Insight</span>
-                </div>
-                <p className="text-[11px] font-bold text-text-muted leading-relaxed mb-3">
-                  You're doing great! Cutting dining out by $324/month could boost your savings by 15%.
-                </p>
-                <button className="text-[9px] font-black text-primary uppercase hover:underline flex items-center gap-1">
-                  View Recommendation <ArrowRight size={12} />
-                </button>
-              </div>
-            </div>
+             </div>
           </div>
         </div>
+      </section>
 
-        {/* Right Column: Recent Transactions & Upcoming Bills */}
-        <div className="flex flex-col gap-8">
-          {/* Recent Transactions */}
-          <div className="dashboard-card">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-sm font-black text-text-main uppercase tracking-widest">Recent Transactions</h3>
-              <button onClick={() => setPage("transactions")} className="text-[10px] font-bold text-primary uppercase hover:underline">View All</button>
-            </div>
-            <div className="flex flex-col">
-              {recentTxs.map((tx: any) => (
-                <TransactionItem 
-                  key={tx.id}
-                  title={tx.merchant}
-                  date={new Date(tx.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                  amount={tx.amount}
-                  icon={CATEGORY_METADATA[tx.category as TransactionCategory]?.icon}
-                  color={CATEGORY_METADATA[tx.category as TransactionCategory]?.color}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Upcoming Bills */}
-          <div className="dashboard-card">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-sm font-black text-text-main uppercase tracking-widest">Upcoming Bills</h3>
-              <button className="text-[10px] font-bold text-primary uppercase hover:underline">View All</button>
-            </div>
-            <div className="flex flex-col mb-6">
-              {upcomingBills.map(bill => (
-                <BillItem 
-                  key={bill.id}
-                  title={bill.title}
-                  date={bill.date}
-                  amount={bill.amount}
-                  icon={bill.icon}
-                />
-              ))}
-            </div>
-            <button className="w-full py-4 border-2 border-dashed border-border-strong rounded-2xl flex items-center justify-center gap-2 text-xs font-black text-text-muted hover:border-primary/50 hover:text-primary hover:bg-bg-mint transition-all group">
-              <Plus size={16} className="group-hover:rotate-90 transition-transform" />
-              Add New Reminder
+      {/* 2. GET STARTED */}
+      <section className="flex flex-col gap-6">
+        <div className="flex items-center justify-between">
+            <h3 className="text-lg font-black text-text-main">Get started</h3>
+            <button className="flex items-center gap-1 text-[11px] font-black text-[#00A86B] uppercase tracking-widest hover:underline">
+                Why these steps? <HelpCircle size={14} />
             </button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[
+            { id: 1, label: "Add Income", title: "Add Income", sub: "Tell us how much you earn.", done: hasIncome, icon: Wallet, color: "text-emerald-500", page: "settings" },
+            { id: 2, label: "Create Budget", title: "Create Budget", sub: "Plan how you want to spend.", done: hasBudgets, icon: PieChart, color: "text-purple-500", page: "budget" },
+            { id: 3, label: "Add Transaction", title: "Add Transaction", sub: "Track your money easily.", done: hasTransactions, icon: FileText, color: "text-blue-500", page: "transactions" },
+            { id: 4, label: "Set Goal", title: "Set a Goal", sub: "Choose something to save for.", done: hasGoals, icon: Flag, color: "text-amber-500", page: "goals" }
+          ].map(item => (
+            <div key={item.id} className="relative bg-card border border-border-main rounded-3xl p-8 flex flex-col items-center text-center gap-4 transition-all hover:border-primary/30 group shadow-sm">
+                <div className={`absolute top-4 left-4 w-6 h-6 rounded-full ${item.done ? 'bg-primary' : 'bg-[#00A86B]'} flex items-center justify-center text-[10px] font-black text-white`}>
+                    {item.id}
+                </div>
+                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${item.color} group-hover:scale-110 transition-transform`}>
+                    <item.icon size={36} />
+                </div>
+                <div className="flex flex-col gap-1">
+                    <h4 className="text-sm font-black text-text-main">{item.title}</h4>
+                    <p className="text-[11px] font-medium text-text-muted leading-relaxed">{item.sub}</p>
+                </div>
+                <button 
+                  onClick={() => {
+                    if (item.id === 1) setShowNewBudget(true);
+                    else setPage(item.page);
+                  }}
+                  className={`mt-2 w-full py-2.5 rounded-xl border border-border-main text-text-main text-[10px] font-black uppercase tracking-widest hover:bg-border-main transition-all ${item.done ? 'bg-emerald-50' : ''}`}
+                >
+                  {item.label}
+                </button>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* 3. AT A GLANCE */}
+      <section className="flex flex-col gap-6">
+        <h3 className="text-lg font-black text-text-main">At a glance</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Spend card */}
+            <div className="bg-card border border-border-main rounded-3xl p-10 flex items-center gap-8 shadow-sm">
+                <div className="w-20 h-20 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 shrink-0">
+                    <Wallet size={40} />
+                </div>
+                <div className="flex-1 flex flex-col gap-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-black text-text-muted uppercase tracking-widest">You can spend today</span>
+                        <button 
+                            onClick={() => setShowNewBudget(true)}
+                            className="p-2 hover:bg-border-main rounded-xl transition-all text-text-muted hover:text-primary"
+                        >
+                            <Layout size={16} />
+                        </button>
+                    </div>
+                    <span className="text-4xl font-black text-emerald-500 tracking-tight truncate">{hasIncome && hasBudgets ? formatCurrency(engineOutput.dailySpendingLimit) : "R0"}</span>
+                    <p className="text-[11px] font-medium text-text-muted mt-1 leading-relaxed">Set up income and budget to see your daily limit.</p>
+                </div>
+            </div>
+            {/* Survive card */}
+            <div className="bg-card border border-border-main rounded-3xl p-10 flex items-center gap-8 shadow-sm">
+                <div className="w-20 h-20 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-500 shrink-0">
+                    <Calendar size={40} />
+                </div>
+                <div className="flex flex-col gap-1">
+                    <span className="text-[11px] font-black text-text-muted uppercase tracking-widest">You can survive for</span>
+                    <span className="text-4xl font-black text-purple-500 tracking-tight">{hasIncome && engineOutput.burnRateMonths > 0 ? `${engineOutput.burnRateMonths} months` : "0.0 months"}</span>
+                    <p className="text-[11px] font-medium text-text-muted mt-1 leading-relaxed">Add savings and expenses to see your runway.</p>
+                </div>
+            </div>
+        </div>
+      </section>
+
+      {/* 4. VYLOS INSIGHTS */}
+      <section className="flex flex-col gap-6">
+        <h3 className="text-lg font-black text-text-main">Vylos insights</h3>
+        <div className="flex flex-col gap-3">
+          {engineOutput.insights?.map((insight: any, idx: number) => (
+            <button 
+                key={idx}
+                onClick={() => setPage(insight.page)}
+                className="bg-card border border-border-main rounded-2xl p-5 flex items-center justify-between group hover:border-border-strong transition-all shadow-sm"
+            >
+              <div className="flex items-center gap-4">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 
+                  ${insight.severity === 'critical' ? 'text-red-500 bg-red-500/10' : 
+                    insight.severity === 'warning' ? 'text-amber-500 bg-amber-500/10' : 
+                    'text-blue-500 bg-blue-500/10'}`}
+                >
+                  {insight.severity === 'critical' ? <AlertCircle size={24} /> : 
+                   insight.severity === 'warning' ? <AlertTriangle size={24} /> : 
+                   <Info size={24} />}
+                </div>
+                <div className="flex flex-col text-left">
+                  <h4 className="text-sm font-black text-text-main">{insight.reason}</h4>
+                  <p className="text-[11px] font-medium text-text-muted mt-0.5">{insight.action}</p>
+                </div>
+              </div>
+              <ChevronRight size={18} className="text-text-muted group-hover:translate-x-1 transition-transform" />
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* Bottom Sections */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+         {/* Recent transactions */}
+         <section className="flex flex-col gap-4">
+            <div className="flex items-center justify-between px-2">
+              <div className="flex items-center gap-3">
+                <FileText size={20} className="text-text-muted" />
+                <h3 className="text-lg font-black text-text-main">Recent transactions</h3>
+              </div>
+              <button onClick={() => setPage("transactions")} className="text-[10px] font-black text-[#00A86B] uppercase tracking-widest hover:underline">View all</button>
+            </div>
+            <div className="bg-card border border-border-main rounded-3xl p-10 flex flex-col items-center justify-center min-h-[300px] text-center gap-6 shadow-sm">
+               {recentTxs.length > 0 ? (
+                 <div className="w-full flex flex-col">
+                    {recentTxs.map((tx: any) => (
+                        <TransactionItem 
+                            key={tx.id}
+                            title={tx.merchant}
+                            date={new Date(tx.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                            amount={tx.amount}
+                            icon={CATEGORY_METADATA[tx.category as TransactionCategory]?.icon}
+                            color={CATEGORY_METADATA[tx.category as TransactionCategory]?.color}
+                        />
+                    ))}
+                 </div>
+               ) : (
+                 <>
+                    <div className="w-16 h-16 rounded-full bg-border-main/20 flex items-center justify-center text-text-muted/30">
+                        <FileText size={32} />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                        <h4 className="text-lg font-black text-text-main">No transactions yet</h4>
+                        <p className="text-xs font-medium text-text-muted">Add your first transaction to get started.</p>
+                    </div>
+                    <button 
+                        onClick={() => setPage("transactions")}
+                        className="px-8 py-3.5 bg-[#00A86B] hover:bg-[#00925d] text-white font-black rounded-xl shadow-lg shadow-[#00A86B]/20 transition-all text-xs"
+                    >
+                        Add Transaction
+                    </button>
+                 </>
+               )}
+            </div>
+         </section>
+
+         {/* Goals Progress */}
+         <section className="flex flex-col gap-4">
+            <div className="flex items-center justify-between px-2">
+              <div className="flex items-center gap-3">
+                <Target size={20} className="text-text-muted" />
+                <h3 className="text-lg font-black text-text-main">Goals progress</h3>
+              </div>
+              <button onClick={() => setPage("goals")} className="text-[10px] font-black text-[#00A86B] uppercase tracking-widest hover:underline">View all</button>
+            </div>
+            <div className="bg-card border border-border-main rounded-3xl p-8 flex flex-col gap-6 min-h-[300px] shadow-sm">
+               {goals.length > 0 ? (
+                 <div className="flex flex-col gap-6">
+                    {goals.slice(0, 3).map((g: any) => {
+                        const pct = g.targetAmount > 0 ? Math.min(100, Math.round((g.currentAmount / g.targetAmount) * 100)) : 0;
+                        return (
+                            <div key={g.id} className="flex flex-col gap-3">
+                                <div className="flex justify-between items-center">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-xl">
+                                            {g.icon || "🎯"}
+                                        </div>
+                                        <span className="text-sm font-black text-text-main truncate max-w-[120px]">{g.title}</span>
+                                    </div>
+                                    <span className="text-sm font-black text-primary">{pct}%</span>
+                                </div>
+                                <div className="h-2 w-full bg-border-main rounded-full overflow-hidden">
+                                    <div 
+                                        className="h-full bg-primary transition-all duration-1000" 
+                                        style={{ width: `${pct}%` }} 
+                                    />
+                                </div>
+                                <div className="flex justify-between text-[10px] font-bold text-text-muted">
+                                    <span>{formatCurrency(g.currentAmount)} saved</span>
+                                    <span>{formatCurrency(g.targetAmount)} target</span>
+                                </div>
+                            </div>
+                        );
+                    })}
+                    <button 
+                        onClick={() => setPage("goals")}
+                        className="mt-2 w-full py-3 bg-primary/5 hover:bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest rounded-xl transition-all"
+                    >
+                        Review all targets
+                    </button>
+                 </div>
+               ) : (
+                 <div className="flex-1 flex flex-col items-center justify-center text-center gap-4">
+                    <div className="w-16 h-16 rounded-full bg-border-main/20 flex items-center justify-center text-text-muted/30">
+                        <Flag size={32} />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                        <h4 className="text-lg font-black text-text-main">No goals set</h4>
+                        <p className="text-xs font-medium text-text-muted">Achieve your dreams by setting targets.</p>
+                    </div>
+                    <button 
+                        onClick={() => setPage("goals")}
+                        className="px-8 py-3.5 bg-primary hover:bg-emerald-400 text-white font-black rounded-xl shadow-lg shadow-primary/20 transition-all text-xs"
+                    >
+                        Set Your First Goal
+                    </button>
+                 </div>
+               )}
+            </div>
+         </section>
+
+         {/* Spending overview */}
+         <section className="flex flex-col gap-4">
+            <div className="flex items-center justify-between px-2">
+              <div className="flex items-center gap-3">
+                <Activity size={20} className="text-text-muted" />
+                <h3 className="text-lg font-black text-text-main">Spending overview</h3>
+              </div>
+              <button onClick={() => setPage("analytics")} className="text-[10px] font-black text-[#00A86B] uppercase tracking-widest hover:underline">View report</button>
+            </div>
+            <div className="bg-card border border-border-main rounded-3xl p-10 flex flex-col items-center justify-center min-h-[300px] text-center gap-6 shadow-sm">
+                {hasTransactions ? (
+                    <div className="w-full h-full relative">
+                        <canvas ref={chartRef}></canvas>
+                    </div>
+                ) : (
+                    <>
+                        <div className="w-16 h-16 rounded-full bg-border-main/20 flex items-center justify-center text-text-muted/30">
+                            <BarChart3 size={32} />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <h4 className="text-lg font-black text-text-main">No spending data yet</h4>
+                            <p className="text-xs font-medium text-text-muted">Add transactions to see where your money goes.</p>
+                        </div>
+                        <button 
+                            onClick={() => setPage("transactions")}
+                            className="px-8 py-3.5 bg-[#00A86B] hover:bg-[#00925d] text-white font-black rounded-xl shadow-lg shadow-[#00A86B]/20 transition-all text-xs"
+                        >
+                            Add Transaction
+                        </button>
+                    </>
+                )}
+            </div>
+         </section>
+      </div>
+
+      {/* Bottom Banner */}
+      <section className="bg-card border border-border-main rounded-[2.5rem] p-8 flex flex-col lg:flex-row items-center justify-between gap-10 shadow-sm">
+        <div className="flex items-center gap-6">
+          <div className="w-16 h-16 rounded-full bg-[#00A86B] flex items-center justify-center text-white shrink-0">
+            <Trophy size={32} fill="currentColor" />
+          </div>
+          <div className="flex flex-col">
+            <h4 className="text-base font-black text-text-main">Keep going!</h4>
+            <p className="text-xs font-bold text-text-muted mt-1">Small steps today lead to a better tomorrow.</p>
           </div>
         </div>
-      </div>
+
+        <div className="flex flex-col lg:flex-row items-center gap-12 w-full lg:w-auto">
+          {/* Current level */}
+          <div className="flex flex-col gap-1 items-center lg:items-start min-w-[120px]">
+            <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">Current level</span>
+            <span className="text-2xl font-black text-[#00A86B]">Starter</span>
+          </div>
+
+          {/* XP Progress */}
+          <div className="flex-1 lg:min-w-[280px] flex flex-col gap-2">
+            <div className="flex items-center justify-between text-[11px] font-black text-text-muted uppercase tracking-widest">
+              <span>XP Progress</span>
+              <span className="text-text-main">{Math.round(engineOutput.xp).toLocaleString()} / 5,000 XP</span>
+            </div>
+            <div className="h-3 w-full bg-border-main rounded-full overflow-hidden">
+                <div className="h-full bg-[#00A86B] transition-all duration-1000" style={{ width: `${Math.min(100, (engineOutput.xp / 5000) * 100)}%` }} />
+            </div>
+          </div>
+
+          {/* Next level */}
+          <div className="flex flex-col gap-1 items-center lg:items-start min-w-[120px]">
+            <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">Next level</span>
+            <div className="flex flex-col">
+                <span className="text-base font-black text-text-main">Builder</span>
+                <span className="text-[10px] font-bold text-text-muted">3,500 XP to go</span>
+            </div>
+          </div>
+        </div>
+      </section>
     </ViewContainer>
   );
 };
+;

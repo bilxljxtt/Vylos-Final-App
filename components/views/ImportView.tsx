@@ -63,7 +63,7 @@ export const ImportView: React.FC<ImportViewProps> = ({
               Browse Data Streams
               <input 
                 type="file" 
-                accept=".csv,.xlsx,.xls" 
+                accept=".csv,.xlsx,.xls,.txt" 
                 className="hidden" 
                 onChange={e => {
                   if (e.target.files?.[0]) {
@@ -90,7 +90,10 @@ export const ImportView: React.FC<ImportViewProps> = ({
                 <div className="flex items-center justify-between mb-8">
                   <h4 className="text-[11px] font-black text-text-muted uppercase tracking-widest opacity-60">Schema Preview</h4>
                   <button 
-                    onClick={() => handleCSV(SAMPLE_CSV)}
+                    onClick={() => {
+                      const file = new File([SAMPLE_CSV], "vylos-sample.csv", { type: "text/csv" });
+                      processFile(file);
+                    }}
                     className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline"
                   >
                     Quick Load
@@ -107,10 +110,26 @@ export const ImportView: React.FC<ImportViewProps> = ({
       ) : (
         <div className="bg-card border border-border-main rounded-[2.5rem] shadow-2xl shadow-black/20 flex flex-col max-h-[calc(100vh-200px)] overflow-hidden">
           <div className="p-10 border-b border-border-main flex items-center justify-between bg-border-main/10 backdrop-blur-xl">
-            <div>
-              <h3 className="text-2xl font-black text-text-main tracking-tighter">Review synchronization</h3>
-              <p className="text-[11px] font-black text-text-muted uppercase tracking-[0.2em] mt-1">{importPreview.length} records staging for commit</p>
+            <div className="flex items-center gap-10">
+              <div>
+                <h3 className="text-2xl font-black text-text-main tracking-tighter">Review synchronization</h3>
+                <p className="text-[11px] font-black text-text-muted uppercase tracking-[0.2em] mt-1">{importPreview.length} records staging for commit</p>
+              </div>
+
+              <div className="hidden lg:flex items-center gap-6 border-l border-border-main pl-10">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">Auto-Categorized</span>
+                  <span className="text-lg font-black text-primary">{importPreview.filter(tx => tx.cat !== "Other").length}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">Net Value</span>
+                  <span className={`text-lg font-black ${importPreview.reduce((s, t) => s + t.amount, 0) >= 0 ? "text-primary" : "text-red-500"}`}>
+                    {formatCurrency(importPreview.reduce((s, t) => s + t.amount, 0))}
+                  </span>
+                </div>
+              </div>
             </div>
+
             <div className="flex gap-4">
               <button 
                 onClick={() => setImportPreview(null)}
