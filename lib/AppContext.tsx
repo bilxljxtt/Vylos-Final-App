@@ -244,7 +244,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       const budgetsObj: Record<string, BudgetCategory> = {};
       if (budgets) {
-        budgets.forEach(b => {
+        budgets.forEach((b: any) => {
           budgetsObj[b.category] = { limit: parseFloat(b.limit), type: b.type as any };
         });
       }
@@ -252,9 +252,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       dispatch({
         type: "HYDRATE_STATE",
         payload: {
-          transactions: txs ? txs.map(t => ({ id: t.id, merchant: t.title, amount: parseFloat(t.amount), date: t.date, category: t.category, createdAt: t.created_at })) : [],
-          subscriptions: subs ? subs.map(s => ({ id: s.id, name: s.name, amount: parseFloat(s.amount), category: s.category, frequency: s.frequency, nextDue: s.next_due })) : [],
-          goals: gps ? gps.map(g => ({ 
+          transactions: txs ? txs.map((t: any) => ({ id: t.id, merchant: t.title, amount: parseFloat(t.amount), date: t.date, category: t.category, createdAt: t.created_at })) : [],
+          subscriptions: subs ? subs.map((s: any) => ({ id: s.id, name: s.name, amount: parseFloat(s.amount), category: s.category, frequency: s.frequency, nextDue: s.next_due })) : [],
+          goals: gps ? gps.map((g: any) => ({ 
             id: g.id, 
             title: g.title, 
             targetAmount: parseFloat(g.target_amount), 
@@ -267,9 +267,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             color: g.color,
             createdAt: g.created_at 
           })) : [],
-          goalContributions: contribs ? contribs.map(c => ({ id: c.id, goalId: c.goal_id, amount: parseFloat(c.amount), date: c.date, notes: c.notes })) : [],
-          reminders: rems ? rems.map(r => ({ id: r.id, title: r.title, amount: parseFloat(r.amount), date: r.date, category: r.category, repeat: r.repeat, isPaid: r.is_paid })) : [],
-          merchantRules: rules ? rules.map(r => ({ id: r.id, user_id: r.user_id, merchant_keyword: r.merchant_keyword, category: r.category })) : [],
+          goalContributions: contribs ? contribs.map((c: any) => ({ id: c.id, goalId: c.goal_id, amount: parseFloat(c.amount), date: c.date, notes: c.notes })) : [],
+          reminders: rems ? rems.map((r: any) => ({ id: r.id, title: r.title, amount: parseFloat(r.amount), date: r.date, category: r.category, repeat: r.repeat, isPaid: r.is_paid })) : [],
+          merchantRules: rules ? rules.map((r: any) => ({ id: r.id, user_id: r.user_id, merchant_keyword: r.merchant_keyword, category: r.category })) : [],
           budgets: Object.keys(budgetsObj).length > 0 ? budgetsObj : initialState.budgets,
           userProfile: prof ? {
             name: prof.name || "",
@@ -301,12 +301,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Initial check
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(({ data: { user } }: { data: { user: any } }) => {
       hydrateCloudState(user);
     });
 
     // Listen for changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: any) => {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         hydrateCloudState(session?.user);
       } else if (event === 'SIGNED_OUT') {
@@ -319,26 +319,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     let goalsChannel: any = null;
     let contribChannel: any = null;
 
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(({ data: { user } }: { data: { user: any } }) => {
       if (user) {
         txChannel = supabase.channel('public:transactions')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${user.id}` }, async () => {
             const { data: txs } = await supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false });
-            if (txs) dispatch({ type: "UPDATE_TRANSACTIONS", payload: txs.map(t => ({ id: t.id, merchant: t.title, amount: parseFloat(t.amount), date: t.date, category: t.category })) });
+            if (txs) dispatch({ type: "UPDATE_TRANSACTIONS", payload: txs.map((t: any) => ({ id: t.id, merchant: t.title, amount: parseFloat(t.amount), date: t.date, category: t.category })) });
             setLastSynced(new Date());
           }).subscribe();
 
         goalsChannel = supabase.channel('public:goals')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'goals', filter: `user_id=eq.${user.id}` }, async () => {
             const { data: gps } = await supabase.from('goals').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
-            if (gps) dispatch({ type: "UPDATE_GOALS", payload: gps.map(g => ({ id: g.id, title: g.title, targetAmount: parseFloat(g.target_amount), currentAmount: parseFloat(g.current_amount), deadline: g.deadline, status: g.status, category: g.category, notes: g.notes, icon: g.icon, color: g.color, createdAt: g.created_at })) });
+            if (gps) dispatch({ type: "UPDATE_GOALS", payload: gps.map((g: any) => ({ id: g.id, title: g.title, targetAmount: parseFloat(g.target_amount), currentAmount: parseFloat(g.current_amount), deadline: g.deadline, status: g.status, category: g.category, notes: g.notes, icon: g.icon, color: g.color, createdAt: g.created_at })) });
             setLastSynced(new Date());
           }).subscribe();
 
         contribChannel = supabase.channel('public:goal_contributions')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'goal_contributions', filter: `user_id=eq.${user.id}` }, async () => {
             const { data: contribs } = await supabase.from('goal_contributions').select('*').eq('user_id', user.id);
-            if (contribs) dispatch({ type: "UPDATE_CONTRIBUTIONS", payload: contribs.map(c => ({ id: c.id, goalId: c.goal_id, amount: parseFloat(c.amount), date: c.date, notes: c.notes })) });
+            if (contribs) dispatch({ type: "UPDATE_CONTRIBUTIONS", payload: contribs.map((c: any) => ({ id: c.id, goalId: c.goal_id, amount: parseFloat(c.amount), date: c.date, notes: c.notes })) });
             setLastSynced(new Date());
           }).subscribe();
       }
@@ -406,7 +406,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (error) throw new Error(error.message);
       dispatch({ type: "DELETE_SUBSCRIPTION", payload: id });
     },
-    []
+    [supabase]
   );
 
   const addGoal = useCallback(
@@ -430,7 +430,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (error) throw new Error(error.message);
       if (data) dispatch({ type: "ADD_GOAL", payload: { ...goal, id: data.id, createdAt, status } });
     },
-    [sessionUser]
+    [sessionUser, supabase]
   );
 
   const updateGoal = useCallback(
@@ -450,7 +450,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (error) throw new Error(error.message);
       dispatch({ type: "UPDATE_GOAL", payload: { id, updates } });
     },
-    []
+    [supabase]
   );
 
   const deleteGoal = useCallback(
@@ -459,7 +459,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (error) throw new Error(error.message);
       dispatch({ type: "DELETE_GOAL", payload: id });
     },
-    []
+    [supabase]
   );
 
   const addGoalContribution = useCallback(

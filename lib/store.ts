@@ -283,19 +283,6 @@ export function computeGoalFeasibility(state: AppState, goal: Goal): GoalFeasibi
   };
 }
 
-export function computeTotalBudgetSpent(budgets: Record<string, BudgetCategory>): number {
-  return Object.values(budgets)
-    .filter((b) => b.type === "limit")
-    .reduce((sum, b) => sum + b.spent, 0);
-}
-
-export function computeTotalBudgetLimit(budgets: Record<string, BudgetCategory>): number {
-  return Object.values(budgets)
-    .filter((b) => b.type === "limit")
-    .reduce((sum, b) => sum + b.limit, 0);
-}
-
-
 export function getCurrencySymbol(countryStr?: string): string {
   if (!countryStr) return "R";
   if (countryStr.includes("ZAR") || countryStr.includes("South Africa")) return "R";
