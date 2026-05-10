@@ -35,7 +35,6 @@ export const ImportView: React.FC<ImportViewProps> = ({
     <ViewContainer className="flex flex-col gap-10 pt-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-black text-text-main tracking-tighter leading-none">Import Center</h2>
           <p className="text-sm font-medium text-text-muted mt-3 uppercase tracking-widest text-[10px] opacity-60">Batch synchronize financial data</p>
         </div>
       </div>
@@ -47,8 +46,8 @@ export const ImportView: React.FC<ImportViewProps> = ({
             onDragLeave={() => setDrag(false)} 
             onDrop={e => { e.preventDefault(); setDrag(false); if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]); }}
             className={`
-              lg:col-span-2 border-2 border-dashed rounded-[3rem] p-20 text-center transition-all duration-500 flex flex-col items-center justify-center
-              ${drag ? "border-primary bg-primary/5 scale-[0.98] shadow-2xl shadow-primary/10" : "border-border-main bg-card hover:border-primary/40 hover:shadow-xl hover:shadow-primary/5"}
+              lg:col-span-2 vylos-glass-readable p-20 text-center transition-all duration-500 flex flex-col items-center justify-center !rounded-[3rem]
+              ${drag ? "!border-primary !bg-primary/5 scale-[0.98] shadow-2xl shadow-primary/10" : "hover:border-primary/40 hover:shadow-xl hover:shadow-primary/5"}
             `}
           >
             <div className="w-24 h-24 bg-border-main rounded-3xl flex items-center justify-center mb-8 shadow-inner ring-1 ring-white/10 group">
@@ -76,19 +75,19 @@ export const ImportView: React.FC<ImportViewProps> = ({
           </div>
 
           <div className="flex flex-col gap-8">
-             <div className="bg-card border border-border-main p-8 rounded-[2.5rem] shadow-sm">
+             <div className="vylos-glass-readable p-8 !rounded-[2.5rem]">
                 <div className="flex items-center gap-3 mb-6">
                    <CheckCircle2 size={20} className="text-primary" />
-                   <h4 className="text-[11px] font-black text-text-main uppercase tracking-widest">Compliance Ready</h4>
+                   <h4 className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-widest">Compliance Ready</h4>
                 </div>
-                <p className="text-xs font-medium text-text-muted leading-relaxed">
+                <p className="text-xs font-medium text-slate-600 dark:text-slate-400 leading-relaxed">
                    All imports are secured with end-to-end encryption. No PII is stored in the neural index.
                 </p>
              </div>
 
-             <div className="bg-card border border-border-main p-8 rounded-[2.5rem] shadow-sm flex flex-col flex-1">
+             <div className="vylos-glass-readable p-8 !rounded-[2.5rem] flex flex-col flex-1">
                 <div className="flex items-center justify-between mb-8">
-                  <h4 className="text-[11px] font-black text-text-muted uppercase tracking-widest opacity-60">Schema Preview</h4>
+                  <h4 className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest opacity-60">Schema Preview</h4>
                   <button 
                     onClick={() => {
                       const file = new File([SAMPLE_CSV], "vylos-sample.csv", { type: "text/csv" });
@@ -108,8 +107,8 @@ export const ImportView: React.FC<ImportViewProps> = ({
           </div>
         </div>
       ) : (
-        <div className="bg-card border border-border-main rounded-[2.5rem] shadow-2xl shadow-black/20 flex flex-col max-h-[calc(100vh-200px)] overflow-hidden">
-          <div className="p-10 border-b border-border-main flex items-center justify-between bg-border-main/10 backdrop-blur-xl">
+        <div className="vylos-glass-readable !rounded-[2.5rem] shadow-2xl flex flex-col max-h-[calc(100vh-200px)] overflow-hidden">
+          <div className="p-10 border-b border-slate-200 dark:border-white/10 flex items-center justify-between bg-white/5 dark:bg-white/5 backdrop-blur-xl">
             <div className="flex items-center gap-10">
               <div>
                 <h3 className="text-2xl font-black text-text-main tracking-tighter">Review synchronization</h3>
@@ -118,14 +117,12 @@ export const ImportView: React.FC<ImportViewProps> = ({
 
               <div className="hidden lg:flex items-center gap-6 border-l border-border-main pl-10">
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">Auto-Categorized</span>
-                  <span className="text-lg font-black text-primary">{importPreview.filter(tx => tx.cat !== "Other").length}</span>
+                  <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">Duplicates Skipped</span>
+                  <span className="text-lg font-black text-amber-500">{importPreview.filter(tx => tx.isDuplicate).length}</span>
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">Net Value</span>
-                  <span className={`text-lg font-black ${importPreview.reduce((s, t) => s + t.amount, 0) >= 0 ? "text-primary" : "text-red-500"}`}>
-                    {formatCurrency(importPreview.reduce((s, t) => s + t.amount, 0))}
-                  </span>
+                  <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">Net New</span>
+                  <span className="text-lg font-black text-primary">{importPreview.filter(tx => !tx.isDuplicate).length}</span>
                 </div>
               </div>
             </div>
@@ -149,22 +146,25 @@ export const ImportView: React.FC<ImportViewProps> = ({
           <div className="flex-1 overflow-y-auto">
             <div className="flex flex-col">
               {importPreview.map((tx: any, i: number) => (
-                <div key={i} className="flex items-center gap-6 px-10 py-6 border-b border-border-main/50 hover:bg-primary/[0.02] transition-colors group">
+                <div key={i} className={`flex items-center gap-6 px-10 py-6 border-b border-border-main/50 transition-colors group ${tx.isDuplicate ? 'opacity-40 bg-card' : 'hover:bg-primary/[0.02]'}`}>
                   <div 
-                    className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-inner group-hover:scale-105 transition-transform"
+                    className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-inner transition-transform ${!tx.isDuplicate && 'group-hover:scale-105'}`}
                     style={{ backgroundColor: `${CATEGORY_METADATA[tx.cat as TransactionCategory]?.color || '#888'}15` }}
                   >
-                    {CATEGORY_METADATA[tx.cat as TransactionCategory]?.icon || "📦"}
+                    {tx.isDuplicate ? <AlertCircle size={24} className="text-amber-500" /> : (CATEGORY_METADATA[tx.cat as TransactionCategory]?.icon || "📦")}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-base font-black text-text-main truncate tracking-tight">{tx.desc}</div>
+                    <div className="flex items-center gap-2">
+                      <div className={`text-base font-black truncate tracking-tight ${tx.isDuplicate ? 'text-text-muted line-through' : 'text-text-main'}`}>{tx.desc}</div>
+                      {tx.isDuplicate && <span className="text-[9px] font-black uppercase tracking-widest text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full">Duplicate</span>}
+                    </div>
                     <div className="text-[11px] font-black text-text-muted uppercase tracking-widest flex items-center gap-3 mt-1">
                       <span>{tx.date}</span>
                       <span className="w-1 h-1 rounded-full bg-border-main" />
                       <span style={{ color: CATEGORY_METADATA[tx.cat as TransactionCategory]?.color }}>{tx.cat}</span>
                     </div>
                   </div>
-                  <div className={`text-lg font-black tracking-tighter ${tx.amount > 0 ? "text-primary" : "text-red-500"}`}>
+                  <div className={`text-lg font-black tracking-tighter ${tx.isDuplicate ? 'text-text-muted' : (tx.amount > 0 ? "text-primary" : "text-red-500")}`}>
                     {formatCurrency(tx.amount)}
                   </div>
                 </div>

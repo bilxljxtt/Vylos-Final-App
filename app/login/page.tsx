@@ -1,25 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { 
-  Eye, 
-  EyeOff, 
-  Mail, 
-  Lock, 
-  TrendingUp, 
-  ShieldCheck, 
-  Target, 
-  Layout, 
-  ArrowRight,
-  Globe,
-  Fingerprint
+  Mail, Lock, Eye, EyeOff, ChevronRight, ShieldCheck, 
+  Globe, Zap, TrendingUp, Target, CreditCard, Shield, Sparkles 
 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { useToast } from "@/components/Toast";
 
-export default function Login() {
+export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
   const supabase = createClient();
@@ -33,240 +24,263 @@ export default function Login() {
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error, data } = await supabase.auth.signInWithPassword({ email, password });
+    
     if (error) { 
       toast(error.message, "error"); 
       setLoading(false); 
       return; 
     }
-    toast("Welcome back", "success");
-    router.push("/");
-  }
 
-  async function handleForgotPassword() {
-    if (!email) return toast("Please enter your email first", "error");
-    setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    setLoading(false);
-    if (error) {
-      toast(error.message, "error");
-    } else {
-      toast("Neural reset link sent to your email.", "success");
+    if (data.user) {
+        toast("Welcome back to Vylos", "success");
+        router.push("/"); 
     }
   }
 
   return (
-    <div className="min-h-screen bg-white flex flex-col lg:flex-row overflow-hidden font-sans">
-      {/* ─── LEFT: Branding & Illustration ────────────────────────────────────── */}
-      <div className="lg:w-[42%] bg-bg-mint flex-col p-8 lg:p-16 relative overflow-hidden hidden lg:flex">
-        {/* Decorative background shapes */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-primary/10 rounded-full translate-y-1/3 -translate-x-1/4 blur-3xl" />
-        
-        {/* Logo */}
-        <div className="flex items-center gap-4 mb-16 relative z-10">
-          <div className="w-14 h-14 rounded-full border border-[#00A86B]/10 overflow-hidden flex items-center justify-center">
-            <img src="/logo.png" alt="Vylos Logo" className="w-full h-full object-cover scale-[1.1]" />
-          </div>
-          <span className="text-4xl font-bold tracking-tight text-[#00A86B]">Vylos</span>
-        </div>
+    <div className="vylos-bg-premium min-h-screen w-full flex flex-col lg:flex-row relative overflow-hidden font-inter selection:bg-blue-500/30">
+      
+      {/* ─── Background Blobs ─── */}
+      <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-blue-600/20 rounded-full blur-[160px] pointer-events-none animate-pulse" />
+      <div className="absolute bottom-[-5%] right-[-5%] w-[50%] h-[50%] bg-indigo-600/15 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute top-[40%] right-[-10%] w-[30%] h-[40%] bg-cyan-600/10 rounded-full blur-[120px] pointer-events-none" />
 
-        <div className="relative z-10">
-          <h1 className="text-5xl font-extrabold text-slate-900 leading-[1.1] mb-6 tracking-tight">
-            Take control of <br />
-            your <span className="text-primary">financial future</span>
+      {/* ─── Header Overlay ─── */}
+      <div className="absolute top-8 left-8 lg:left-12 flex items-center gap-4 z-50">
+        <div className="flex items-center justify-center relative group transition-all duration-700" style={{ width: "56px", height: "56px" }}>
+          <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/20 to-white/5 backdrop-blur-2xl border border-white/20 shadow-2xl transition-all duration-500 group-hover:scale-110 group-hover:border-blue-400/40" />
+          <div className="absolute inset-1 rounded-full bg-gradient-to-tr from-blue-500/10 to-transparent blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+          <div className="absolute inset-0 rounded-full border border-white/5 pointer-events-none" />
+          <img src="/logo-icon.png" alt="Vylos Logo" className="select-none relative z-10 transform group-hover:scale-105 group-hover:rotate-3 transition-all duration-700 ease-out" style={{ width: "36px", height: "36px", objectFit: "contain", filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.2))" }} draggable={false} />
+        </div>
+        <div className="flex flex-col">
+          <span className="text-3xl font-black tracking-tighter text-white leading-none">Vylos</span>
+          <span className="text-[11px] font-black text-blue-200/60 tracking-widest uppercase mt-1">Track. Understand. Improve. Grow.</span>
+        </div>
+      </div>
+
+      {/* ─── LEFT: Visual Branding ─── */}
+      <div className="hidden lg:flex flex-[1.2] flex-col justify-center p-16 xl:p-24 relative">
+        <div className="relative z-10 max-w-3xl">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/10 backdrop-blur-md mb-6">
+            <Sparkles size={12} className="text-blue-300" />
+            <span className="text-[9px] font-black text-white uppercase tracking-[0.2em]">The Future of Finance</span>
+          </div>
+
+          <h1 className="text-6xl xl:text-7xl font-black text-white leading-[0.95] tracking-tight mb-8">
+            <span className="text-gradient">Your financial future,</span> <br />
+            <span className="text-blue-200/90 italic font-serif">in your hands.</span>
           </h1>
-          <p className="text-lg text-slate-600 font-medium mb-12 max-w-md leading-relaxed">
-            Vylos helps you track, budget, and grow your money with AI-powered insights.
+          
+          <p className="text-lg xl:text-xl text-white/70 font-medium leading-relaxed max-w-lg mb-12">
+            Vylos helps you track, understand, and improve your finances—so you can grow with confidence.
           </p>
 
-          <div className="space-y-8">
-            <FeatureItem 
-              icon={<TrendingUp className="w-5 h-5 text-primary" />} 
-              title="Smart Insights" 
-              desc="AI-powered insights to help you make better financial decisions."
-            />
-            <FeatureItem 
-              icon={<ShieldCheck className="w-5 h-5 text-primary" />} 
-              title="Secure & Private" 
-              desc="Bank-level security to keep your data safe and encrypted."
-            />
-            <FeatureItem 
-              icon={<Target className="w-5 h-5 text-primary" />} 
-              title="Achieve Goals" 
-              desc="Set goals, track progress, and build the life you want."
-            />
+          {/* Mini Widgets Illustration */}
+          <div className="grid grid-cols-2 gap-8 max-w-2xl">
+             {/* Card 1: Spending */}
+             <div className="glass-card p-8 animate-float">
+                <div className="flex items-center justify-between mb-6">
+                    <span className="text-[11px] font-black text-white/40 uppercase tracking-widest">Spending</span>
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                        <TrendingUp size={16} className="text-emerald-400" />
+                    </div>
+                </div>
+                <div className="text-4xl font-black text-white mb-2">$1,842<span className="text-white/40 text-2xl">.32</span></div>
+                <div className="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                    <span className="text-[10px] text-emerald-400 font-black">↓ 8.8%</span>
+                </div>
+             </div>
+
+             {/* Card 2: Overview */}
+             <div className="glass-card p-8 animate-float" style={{ animationDelay: '1s' }}>
+                <div className="flex items-center justify-between mb-8">
+                    <span className="text-[11px] font-black text-white/40 uppercase tracking-widest">Efficiency</span>
+                    <div className="w-2.5 h-2.5 rounded-full bg-blue-400 animate-pulse shadow-[0_0_10px_rgba(96,165,250,0.5)]" />
+                </div>
+                <div className="flex items-end gap-2 h-20">
+                    {[30, 45, 25, 60, 40, 80, 55].map((h, i) => (
+                        <div key={i} className="flex-1 bg-gradient-to-t from-blue-500/40 to-cyan-400/60 rounded-full" style={{ height: `${h}%` }} />
+                    ))}
+                </div>
+             </div>
+
+             {/* Card 3: Goals */}
+             <div className="col-span-2 glass-card p-8 animate-float" style={{ animationDelay: '2s' }}>
+                <div className="flex items-center justify-between mb-8">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                            <Target size={20} className="text-blue-300" />
+                        </div>
+                        <span className="text-[11px] font-black text-white/40 uppercase tracking-widest">Active Goals</span>
+                    </div>
+                    <button className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-colors border border-white/5">
+                        Manage Goals
+                    </button>
+                </div>
+                <div className="space-y-6">
+                    {[
+                        { name: "Emergency Fund", progress: 75, color: "from-emerald-400 to-teal-500", glow: "shadow-[0_0_15px_rgba(52,211,153,0.3)]" },
+                        { name: "Dream Vacation", progress: 65, color: "from-blue-400 to-indigo-500", glow: "shadow-[0_0_15px_rgba(96,165,250,0.3)]" },
+                    ].map((g, i) => (
+                        <div key={i} className="space-y-3">
+                            <div className="flex justify-between items-center px-1">
+                                <span className="text-sm font-black text-white">{g.name}</span>
+                                <span className="text-xs font-black text-white/40">{g.progress}%</span>
+                            </div>
+                            <div className="h-2.5 bg-white/5 rounded-full p-0.5 border border-white/5">
+                                <div className={`h-full bg-gradient-to-r ${g.color} rounded-full ${g.glow}`} style={{ width: `${g.progress}%` }} />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+             </div>
           </div>
         </div>
 
-        {/* Dashboard Preview Illustration */}
-        <div className="mt-auto relative z-10 pt-16">
-          <div className="relative transform hover:scale-[1.02] transition-transform duration-500">
-             {/* Main Card */}
-            <div className="glass-card rounded-3xl p-6 w-full max-w-[340px] relative z-20 overflow-hidden">
-              <div className="flex justify-between items-center mb-6">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Balance</span>
-                <div className="w-5 h-5 rounded-full border-2 border-slate-200 flex items-center justify-center">
-                  <div className="w-1 h-1 bg-slate-300 rounded-full" />
-                </div>
-              </div>
-              <div className="text-3xl font-bold text-slate-900 mb-4">$24,250.75</div>
-              <div className="h-24 w-full flex items-end gap-1">
-                {[40, 70, 45, 90, 65, 80, 50, 85, 100].map((h, i) => (
-                  <div 
-                    key={i} 
-                    style={{ height: `${h}%` }} 
-                    className={`flex-1 rounded-t-sm transition-all duration-1000 delay-${i * 100} bg-primary/20 hover:bg-primary`}
-                  />
-                ))}
-              </div>
-            </div>
-            
-            {/* Floating Elements */}
-            <div className="absolute -bottom-10 -left-10 glass-card rounded-2xl p-4 w-48 shadow-2xl z-30 transform -rotate-6">
-              <div className="w-10 h-6 bg-emerald-500 rounded-md mb-3" />
-              <div className="h-2 w-3/4 bg-slate-100 rounded-full mb-2" />
-              <div className="h-2 w-1/2 bg-slate-100 rounded-full" />
-            </div>
-
-            <div className="absolute top-1/2 -right-4 glass-card rounded-full p-4 shadow-xl z-30 transform translate-x-1/2">
-              <div className="w-12 h-12 rounded-full border-[6px] border-primary border-t-transparent animate-spin-slow" />
-            </div>
-          </div>
+        {/* Bottom Trust Indicators */}
+        <div className="absolute bottom-12 left-24 right-24 flex justify-between items-center z-10 border-t border-white/10 pt-8 opacity-40">
+             <div className="flex items-center gap-3">
+                <Shield size={16} className="text-white" />
+                <span className="text-[9px] font-black text-white uppercase tracking-[0.2em]">Secure Data</span>
+             </div>
+             <div className="flex items-center gap-3">
+                <Lock size={16} className="text-white" />
+                <span className="text-[9px] font-black text-white uppercase tracking-[0.2em]">Private</span>
+             </div>
+             <div className="flex items-center gap-3">
+                <Globe size={16} className="text-white" />
+                <span className="text-[9px] font-black text-white uppercase tracking-[0.2em]">Global Reach</span>
+             </div>
         </div>
       </div>
 
-      {/* ─── RIGHT: Login Form Section ────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col relative">
-        {/* Top Link */}
-        <div className="p-8 flex justify-end items-center">
-          <p className="text-sm font-medium text-slate-500">
-            New to Vylos? <Link href="/signup" className="text-primary font-bold hover:underline ml-1">Create account</Link>
-          </p>
-        </div>
+      {/* ─── RIGHT: Login Card ─── */}
+      <div className="flex-1 flex flex-col justify-center items-center p-6 lg:p-8 relative z-20">
+        <div className="w-full max-w-[480px] vylos-glass rounded-[40px] p-10 lg:p-12 shadow-2xl relative overflow-hidden border border-white/20">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
+          
+          <div className="flex flex-col items-center text-center mb-8">
+            <div className="flex items-center justify-center relative group transition-all duration-700 mb-6" style={{ width: "88px", height: "88px" }}>
+              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-600/10 to-blue-400/5 backdrop-blur-2xl border border-blue-600/20 shadow-2xl transition-all duration-500 group-hover:scale-110 group-hover:border-blue-500/40 group-hover:shadow-blue-500/20" />
+              <div className="absolute inset-2 rounded-full bg-gradient-to-tr from-blue-500/10 to-transparent blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+              <div className="absolute inset-0 rounded-full border border-white/5 pointer-events-none" />
+              <img src="/logo-icon.png" alt="Logo" className="select-none relative z-10 transform group-hover:scale-105 group-hover:rotate-3 transition-all duration-700 ease-out" style={{ width: "52px", height: "52px", objectFit: "contain", filter: "drop-shadow(0 8px 16px rgba(0,0,0,0.2))" }} draggable={false} />
+            </div>
+            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">Welcome back</h2>
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-2 max-w-[280px]">
+              Access your personalized financial dashboard and keep growing.
+            </p>
+          </div>
 
-        {/* Center Form */}
-        <div className="flex-1 flex items-center justify-center px-6 pb-12">
-          <div className="w-full max-w-[480px]">
-            <div className="mb-10 text-center lg:text-left">
-              <h2 className="text-3xl font-extrabold text-slate-900 mb-2">Welcome back 👋</h2>
-              <p className="text-slate-500 font-medium">Login to your Vylos account</p>
+          <form onSubmit={handleLogin} className="space-y-8">
+            <div className="space-y-3">
+              <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-2">Email address</label>
+              <div className="relative group">
+                <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors">
+                  <Mail size={20} />
+                </div>
+                <input 
+                  type="email" 
+                  placeholder="name@company.com" 
+                  value={email} 
+                  onChange={e => setEmail(e.target.value)} 
+                  required
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl pl-14 pr-4 py-5 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 transition-all font-bold tracking-tight text-lg"
+                />
+              </div>
             </div>
 
-            <form onSubmit={handleLogin} className="space-y-6">
-              {/* Email Input */}
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-700 ml-1">Email address</label>
-                <div className="relative group">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">
-                    <Mail size={20} />
-                  </div>
-                  <input 
-                    type="email" 
-                    placeholder="Enter your email" 
-                    value={email} 
-                    onChange={e => setEmail(e.target.value)} 
-                    required
-                    className="w-full bg-white border border-slate-200 rounded-xl pl-12 pr-4 py-4 text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all outline-none font-medium"
-                  />
-                </div>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center px-2">
+                <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Password</label>
               </div>
-
-              {/* Password Input */}
-              <div className="space-y-2">
-                <div className="flex justify-between items-center px-1">
-                  <label className="text-sm font-bold text-slate-700">Password</label>
-                  <button 
-                    type="button" 
-                    onClick={handleForgotPassword}
-                    className="text-sm font-bold text-primary hover:underline focus:outline-none"
-                  >
-                    Forgot password?
-                  </button>
+              <div className="relative group">
+                <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors">
+                  <Lock size={20} />
                 </div>
-                <div className="relative group">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">
-                    <Lock size={20} />
-                  </div>
-                  <input 
-                    type={showPassword ? "text" : "password"} 
-                    placeholder="Enter your password" 
-                    value={password} 
-                    onChange={e => setPassword(e.target.value)} 
-                    required
-                    className="w-full bg-white border border-slate-200 rounded-xl pl-12 pr-12 py-4 text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all outline-none font-medium"
-                  />
-                  <button 
-                    type="button" 
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                  >
-                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Remember Me */}
-              <div className="flex items-center gap-3 px-1">
+                <input 
+                  type={showPassword ? "text" : "password"} 
+                  placeholder="••••••••••••" 
+                  value={password} 
+                  onChange={e => setPassword(e.target.value)} 
+                  required
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl pl-14 pr-14 py-5 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 transition-all font-bold tracking-tight text-lg"
+                />
                 <button 
-                  type="button"
-                  onClick={() => setRememberMe(!rememberMe)}
-                  className={`w-6 h-6 rounded-md border-2 transition-all flex items-center justify-center ${rememberMe ? 'bg-primary border-primary' : 'border-slate-200 hover:border-primary/50'}`}
+                  type="button" 
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
                 >
-                  {rememberMe && <div className="w-3 h-1.5 border-l-2 border-b-2 border-white -rotate-45 mb-0.5" />}
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
-                <span className="text-sm font-bold text-slate-600 cursor-pointer" onClick={() => setRememberMe(!rememberMe)}>Remember me</span>
-              </div>
-
-              {/* Login Button */}
-              <button 
-                type="submit" 
-                disabled={loading}
-                className="w-full login-btn py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2"
-              >
-                {loading ? "Logging in..." : "Login to Vylos"}
-              </button>
-            </form>
-
-
-            {/* Security Note */}
-            <div className="mt-12 p-6 bg-slate-50 rounded-3xl flex items-start gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-white border border-slate-100 flex items-center justify-center shrink-0">
-                <ShieldCheck className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <h4 className="font-bold text-slate-900 text-sm mb-1">Your data is safe with us</h4>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  We use bank-level encryption to protect your personal and financial information.
-                </p>
               </div>
             </div>
+
+            <div className="flex items-center justify-between px-2">
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <div className="relative flex items-center justify-center">
+                    <input 
+                        type="checkbox" 
+                        checked={rememberMe} 
+                        onChange={() => setRememberMe(!rememberMe)}
+                        className="peer h-6 w-6 appearance-none rounded-lg border border-slate-300 dark:border-white/20 bg-white dark:bg-white/5 checked:bg-blue-600 checked:border-blue-600 transition-all cursor-pointer"
+                    />
+                    <div className="absolute text-white opacity-0 peer-checked:opacity-100 pointer-events-none scale-0 peer-checked:scale-100 transition-transform">
+                        <Zap size={12} fill="currentColor" />
+                    </div>
+                </div>
+                <span className="text-sm font-bold text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">Remember me</span>
+              </label>
+              <button 
+                type="button"
+                className="text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors"
+                onClick={() => toast("Reset password feature coming soon", "info")}
+              >
+                Forgot password?
+              </button>
+            </div>
+
+            <button 
+              type="submit" 
+              disabled={loading}
+              className="w-full py-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-[22px] font-black text-base flex items-center justify-center gap-3 shadow-2xl shadow-blue-600/30 transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed uppercase tracking-[0.2em]"
+            >
+              {loading ? "Verifying..." : "Log In to Vylos"}
+              <ChevronRight size={20} strokeWidth={3} />
+            </button>
+
+            <div className="relative flex items-center justify-center py-4">
+                <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-slate-200 dark:border-white/10"></div>
+                </div>
+                <span className="relative px-6 bg-white dark:bg-slate-900 text-[11px] font-black text-slate-400 uppercase tracking-[0.3em]">Secure Social Login</span>
+            </div>
+
+            <button 
+              type="button"
+              className="w-full py-5 bg-white dark:bg-white/5 border-2 border-slate-100 dark:border-white/10 rounded-[22px] flex items-center justify-center gap-4 hover:bg-slate-50 dark:hover:bg-white/10 transition-all active:scale-95 shadow-sm"
+            >
+                <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center p-1 shadow-sm">
+                    <img src="https://www.google.com/favicon.ico" alt="Google" className="w-full h-full" />
+                </div>
+                <span className="text-base font-black text-slate-700 dark:text-white tracking-tight">Continue with Google Account</span>
+            </button>
+          </form>
+
+          <div className="mt-12 text-center">
+            <p className="text-sm font-bold text-slate-500 dark:text-slate-400">
+              Don't have an account? <Link href="/signup" className="text-blue-600 font-black hover:underline ml-1">Create Account</Link>
+            </p>
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="mt-auto p-8 text-center">
-          <p className="text-xs font-medium text-slate-400">
-            By continuing, you agree to Vylos's <Link href="/terms" className="text-primary hover:underline">Terms of Service</Link> and <Link href="/privacy" className="text-primary hover:underline">Privacy Policy</Link>.
-          </p>
+        <div className="mt-10 flex items-center gap-4 text-white/20">
+           <span className="text-[11px] font-black uppercase tracking-[0.4em]">Track. Understand. Improve. Grow.</span>
         </div>
       </div>
-    </div>
-  );
-}
 
-function FeatureItem({ icon, title, desc }: { icon: React.ReactNode, title: string, desc: string }) {
-  return (
-    <div className="flex gap-5 group">
-      <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shrink-0 shadow-sm border border-slate-100 group-hover:scale-110 transition-transform">
-        {icon}
-      </div>
-      <div>
-        <h4 className="font-bold text-slate-900 mb-1">{title}</h4>
-        <p className="text-sm text-slate-500 font-medium leading-snug">{desc}</p>
-      </div>
     </div>
   );
 }

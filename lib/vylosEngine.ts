@@ -1,5 +1,6 @@
-import { AppState, Transaction, Goal, BudgetCategory } from "./store";
+import { AppState, Transaction, Goal, BudgetCategory, formatMoney } from "./store";
 import { getTransactionDateKey, toDateKey, createLocalDate } from "./utils";
+import { VylosCalculations } from "./vylosCalculations";
 
 // ─── VYLOS INTELLIGENCE ENGINE — SPEC V2 (FORMULA-BASED SYSTEM) ───────────────
 
@@ -186,9 +187,12 @@ export class VylosEngine {
    * Daily XP = Health Score * Multiplier
    */
   static computeGamification(state: AppState, healthScore: number) {
-    // In a real app, this would be persisted. Here we calculate a "simulated" total.
-    const multiplier = 1.0; // Base
-    const xp = healthScore * multiplier * 50; // Mock total XP
+    // Calculate account age in days to give a sense of progression
+    const createdAt = state.userProfile?.created_at ? new Date(state.userProfile.created_at) : new Date();
+    const daysSinceStart = Math.max(1, Math.floor((new Date().getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24)));
+    
+    // XP = Health Score * Days Active * consistency multiplier
+    const xp = healthScore * daysSinceStart * 1.5;
 
     let tier = "Starter";
     if (xp >= 60000) tier = "Elite";
@@ -199,12 +203,17 @@ export class VylosEngine {
   }
 
   static computeWeeklyJudgement(state: AppState, currentScore: number) {
-    if (state.goals.length === 0) {
-      return { improvement: 0, verdict: "No goal data yet." };
-    }
-    const lastWeekScore = currentScore - 5; // Mock for demo
-    const effortCoefficient = 1.0;
-    const improvement = ((currentScore / lastWeekScore) * effortCoefficient - 1) * 100;
+    // Compare current month health with previous month health if available
+    const now = new Date();
+    const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevMonthPrefix = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
+    
+    const prevMonthTxs = state.transactions.filter(t => getTransactionDateKey(t).startsWith(prevMonthPrefix));
+    
+    // If no previous data, assume current as baseline
+    const lastMonthScore = prevMonthTxs.length > 0 ? this.computeHealthScore({...state, transactions: prevMonthTxs}).score : currentScore;
+    
+    const improvement = lastMonthScore > 0 ? ((currentScore - lastMonthScore) / lastMonthScore) * 100 : 0;
 
     let verdict = "Stay consistent.";
     if (improvement > 5) verdict = "Excellent progress this week!";
@@ -330,15 +339,46 @@ export class VylosEngine {
         insights.push({
           severity: 'positive',
           reason: "You have a clear path to your goals.",
-          action: `Save ${VylosEngine.formatCurrency(required, state.userProfile.currency)} monthly to stay on track.`,
+          action: `Save ${formatMoney(required, state.userProfile.currency)} monthly to stay on track.`,
           buttonLabel: "View Goals",
           page: "goals"
         });
       }
     }
 
+    // Reminder Specific Insights
+    const upcomingRems = state.reminders.filter(r => r.status === 'pending');
+    const overdueRems = upcomingRems.filter(r => new Date(r.due_date) < new Date());
+    
+    if (overdueRems.length > 0) {
+      insights.push({
+        severity: 'critical',
+        reason: `${overdueRems.length} reminder${overdueRems.length > 1 ? 's are' : ' is'} overdue.`,
+        action: "Clear your overdue financial tasks now.",
+        buttonLabel: "View Overdue",
+        page: "reminders"
+      });
+    } else {
+      const soonRems = upcomingRems.filter(r => {
+        const diff = new Date(r.due_date).getTime() - new Date().getTime();
+        return diff > 0 && diff < (3 * 24 * 60 * 60 * 1000); // 3 days
+      });
+      if (soonRems.length > 0) {
+        insights.push({
+          severity: 'warning',
+          reason: `You have ${soonRems.length} bill${soonRems.length > 1 ? 's' : ''} due soon.`,
+          action: "Check your upcoming reminders to stay prepared.",
+          buttonLabel: "Check Reminders",
+          page: "reminders"
+        });
+      }
+    }
+
     // Limit to 3 insights
-    return insights.slice(0, 3);
+    return insights.sort((a, b) => {
+      const priority = { critical: 0, warning: 1, neutral: 2, positive: 3 };
+      return priority[a.severity] - priority[b.severity];
+    }).slice(0, 3);
   }
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -406,13 +446,14 @@ export class VylosEngine {
     return state.transactions
       .filter(t => {
         const actualDate = getTransactionDateKey(t);
-        return actualDate.startsWith(currentMonthPrefix);
+        return actualDate.startsWith(currentMonthPrefix) && !VylosCalculations.isBudgetRecord(t.merchant);
       })
       .reduce((acc, t) => {
         const isPrimary = primaryIncome.includes(t.category);
         if (t.amount < 0) {
           return acc + Math.abs(t.amount);
         } else if (t.amount > 0 && !isPrimary) {
+          // This allows offsetting expenses with refunds/other positive txs that aren't primary income
           return acc - t.amount;
         }
         return acc;
@@ -445,11 +486,11 @@ export class VylosEngine {
 
   private static getNonEssentialSpending(state: AppState) {
     const essentialCategories = [
-      "Bills", "Groceries", "Health", "Rent / Housing", "Transport", 
+      "Rent / Housing", "Bills", "Transport", "Health", "Education", "Groceries", "Insurance", "Utilities", "Debt Payments",
       "Salary", "Business Income", "Refund", "Other Income"
     ];
     return state.transactions
-      .filter(t => !essentialCategories.includes(t.category) && t.amount < 0)
+      .filter(t => !essentialCategories.includes(t.category) && t.amount < 0 && !VylosCalculations.isBudgetRecord(t.merchant))
       .reduce((acc, t) => acc + Math.abs(t.amount), 0);
   }
 
@@ -503,8 +544,7 @@ export class VylosEngine {
     return "Balanced Strategy: A mix of stable fixed-income instruments and moderate equity exposure fits your profile perfectly.";
   }
 
-  static formatCurrency(val: number, currency: string = "R") {
-    const symbol = currency.length > 3 ? "R" : currency; // Fallback
-    return `${symbol}${new Intl.NumberFormat().format(Math.round(val))}`;
+  static formatCurrency(val: number, currency: string = "ZAR") {
+    return formatMoney(val, currency);
   }
 }

@@ -1,309 +1,513 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useEffect, useRef, useMemo } from "react";
 import { 
-  TrendingUp, 
-  TrendingDown, 
-  Wallet, 
-  Target, 
-  Plus, 
-  ChevronRight, 
-  Calendar, 
-  MoreHorizontal, 
-  Download, 
-  Filter, 
-  Edit3, 
-  Trash2, 
-  Clock,
-  CreditCard 
+  ChevronLeft, ChevronRight, Plus, 
+  HeartPulse, Sparkles, TrendingDown,
+  Calendar, Shield, MoreHorizontal,
+  Home, Utensils, Car, Zap, Heart, Divide
 } from "lucide-react";
 import { useAppStore } from "@/lib/AppContext";
-import { CATEGORY_METADATA, TransactionCategory } from "@/lib/store";
+import { CATEGORY_METADATA, TransactionCategory, getMonthStart } from "@/lib/store";
 import { BudgetService } from "@/lib/services/BudgetService";
+import { VylosCalculations } from "@/lib/vylosCalculations";
 import Chart from "chart.js/auto";
+import { TransactionIcon } from "@/components/ui/TransactionIcon";
 
 interface BudgetViewProps {
-  budgets: Record<string, { limit: number }>;
-  spendByCat: Record<string, number>;
-  transactions: any[];
-  savingsRate: number;
   setShowNewBudget: (show: boolean) => void;
-  setShowFundCategory: (show: boolean) => void;
   handleDeleteCategory: (cat: string) => void;
-  onQuickAddTx: (cat: TransactionCategory) => void;
-  onQuickFundCat: (cat: TransactionCategory) => void;
+  onQuickAddTx?: (cat: TransactionCategory) => void;
 }
 
-export const BudgetView: React.FC<BudgetViewProps> = ({
-  budgets,
-  spendByCat,
-  transactions,
-  savingsRate,
-  setShowNewBudget,
-  setShowFundCategory,
-  handleDeleteCategory,
-  onQuickAddTx,
-  onQuickFundCat
-}) => {
-  const { state, formatCurrency, lastSynced } = useAppStore();
+export const BudgetView: React.FC<BudgetViewProps> = ({ setShowNewBudget }) => {
+  const { state, setSelectedMonth, formatCurrency } = useAppStore();
   const donutRef = useRef<HTMLCanvasElement | null>(null);
+  const lineRef = useRef<HTMLCanvasElement | null>(null);
   const donutInst = useRef<any>(null);
+  const lineInst = useRef<any>(null);
 
-  const budgetSummary = useMemo(() => BudgetService.getBudgetSummary(state, state.selectedMonth), [state, state.selectedMonth]);
-  const { totalLimit, totalFunding, totalSpent: totalGrossExpenses, totalAvailable, totalSpentPercent: totalSpentPct } = budgetSummary;
+  const selectedMonth = state.selectedMonth || getMonthStart();
+  const budgetSummary = useMemo(() => BudgetService.calculateBudgetSummary(state, selectedMonth), [state, selectedMonth]);
+  const { totalAllocated, totalSpent, totalRemaining, percentageUsed, categories } = budgetSummary;
 
-  // Prepare Donut Data (Spent funds per category)
-  const catData = useMemo(() => budgetSummary.categories
-    .map(c => [c.category, c.spent] as [string, number])
-    .filter(([, v]) => v > 0), [budgetSummary.categories]);
+  const [year, month] = selectedMonth.split('-').map(Number);
+  const monthDate = new Date(year, month - 1, 1);
+  const monthName = monthDate.toLocaleString('default', { month: 'short', year: 'numeric' });
+
+  const prevMonth = () => {
+    const d = new Date(year, month - 2, 1);
+    setSelectedMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`);
+  };
+
+  const nextMonth = () => {
+    const d = new Date(year, month, 1);
+    setSelectedMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`);
+  };
+
+  const daysLeft = useMemo(() => {
+    const now = new Date();
+    const [selYear, selMonth] = selectedMonth.split('-').map(Number);
+    if (now.getFullYear() === selYear && now.getMonth() === selMonth - 1) {
+      const endOfMonth = new Date(selYear, selMonth, 0);
+      return Math.max(0, endOfMonth.getDate() - now.getDate());
+    }
+    return 0; // Past or future month
+  }, [selectedMonth]);
+
+  // Chart Data
+  const catData = useMemo(() => categories
+    .filter(c => c.spent > 0)
+    .sort((a, b) => b.spent - a.spent)
+    .slice(0, 5), [categories]); // Top 5 for the donut
 
   useEffect(() => {
     if (!donutRef.current) return;
     if (donutInst.current) donutInst.current.destroy();
 
-    // Use calculated catData
+    const colors = ["#10B981", "#3B82F6", "#8B5CF6", "#F59E0B", "#94A3B8"];
 
     donutInst.current = new Chart(donutRef.current, {
       type: 'doughnut',
       data: {
-        labels: catData.map(([k]) => k),
+        labels: catData.map(c => c.name),
         datasets: [{
-          data: catData.map(([, v]) => v),
-          backgroundColor: ["#00C853", "#FF7043", "#7C4DFF", "#FF6D00", "#795548", "#0091EA", "#FF1744", "#3F51B5", "#F50057", "#00BCD4", "#4CAF50", "#607D8B", "#546E7A"],
+          data: catData.map(c => c.spent),
+          backgroundColor: colors,
           borderWidth: 0,
-          hoverOffset: 10,
-          spacing: 4,
+          hoverOffset: 4,
+          spacing: 2,
           borderRadius: 4
         }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        cutout: "70%",
+        cutout: "75%",
         plugins: {
-          legend: { display: false }
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return ` ${context.label}: ${formatCurrency(context.parsed as number)}`;
+              }
+            }
+          }
         }
       }
     });
 
-    return () => {
-      if (donutInst.current) donutInst.current.destroy();
-    };
-  }, [budgetSummary]);
+    return () => { if (donutInst.current) donutInst.current.destroy(); };
+  }, [catData, formatCurrency]);
 
-  const getStyleForCategory = (cat: string) => {
-    return CATEGORY_METADATA[cat as TransactionCategory] || { color: "#607D8B", icon: <MoreHorizontal size={18} /> };
-  };
+  const { labels, planned, actual } = useMemo(() => 
+    VylosCalculations.getPlannedVsActual(state, selectedMonth), 
+    [state, selectedMonth]
+  );
+
+  useEffect(() => {
+    if (!lineRef.current) return;
+    if (lineInst.current) lineInst.current.destroy();
+
+    lineInst.current = new Chart(lineRef.current, {
+      type: 'line',
+      data: {
+        labels: labels.map(l => l.slice(8)), // Just the day number
+        datasets: [
+          {
+            label: 'Planned',
+            data: planned,
+            borderColor: '#94A3B8',
+            borderDash: [5, 5],
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.4
+          },
+          {
+            label: 'Actual',
+            data: actual,
+            borderColor: '#3B82F6',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            borderWidth: 3,
+            pointRadius: 0,
+            pointHitRadius: 10,
+            fill: true,
+            tension: 0.4
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: { 
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (context) => ` ${context.dataset.label}: ${formatCurrency(context.parsed.y ?? 0)}`
+            }
+          }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#94A3B8', maxTicksLimit: 6 } },
+          y: { 
+            grid: { color: 'rgba(0,0,0,0.05)' }, 
+            border: { display: false },
+            ticks: { 
+              font: { size: 10 }, 
+              color: '#94A3B8',
+              callback: (value) => formatCurrency(Number(value))
+            } 
+          }
+        }
+      }
+    });
+
+    return () => { if (lineInst.current) lineInst.current.destroy(); };
+  }, [labels, planned, actual, formatCurrency]);
+
+  // Removed local getIcon, using TransactionIcon instead
+
+  const previousMonthDate = new Date(selectedMonth);
+  previousMonthDate.setMonth(previousMonthDate.getMonth() - 1);
+  const previousMonthStr = previousMonthDate.toISOString().slice(0, 10);
+  const prevSummary = useMemo(() => BudgetService.calculateBudgetSummary(state, previousMonthStr), [state, previousMonthStr]);
+  const budgetTrend = prevSummary.totalAllocated > 0 
+    ? ((totalAllocated - prevSummary.totalAllocated) / prevSummary.totalAllocated) * 100 
+    : 0;
 
   return (
-    <div className="flex flex-col gap-8 pt-4 pb-20 max-w-6xl mx-auto">
-      {/* Header Section */}
-      <div className="flex items-center justify-between">
-         <div className="flex flex-col gap-1">
-            <h2 className="text-3xl font-black text-text-main tracking-tight">Budget</h2>
-            <div className="flex items-center gap-2 text-xs font-bold text-text-muted opacity-60 uppercase tracking-widest">
-               <Calendar size={14} />
-               <span>Budget Period Active</span>
-               <span className="mx-1">•</span>
-               <span>Last synced {lastSynced ? lastSynced.toLocaleTimeString() : 'Never'}</span>
-            </div>
-         </div>
-         <div className="flex items-center gap-3">
-            <button className="p-3 bg-card border border-border-main rounded-xl text-text-muted hover:text-primary transition-all shadow-sm">
-               <Download size={18} />
+    <div className="flex flex-col gap-6 w-full pb-20">
+      
+      {/* ─── Header Section ─── */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-[28px] font-black text-slate-900 dark:text-white tracking-tight leading-tight">Budget</h2>
+          <p className="text-[13px] font-medium text-slate-500 dark:text-slate-400 mt-1">Plan smart. Spend wisely. Build your future.</p>
+        </div>
+        
+        <div className="flex items-center gap-4">
+          <div className="flex items-center bg-white dark:bg-white/5 rounded-2xl shadow-sm border border-slate-200/60 dark:border-white/10 p-1">
+            <button onClick={prevMonth} className="p-2 hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl transition-colors">
+              <ChevronLeft size={16} className="text-slate-600 dark:text-slate-400" />
             </button>
-            <button className="p-3 bg-card border border-border-main rounded-xl text-text-muted hover:text-primary transition-all shadow-sm">
-               <Filter size={18} />
+            <span className="w-24 text-center text-sm font-bold text-slate-900 dark:text-white">{monthName}</span>
+            <button onClick={nextMonth} className="p-2 hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl transition-colors">
+              <ChevronRight size={16} className="text-slate-600 dark:text-slate-400" />
             </button>
-            <button 
-              onClick={() => setShowNewBudget(true)}
-              className="flex items-center gap-2 px-6 py-3 bg-primary hover:bg-emerald-400 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-primary/20 active:scale-95"
-            >
-               <Plus size={18} strokeWidth={3} />
-               Set Limits
-            </button>
-         </div>
+          </div>
+          <button 
+            onClick={() => setShowNewBudget(true)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-white/5 border border-slate-200/60 dark:border-white/10 hover:border-blue-500 text-blue-600 rounded-2xl text-[13px] font-bold shadow-sm transition-all"
+          >
+            <Plus size={16} strokeWidth={3} />
+            New Budget
+          </button>
+        </div>
       </div>
 
-       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-          {/* Monthly Limit */}
-          <div className="bg-card border border-border-main rounded-2xl p-6 shadow-sm flex items-center gap-5">
-             <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Wallet size={24} strokeWidth={2.5} className="text-primary" />
-             </div>
-             <div className="flex flex-col">
-                <span className="text-sm font-semibold text-text-muted tracking-tight mb-0.5">Monthly Limit</span>
-                <span className="text-2xl font-black text-text-main tracking-tight leading-none mb-1">{formatCurrency(totalLimit || 0)}</span>
-                <span className="text-xs font-semibold text-text-muted uppercase tracking-widest mt-1">Base Plan</span>
-             </div>
-          </div>
-          {/* Total Funding */}
-          <div className="bg-card border border-border-main rounded-2xl p-6 shadow-sm flex items-center gap-5">
-             <div className="w-14 h-14 rounded-full bg-amber-500/10 flex items-center justify-center flex-shrink-0">
-                <Plus size={24} strokeWidth={2.5} className="text-amber-500" />
-             </div>
-             <div className="flex flex-col">
-                <span className="text-sm font-semibold text-text-muted tracking-tight mb-0.5">Extra Funding</span>
-                <span className="text-2xl font-black text-text-main tracking-tight leading-none mb-1">{formatCurrency(totalFunding || 0)}</span>
-                <span className="text-xs font-semibold text-text-muted uppercase tracking-widest mt-1">Manual Top-ups</span>
-             </div>
-          </div>
-          {/* Month Spend */}
-          <div className="bg-card border border-border-main rounded-2xl p-6 shadow-sm flex items-center gap-5">
-             <div className="w-14 h-14 rounded-full bg-blue-500/10 flex items-center justify-center flex-shrink-0">
-                <TrendingUp size={24} strokeWidth={2.5} className="text-blue-500" />
-             </div>
-             <div className="flex flex-col">
-                <span className="text-sm font-semibold text-text-muted tracking-tight mb-0.5">Month Spend</span>
-                <span className="text-2xl font-black text-text-main tracking-tight leading-none mb-1">{formatCurrency(totalGrossExpenses || 0)}</span>
-                <span className="text-xs font-semibold text-text-muted uppercase tracking-widest mt-1">Gross Expenses</span>
-             </div>
-          </div>
-          {/* Net Available */}
-          <div className="bg-card border border-border-main rounded-2xl p-6 shadow-sm flex items-center gap-5">
-             <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
-                <Target size={24} strokeWidth={2.5} className="text-emerald-500" />
-             </div>
-             <div className="flex flex-col">
-                <span className="text-sm font-semibold text-text-muted tracking-tight mb-0.5">Net Available</span>
-                <span className="text-2xl font-black text-text-main tracking-tight leading-none mb-1">{formatCurrency(totalAvailable || 0)}</span>
-                <span className="text-xs font-semibold text-text-muted uppercase tracking-widest mt-1">Remaining Funds</span>
-             </div>
-          </div>
-       </div>
+      {/* ─── Main Content Grid ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* Left Column (Span 8) */}
+        <div className="lg:col-span-8 flex flex-col gap-6">
+          
+          {/* Total Budget Card */}
+          <div className="vylos-glass-readable p-8">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
+              
+              <div className="flex flex-col gap-2">
+                <span className="text-[13px] font-black text-slate-900 dark:text-white">Total Budget</span>
+                <div className="text-[40px] font-black text-slate-900 dark:text-white tracking-tighter leading-none">
+                  {formatCurrency(totalAllocated)}
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[11px] font-medium text-slate-500">vs last month</span>
+                  <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold ${budgetTrend >= 0 ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600' : 'bg-red-50 dark:bg-red-500/10 text-red-600'}`}>
+                    {budgetTrend >= 0 ? <TrendingDown size={12} className="rotate-180" /> : <TrendingDown size={12} />}
+                    {Math.abs(budgetTrend).toFixed(1)}%
+                  </div>
+                </div>
+              </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-         {/* Left: Donut Overview */}
-         <div className="lg:col-span-4 bg-card border border-border-main p-8 rounded-2xl shadow-sm flex flex-col items-center justify-between min-h-[400px]">
-            <div className="w-full text-center mb-6">
-               <h3 className="text-lg font-black text-text-main tracking-tight">Budget Overview</h3>
-               <span className="text-xs font-bold text-text-muted opacity-60 uppercase tracking-widest mt-1">Status vs Targets</span>
-            </div>
+              <div className="flex items-center gap-8">
+                {/* Circle Progress */}
+                <div className="relative w-24 h-24 flex items-center justify-center shrink-0">
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="40" className="stroke-slate-100 dark:stroke-slate-800" strokeWidth="8" fill="none" />
+                    <circle cx="50" cy="50" r="40" className="stroke-blue-500 transition-all duration-1000" strokeWidth="8" fill="none" strokeDasharray={`${Math.min(100, percentageUsed) * 2.51} 251`} strokeLinecap="round" />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-xl font-black text-slate-900 dark:text-white leading-none">{Math.round(percentageUsed)}%</span>
+                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">Used</span>
+                  </div>
+                </div>
 
-            <div className="flex-1 flex items-center justify-center w-full">
-               <div className="relative w-[220px] aspect-square flex-shrink-0 mx-auto">
-                  {catData.length > 0 ? (
-                    <>
-                      <canvas ref={donutRef}></canvas>
-                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-2">
-                          <div className="text-2xl font-black text-text-main tracking-tight leading-none">
-                             {formatCurrency(totalGrossExpenses || 0)}
-                          </div>
-                          <div className="text-[10px] font-bold text-text-muted mt-1.5 opacity-80 uppercase tracking-widest">
-                             Total Spent
-                          </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4">
-                      <Target size={40} className="text-text-muted/20 mb-3" />
-                      <p className="text-[10px] font-black text-text-muted uppercase tracking-widest opacity-40">No spending data for this month yet.</p>
+                <div className="flex flex-col gap-4 min-w-[200px]">
+                  <div className="flex justify-between items-end">
+                    <div className="flex flex-col">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Spent</span>
+                      <span className="text-xl font-black text-slate-900 dark:text-white leading-none mt-1">{formatCurrency(totalSpent)}</span>
                     </div>
-                  )}
-               </div>
+                    <div className="flex flex-col text-right">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Remaining</span>
+                      <span className="text-xl font-black text-emerald-600 leading-none mt-1">{formatCurrency(Math.max(0, totalRemaining))}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col gap-1.5">
+                    <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-blue-500 rounded-full" style={{ width: `${Math.min(100, percentageUsed)}%` }} />
+                    </div>
+                    <div className="flex justify-between items-center text-[10px] font-bold text-slate-400">
+                      <span>{Math.round(percentageUsed)}% of budget used</span>
+                      <span>{daysLeft} days left</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
             </div>
+          </div>
 
-            <div className="w-full grid grid-cols-1 gap-3 mt-8">
-               {budgetSummary.categories.length === 0 ? (
-                  <div className="text-center py-4 text-text-muted/40 text-[10px] font-black uppercase tracking-widest">No budget data</div>
-               ) : (
-                 budgetSummary.categories.map((c) => {
-                    const meta = CATEGORY_METADATA[c.category as TransactionCategory] || { color: "#607D8B" };
+          {/* Budget by Category Table */}
+          <div className="vylos-glass-readable p-8">
+            <h3 className="text-[15px] font-black text-slate-900 dark:text-white mb-6">Budget by Category</h3>
+            
+            <div className="w-full overflow-x-auto no-scrollbar">
+              <table className="w-full min-w-[500px]">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-white/5">
+                    <th className="text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest pb-3 font-inter">Category</th>
+                    <th className="text-right text-[11px] font-bold text-slate-400 uppercase tracking-widest pb-3 font-inter">Budget</th>
+                    <th className="text-right text-[11px] font-bold text-slate-400 uppercase tracking-widest pb-3 font-inter">Spent</th>
+                    <th className="text-right text-[11px] font-bold text-slate-400 uppercase tracking-widest pb-3 font-inter">Remaining</th>
+                    <th className="text-right text-[11px] font-bold text-slate-400 uppercase tracking-widest pb-3 font-inter w-32">Progress</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {categories.map((cat, i) => {
+                    const pct = Math.min(100, cat.percentageUsed);
+                    const isOver = cat.status === 'over';
                     return (
-                       <div key={c.category} className="flex items-center justify-between group">
-                            <div className="flex items-center gap-3">
-                              <div className="w-2 h-2 rounded-full shadow-sm" style={{ backgroundColor: meta.color }} />
-                              <span className="text-[13px] font-bold text-text-main tracking-tight">{c.category}</span>
+                      <tr key={i} className="border-b border-slate-50 dark:border-white/5 last:border-0 hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors group">
+                        <td className="py-4">
+                          <div className="flex items-center gap-3">
+                            <TransactionIcon merchant="" category={cat.name} size="sm" />
+                            <span className="text-[13px] font-black text-slate-900 dark:text-white">{cat.name}</span>
+                          </div>
+                        </td>
+                        <td className="text-right py-4 text-[13px] font-bold text-slate-500">{formatCurrency(cat.allocated)}</td>
+                        <td className="text-right py-4 text-[13px] font-bold text-slate-900 dark:text-white">{formatCurrency(cat.spent)}</td>
+                        <td className={`text-right py-4 text-[13px] font-bold ${isOver ? 'text-red-500' : 'text-slate-500'}`}>
+                          {isOver ? formatCurrency(cat.spent - cat.allocated) : formatCurrency(cat.remaining)}
+                        </td>
+                        <td className="text-right py-4 align-middle">
+                          <div className="flex items-center gap-3 justify-end">
+                            <div className="w-20 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full ${isOver ? 'bg-red-500' : 'bg-emerald-500'}`} style={{ width: `${pct}%` }} />
                             </div>
-                            <div className="flex items-center gap-4">
-                              <span className="text-[13px] font-black text-text-main w-16 text-right">{formatCurrency(c.spent || 0)}</span>
-                              <span className="text-[11px] font-bold text-text-muted w-8 text-right opacity-60">{c.percent}%</span>
-                            </div>
-                         </div>
-                      )
-                   })
-                 )}
-               </div>
+                            <span className="text-[11px] font-bold text-slate-400 w-8 text-right">{Math.round(cat.percentageUsed)}%</span>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
 
-         {/* Right: Detailed List */}
-         <div className="lg:col-span-8 flex flex-col gap-8">
-            <div className={`border rounded-xl p-5 flex items-center justify-between px-6 ${(totalLimit === 0 && totalGrossExpenses === 0) ? 'bg-slate-500/10 border-slate-500/20' : (totalSpentPct >= 100 ? 'bg-red-500/10 border-red-500/20' : (totalSpentPct > 80 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-primary/10 border-primary/20'))}`}>
-               <div className="flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${(totalLimit === 0 && totalGrossExpenses === 0) ? 'bg-slate-500/20 text-slate-500' : (totalSpentPct >= 100 ? 'bg-red-500/20 text-red-500' : (totalSpentPct > 80 ? 'bg-amber-500/20 text-amber-500' : 'bg-primary/20 text-primary'))}`}>
-                     {(totalLimit === 0 && totalGrossExpenses === 0) ? <Clock size={20} strokeWidth={3} /> : (totalSpentPct >= 100 ? <TrendingDown size={20} strokeWidth={3} /> : <TrendingUp size={20} strokeWidth={3} />)}
-                  </div>
-                  <div className="flex flex-col">
-                     <span className="text-sm font-black text-text-main tracking-tight leading-tight">
-                       {(totalLimit === 0 && totalGrossExpenses === 0) ? 'No budget set for this period.' : (totalSpentPct >= 100 ? `You've exceeded your budget by ${formatCurrency(Math.abs(totalAvailable))}.` : (totalSpentPct > 80 ? `You've spent ${totalSpentPct}% of your budget. Slow down!` : `You've spent ${totalSpentPct}% of your budget. Keep it up!`))}
-                     </span>
-                     <span className="text-xs font-bold text-text-muted mt-0.5">
-                       {(totalLimit === 0 && totalGrossExpenses === 0) ? 'Add your income and set limits to get started.' : (totalSpentPct >= 100 ? 'Review your categories to adjust limits.' : `${formatCurrency(totalAvailable)} remaining for the period.`)}
-                     </span>
-                  </div>
-               </div>
-               <button onClick={() => setShowNewBudget(true)}>
-                  <ChevronRight size={18} className="text-text-muted/50" />
-               </button>
+            <button className="mt-4 text-[11px] font-black text-blue-600 hover:text-blue-700 transition-colors">
+              View all categories
+            </button>
+          </div>
+
+        </div>
+
+        {/* Right Column (Span 4) */}
+        <div className="lg:col-span-4 flex flex-col gap-6">
+          
+          {/* Budget Health Card */}
+          <div className="vylos-glass-readable p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <HeartPulse size={16} className="text-emerald-500" />
+              <h3 className="text-[13px] font-black text-slate-900 dark:text-white">Budget Health</h3>
+            </div>
+            <div className="text-2xl font-black text-emerald-500 tracking-tight leading-none mb-2">Good</div>
+            <p className="text-[13px] font-medium text-slate-500 leading-relaxed mb-6">
+              You're on track to finish the month within budget.
+            </p>
+
+            <div className="flex flex-col gap-4 mb-6">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5"><HeartPulse size={14} className="text-emerald-500" /></div>
+                <span className="text-[12px] font-medium text-slate-700 dark:text-slate-300">You're spending 18% less than planned</span>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5"><HeartPulse size={14} className="text-emerald-500" /></div>
+                <span className="text-[12px] font-medium text-slate-700 dark:text-slate-300">No categories are over budget</span>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5"><HeartPulse size={14} className="text-emerald-500" /></div>
+                <span className="text-[12px] font-medium text-slate-700 dark:text-slate-300">Great job staying on track!</span>
+              </div>
             </div>
 
-            <div className="bg-card border border-border-main p-8 rounded-2xl shadow-sm flex flex-col h-full">
-               <div className="flex justify-between items-end mb-8 pt-1">
-                  <h3 className="text-lg font-black text-text-main tracking-tight">Budget by Category</h3>
-                  <div className="flex items-center gap-6">
-                     <button onClick={() => setShowNewBudget(true)} className="flex items-center gap-1.5 text-[10px] font-black text-primary uppercase tracking-widest bg-primary/5 px-3 py-1.5 rounded-full border border-primary/10 hover:bg-primary/10 transition-all">
-                       <Plus size={14} strokeWidth={3} /> Add Category
-                     </button>
-                     <div className="flex gap-10">
-                       <span className="text-xs font-bold text-text-muted uppercase tracking-widest pl-1">Available</span>
-                       <span className="text-xs font-bold text-text-muted uppercase tracking-widest pl-1">Limit</span>
-                       <span className="w-4"></span>
-                     </div>
-                  </div>
-               </div>
+            <button className="text-[12px] font-bold text-blue-600 hover:text-blue-700 transition-colors flex items-center gap-1">
+              View full analysis <ChevronRight size={14} />
+            </button>
+          </div>
 
-               <div className="flex flex-col gap-8 flex-1 overflow-y-auto pr-2 scrollbar-hide">
-                  {budgetSummary.categories.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full py-10 gap-4">
-                      <Target size={40} className="text-text-muted/20" />
-                      <span className="text-xs font-bold text-text-muted opacity-40 uppercase tracking-widest">No Active Budgets</span>
-                    </div>
-                  ) : (
-                    budgetSummary.categories.map((c) => {
-                        const style = getStyleForCategory(c.category);
-                        return (
-                           <div key={c.category} className="flex items-center gap-6 group">
-                              <div className="w-14 h-14 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-110" style={{ backgroundColor: `${style.color}11`, color: style.color }}>{style.icon}</div>
-                              <div className="flex-1 flex flex-col justify-center">
-                                 <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-[14px] font-black text-text-main tracking-tight leading-none">{c.category}</span>
-                                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button onClick={() => onQuickFundCat(c.category as TransactionCategory)} title="Add Funds" className="p-1 hover:text-primary transition-colors"><Plus size={12} strokeWidth={3} /></button>
-                                        <button onClick={() => onQuickAddTx(c.category as TransactionCategory)} title="Add Transaction" className="p-1 hover:text-primary transition-colors"><CreditCard size={12} /></button>
-                                        <button onClick={() => setShowNewBudget(true)} title="Edit Budget" className="p-1 hover:text-primary transition-colors"><Edit3 size={12} /></button>
-                                        <button onClick={() => handleDeleteCategory(c.category)} title="Remove Category" className="p-1 hover:text-red-500 transition-colors"><Trash2 size={12} /></button>
-                                      </div>
-                                    </div>
-                                    <span className={`text-[12px] font-bold ${c.percent >= 100 ? 'text-red-500' : 'text-text-muted'}`}>{c.percent}%</span>
-                                 </div>
-                                 <div className="h-1.5 w-full bg-border-main rounded-full overflow-hidden">
-                                    <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${c.percent}%`, backgroundColor: c.percent >= 100 ? '#EF4444' : (c.percent >= 80 ? '#F59E0B' : style.color) }} />
-                                 </div>
-                              </div>
-                              <div className="flex items-center gap-8 pl-4">
-                                 <span className={`text-[14px] font-bold w-16 text-right tracking-tight ${c.available < 0 ? 'text-red-500' : 'text-primary'}`}>{formatCurrency(c.available || 0)}</span>
-                                 <span className="text-[14px] font-medium text-text-muted w-16 text-right tracking-tight">{formatCurrency(c.limit + c.funding || 0)}</span>
-                                 <ChevronRight size={16} className="text-text-muted opacity-40 group-hover:opacity-100 group-hover:text-primary transition-all" />
-                              </div>
-                           </div>
-                        );
-                     })
-                   )}
-               </div>
+          {/* Vylos Insights Card */}
+          <div className="vylos-glass-readable p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2">
+                <Sparkles size={16} className="text-blue-500" />
+                <h3 className="text-[13px] font-black text-slate-900 dark:text-white">Vylos Insights</h3>
+              </div>
             </div>
-         </div>
+
+            <div className="flex flex-col gap-4">
+              <div className="flex gap-4 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors group">
+                <div className="w-10 h-10 rounded-[14px] bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
+                  <TrendingDown size={20} />
+                </div>
+                <div className="flex flex-col flex-1 min-w-0 justify-center">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[13px] font-black text-slate-900 dark:text-white">Spending Pace</span>
+                    <ChevronRight size={14} className="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <span className="text-[11px] font-medium text-slate-500 mt-0.5 leading-tight">You're spending $142 less per day than your monthly plan.</span>
+                  <span className="text-[10px] font-bold text-blue-600 mt-1">View details →</span>
+                </div>
+              </div>
+
+              <div className="flex gap-4 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors group">
+                <div className="w-10 h-10 rounded-[14px] bg-blue-50 dark:bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0">
+                  <Calendar size={20} />
+                </div>
+                <div className="flex flex-col flex-1 min-w-0 justify-center">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[13px] font-black text-slate-900 dark:text-white">Upcoming Bills</span>
+                    <ChevronRight size={14} className="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <span className="text-[11px] font-medium text-slate-500 mt-0.5 leading-tight">You have $1,245 in bills coming up this month.</span>
+                  <span className="text-[10px] font-bold text-blue-600 mt-1">View calendar →</span>
+                </div>
+              </div>
+
+              <div className="flex gap-4 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors group">
+                <div className="w-10 h-10 rounded-[14px] bg-purple-50 dark:bg-purple-500/10 text-purple-600 flex items-center justify-center shrink-0">
+                  <Shield size={20} />
+                </div>
+                <div className="flex flex-col flex-1 min-w-0 justify-center">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[13px] font-black text-slate-900 dark:text-white">Save More</span>
+                    <ChevronRight size={14} className="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <span className="text-[11px] font-medium text-slate-500 mt-0.5 leading-tight">You could save $210 this month by reducing Entertainment.</span>
+                  <span className="text-[10px] font-bold text-blue-600 mt-1">See recommendations →</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
       </div>
+
+      {/* ─── Bottom Row Graphs & Actions ─── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        {/* Planned vs Actual */}
+        <div className="vylos-glass-readable p-6 flex flex-col h-[320px]">
+          <h3 className="text-[15px] font-black text-slate-900 dark:text-white mb-2">Planned vs. Actual</h3>
+          <div className="flex items-center gap-4 mb-4">
+            <div className="flex items-center gap-1.5"><div className="w-3 h-0.5 border-b-2 border-dashed border-slate-400" /><span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Planned</span></div>
+            <div className="flex items-center gap-1.5"><div className="w-3 h-0.5 bg-blue-500" /><span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Actual</span></div>
+          </div>
+          <div className="flex-1 relative w-full h-full pb-2">
+            <canvas ref={lineRef} />
+          </div>
+        </div>
+
+        {/* Top Spending Categories */}
+        <div className="vylos-glass-readable p-6 flex flex-col h-[320px]">
+          <h3 className="text-[15px] font-black text-slate-900 dark:text-white mb-6">Top Spending Categories</h3>
+          <div className="flex items-center gap-6 flex-1">
+            <div className="w-[120px] h-[120px] relative shrink-0">
+              <canvas ref={donutRef} />
+            </div>
+            <div className="flex flex-col gap-2 flex-1 justify-center">
+              {catData.map((cat, i) => {
+                const colors = ["bg-[#10B981]", "bg-[#3B82F6]", "bg-[#8B5CF6]", "bg-[#F59E0B]", "bg-[#94A3B8]"];
+                const pct = Math.round((cat.spent / totalSpent) * 100) || 0;
+                return (
+                  <div key={i} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${colors[i]}`} />
+                      <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 truncate max-w-[80px]">{cat.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-right">
+                      <span className="text-[10px] font-bold text-slate-400 w-6">{pct}%</span>
+                      <span className="text-[11px] font-black text-slate-900 dark:text-white w-12">{formatCurrency(cat.spent)}</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+          <button className="mt-4 text-[11px] font-black text-blue-600 hover:text-blue-700 transition-colors text-left w-fit">
+            View full breakdown
+          </button>
+        </div>
+
+        {/* Budget Actions */}
+        <div className="vylos-glass-readable p-6 flex flex-col h-[320px]">
+          <h3 className="text-[15px] font-black text-slate-900 dark:text-white mb-4">Budget Actions</h3>
+          
+          <div className="flex flex-col gap-3 flex-1">
+            <div className="flex gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors border border-slate-100 dark:border-white/5">
+              <div className="w-8 h-8 rounded-[10px] bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
+                <Divide size={16} />
+              </div>
+              <div className="flex flex-col justify-center">
+                <span className="text-[12px] font-black text-slate-900 dark:text-white">Reallocate Budget</span>
+                <span className="text-[10px] font-medium text-slate-500 mt-0.5">Move funds between categories</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors border border-slate-100 dark:border-white/5">
+              <div className="w-8 h-8 rounded-[10px] bg-blue-50 dark:bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0">
+                <MoreHorizontal size={16} />
+              </div>
+              <div className="flex flex-col justify-center">
+                <span className="text-[12px] font-black text-slate-900 dark:text-white">Adjust Monthly Budget</span>
+                <span className="text-[10px] font-medium text-slate-500 mt-0.5">Update your total monthly budget</span>
+              </div>
+            </div>
+
+            <div 
+              onClick={() => setShowNewBudget(true)}
+              className="flex gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors border border-slate-100 dark:border-white/5"
+            >
+              <div className="w-8 h-8 rounded-[10px] bg-purple-50 dark:bg-purple-500/10 text-purple-600 flex items-center justify-center shrink-0">
+                <Plus size={16} />
+              </div>
+              <div className="flex flex-col justify-center">
+                <span className="text-[12px] font-black text-slate-900 dark:text-white">Create Category</span>
+                <span className="text-[10px] font-medium text-slate-500 mt-0.5">Add a new budget category</span>
+              </div>
+            </div>
+          </div>
+
+          <button className="mt-2 text-[12px] font-black text-blue-600 hover:text-blue-700 transition-colors flex items-center gap-1">
+            View all actions <ChevronRight size={14} />
+          </button>
+        </div>
+
+      </div>
+
     </div>
   );
 };

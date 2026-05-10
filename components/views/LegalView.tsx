@@ -27,14 +27,11 @@ export const LegalView: React.FC<LegalViewProps> = ({ type, onBack }) => {
           {isPrivacy ? <Shield size={24} /> : <FileText size={24} />}
         </div>
         <div>
-          <h1 className="text-4xl font-black text-text-main tracking-tight">
-            {isPrivacy ? "Privacy Policy" : "Terms of Use"}
-          </h1>
           <p className="text-text-muted font-medium">Last Updated: May 1, 2026</p>
         </div>
       </div>
 
-      <div className="bg-card border border-border-main rounded-[2rem] p-10 shadow-sm prose prose-slate dark:prose-invert max-w-none">
+      <div className="vylos-glass-readable p-10 prose prose-slate dark:prose-invert max-w-none">
         {isPrivacy ? (
           <div className="space-y-6 text-text-main/80 font-medium leading-relaxed">
             <section>

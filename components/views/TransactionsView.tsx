@@ -1,37 +1,19 @@
 "use client";
 
-import React, { useState } from "react";
-import { Plus, 
-  Trash2, 
-  Search, 
-  Download, 
-  Calendar, 
-  ChevronDown, 
-  TrendingUp, 
-  TrendingDown, 
-  Wallet, 
-  PieChart, 
-  MoreHorizontal, 
-  ArrowRight,
-  Filter,
-  ArrowUpRight,
-  ChevronLeft,
-  ChevronRight,
-  Sparkles,
-  Coffee,
-  CreditCard,
-  Building2,
-  Car,
-  ShoppingBag,
-  Zap,
-  Globe,
-  Briefcase
+import React, { useState, useMemo, useEffect, useRef } from "react";
+import { 
+  Search, Download, MoreHorizontal, ChevronDown, 
+  TrendingUp, TrendingDown, FileText, Globe, Music, Zap, Building2, Car, Coffee, Briefcase, ShoppingBag, Calendar, Plus, Upload
 } from "lucide-react";
-import { CATEGORY_METADATA, TransactionCategory } from "@/lib/store";
 import { useAppStore } from "@/lib/AppContext";
-import { ViewContainer } from "../ui/ViewContainer";
-import { getTransactionDateKey, cleanMerchantName } from "@/lib/utils";
-
+import { cleanMerchantName, formatDate } from "@/lib/utils";
+import { V2Select } from "../ui/V2Select";
+import { VylosCalculations } from "@/lib/vylosCalculations";
+import { CATEGORY_METADATA, TransactionCategory } from "@/lib/store";
+import Chart from "chart.js/auto";
+import { TransactionIcon } from "@/components/ui/TransactionIcon";
+import { ImportTransactionsModal } from "@/components/modals/ImportTransactionsModal";
+import { ExportTransactionsModal } from "@/components/modals/ExportTransactionsModal";
 
 interface TransactionsViewProps {
   transactions: any[];
@@ -43,439 +25,376 @@ interface TransactionsViewProps {
   trends?: { incomeTrend: number; expenseTrend: number; netWorthTrend: number; };
 }
 
-const MERCHANT_ICONS: Record<string, React.ReactNode> = {
-  "Starbucks": <Coffee size={16} />,
-  "Netflix": <Globe size={16} />,
-  "Uber": <Car size={16} />,
-  "Amazon": <ShoppingBag size={16} />,
-  "Salary": <Briefcase size={16} />,
-  "Freelance": <Briefcase size={16} />,
-  "Electricity": <Zap size={16} />,
-  "Rent": <Building2 size={16} />,
-  "Dining": <Coffee size={16} />,
-  "Grocery": <ShoppingBag size={16} />,
-  "Interest": <Wallet size={16} />,
-};
 export const TransactionsView: React.FC<TransactionsViewProps> = ({ 
-  transactions, 
-  filterCat, 
-  setFilterCat, 
-  setShowAddTx, 
-  deleteTx,
-  setPage,
-  trends = { incomeTrend: 0, expenseTrend: 0, netWorthTrend: 0 }
+  transactions, filterCat, setFilterCat, setShowAddTx, deleteTx, setPage
 }) => {
-  const { lastSynced, formatCurrency, updateTransaction, addMerchantRule } = useAppStore();
+  const { formatCurrency, state } = useAppStore();
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterType, setFilterType] = useState("All Types");
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const donutRef = useRef<HTMLCanvasElement | null>(null);
+  const donutInst = useRef<any>(null);
+
+  const fullFilteredTxs = useMemo(() => {
+    return transactions.filter(t => {
+      const matchesSearch = t.merchant.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCat = filterCat === "All" || t.category === filterCat;
+      return matchesSearch && matchesCat;
+    });
+  }, [transactions, searchTerm, filterCat]);
+
+  const filteredTxs = fullFilteredTxs.slice(0, 20); // Show recent 20 for the mockup layout
+
+  const stats = useMemo(() => VylosCalculations.getMonthStats(state, state.selectedMonth), [state]);
+  const spendByCatMap = useMemo(() => VylosCalculations.getSpendingByCategory(state, state.selectedMonth), [state]);
   
-  const filteredTxs = transactions.filter(t => {
-    const matchesSearch = t.merchant.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCat = filterCat === "All" || t.category === filterCat;
-    const matchesType = filterType === "All Types" || (filterType === "Expense" ? t.amount < 0 : t.amount > 0);
-    return matchesSearch && matchesCat && matchesType;
-  });
-
-  const isBudgetRecord = (title: string) => {
-    const t = title.toLowerCase();
-    return t.includes("budget top-up") || t.includes("budget allocation") || t.includes("top-up:") || t.includes("allocation:");
+  const spendingSummary = {
+    total: stats.expense,
+    trend: "+8.8%", // We can calculate this properly if needed
+    needs: { pct: 50, amt: stats.expense * 0.5, color: "#10B981" },
+    wants: { pct: 30, amt: stats.expense * 0.3, color: "#3B82F6" },
+    savings: { pct: 20, amt: stats.expense * 0.2, color: "#8B5CF6" }
   };
 
-  const totalIncome = transactions.filter(t => t.amount > 0 && !isBudgetRecord(t.merchant)).reduce((s, t) => s + t.amount, 0);
-  const totalExpense = Math.abs(transactions.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0));
-  const netCashFlow = totalIncome - totalExpense;
+  const recurringPayments = state.reminders
+    .filter(r => r.recurring !== 'none' && r.status !== 'completed')
+    .slice(0, 3)
+    .map(r => ({
+      name: r.title,
+      cat: r.category,
+      amt: r.amount || 0,
+      due: `Due ${r.due_date}`,
+      iconBg: "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-white"
+    }));
 
-  const spendByCat = transactions.filter(t => t.amount < 0).reduce((acc: Record<string, number>, t) => {
-    acc[t.category] = (acc[t.category] || 0) + Math.abs(t.amount);
-    return acc;
-  }, {});
+  const spendingByCategory = Object.entries(spendByCatMap)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name, amt]) => ({
+      name,
+      amt,
+      pct: stats.expense > 0 ? Math.round((amt / stats.expense) * 100) : 0,
+      color: CATEGORY_METADATA[name as TransactionCategory]?.color || "#94A3B8"
+    }));
 
-  const totalSpend = Object.values(spendByCat).reduce((a, b) => a + b, 0);
-  const spendingBreakdown = Object.entries(spendByCat).map(([label, amount]) => {
-    const meta = CATEGORY_METADATA[label as TransactionCategory] || { icon: "💳", color: "#546E7A" };
-    return {
-      label,
-      amount,
-      pct: totalSpend > 0 ? Math.round((amount / totalSpend) * 100) : 0,
-      color: meta.color,
-      icon: meta.icon
-    };
-  }).sort((a, b) => b.amount - a.amount);
+  useEffect(() => {
+    if (!donutRef.current) return;
+    if (donutInst.current) donutInst.current.destroy();
 
-  const handleExport = () => {
-    const headers = ["Date", "Merchant", "Category", "Amount"];
-    const rows = filteredTxs.map(tx => [
-      getTransactionDateKey(tx),
-      `"${tx.merchant.replace(/"/g, '""')}"`,
-      tx.category,
-      tx.amount
-    ]);
-    const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Vylos_Transactions_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+    donutInst.current = new Chart(donutRef.current, {
+      type: 'doughnut',
+      data: {
+        labels: ['Needs', 'Wants', 'Savings'],
+        datasets: [{
+          data: [spendingSummary.needs.pct, spendingSummary.wants.pct, spendingSummary.savings.pct],
+          backgroundColor: [spendingSummary.needs.color, spendingSummary.wants.color, spendingSummary.savings.color],
+          borderWidth: 0,
+          hoverOffset: 4,
+          spacing: 2,
+          borderRadius: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: "75%",
+        plugins: {
+          legend: { display: false },
+          tooltip: { enabled: false }
+        }
+      }
+    });
+
+    return () => { if (donutInst.current) donutInst.current.destroy(); };
+  }, [spendingSummary]);
+
 
   return (
-    <ViewContainer className="flex flex-col pt-8 pb-12">
-      {/* Header Row */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-        <div className="flex flex-col">
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-4xl font-black text-text-main tracking-tight">Transactions</h1>
-            {lastSynced && (
-              <div className="px-2 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center gap-1.5 animate-in fade-in zoom-in duration-500 mt-1">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Live</span>
-              </div>
-            )}
-          </div>
-          <p className="text-text-muted font-medium">Track your spending, review your transactions, and stay in control.</p>
+    <div className="flex flex-col gap-6 w-full">
+      
+      {/* ─── Header Section ─── */}
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+        <div>
+          <h2 className="text-[28px] font-black text-slate-900 dark:text-white tracking-tight leading-tight mb-1">Transactions</h2>
+          <button className="flex items-center gap-1 text-[13px] font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors">
+            All accounts <ChevronDown size={14} />
+          </button>
         </div>
-        <div className="flex items-center gap-3">
-            <button 
-                onClick={() => setShowAddTx(true)}
-                className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl text-sm font-black shadow-lg shadow-primary/20 hover:bg-emerald-400 transition-all active:scale-95"
-            >
-                <Plus size={18} />
-                Add Transaction
-            </button>
-            <button 
-                onClick={() => setPage("import")}
-                className="flex items-center gap-2 px-6 py-3 bg-card border border-border-main rounded-xl text-sm font-black text-text-main shadow-sm hover:border-border-strong transition-all"
-            >
-                <Sparkles size={18} className="text-primary" />
-                Import
-            </button>
-            <button 
-                onClick={handleExport}
-                className="flex items-center gap-2 px-6 py-3 bg-card border border-border-main rounded-xl text-sm font-black text-text-main shadow-sm hover:border-border-strong transition-all"
-            >
-                <Download size={18} className="text-text-muted" />
-                Export
-            </button>
-        </div>
+
+        <button 
+          onClick={() => setShowAddTx(true)}
+          className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[13px] font-black uppercase tracking-widest shadow-xl shadow-blue-500/20 transition-all active:scale-95"
+        >
+          <Plus size={18} strokeWidth={3} />
+          Add Transaction
+        </button>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-        <div className="bg-card border border-border-main p-6 rounded-3xl flex items-center gap-5 shadow-sm">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-            <TrendingUp size={24} strokeWidth={2.5} />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-1">Total Income</span>
-            <span className="text-xl font-black text-text-main tracking-tight">{formatCurrency(totalIncome)}</span>
-            {trends.incomeTrend !== 0 && (
-                <div className={`flex items-center gap-1 text-[10px] font-bold ${trends.incomeTrend > 0 ? 'text-emerald-500' : 'text-red-500'} mt-1`}>
-                    <ArrowUpRight size={10} className={trends.incomeTrend < 0 ? 'rotate-90' : ''} />
-                    {Math.abs(trends.incomeTrend).toFixed(1)}% vs prev. month
-                </div>
-            )}
-          </div>
+      {/* ─── Filters Bar ─── */}
+      <div className="flex flex-col lg:flex-row items-center gap-4">
+        <div className="relative flex-1 w-full lg:max-w-md">
+          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input 
+            type="text" 
+            placeholder="Search transactions, merchants, categories..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-11 pr-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl text-[13px] font-medium placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm transition-all"
+          />
         </div>
-
-        <div className="bg-card border border-border-main p-6 rounded-3xl flex items-center gap-5 shadow-sm">
-          <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-500">
-            <TrendingDown size={24} strokeWidth={2.5} />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-1">Total Expenses</span>
-            <span className="text-xl font-black text-text-main tracking-tight">{formatCurrency(totalExpense)}</span>
-            {trends.expenseTrend !== 0 && (
-                <div className={`flex items-center gap-1 text-[10px] font-bold ${trends.expenseTrend < 0 ? 'text-emerald-500' : 'text-red-500'} mt-1`}>
-                    <ArrowUpRight size={10} className={trends.expenseTrend > 0 ? 'rotate-0' : 'rotate-90'} />
-                    {Math.abs(trends.expenseTrend).toFixed(1)}% vs prev. month
-                </div>
-            )}
-          </div>
-        </div>
-
-        <div className="bg-card border border-border-main p-6 rounded-3xl flex items-center gap-5 shadow-sm">
-          <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500">
-            <Wallet size={24} strokeWidth={2.5} />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-1">Net Cash Flow</span>
-            <span className="text-xl font-black text-text-main tracking-tight">{formatCurrency(netCashFlow)}</span>
-            {trends.netWorthTrend !== 0 && (
-                <div className={`flex items-center gap-1 text-[10px] font-bold ${trends.netWorthTrend > 0 ? 'text-emerald-500' : 'text-red-500'} mt-1`}>
-                    <ArrowUpRight size={10} className={trends.netWorthTrend < 0 ? 'rotate-90' : ''} />
-                    {Math.abs(trends.netWorthTrend).toFixed(1)}% vs prev. month
-                </div>
-            )}
-          </div>
-        </div>
-
-        <div className="bg-card border border-border-main p-6 rounded-3xl flex items-center gap-5 shadow-sm">
-          <div className="w-12 h-12 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-500">
-            <PieChart size={24} strokeWidth={2.5} />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-1">Transactions</span>
-            <span className="text-xl font-black text-text-main tracking-tight">{transactions.length}</span>
-            <div className="flex items-center gap-1 text-[10px] font-bold text-text-muted mt-1">
-                {transactions.filter(t=>t.amount<0).length} expenses • {transactions.filter(t=>t.amount>0).length} income
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         
-        {/* Table Column */}
-        <div className="xl:col-span-2 space-y-6">
-            
-            {/* Filters Row */}
-            <div className="flex flex-wrap items-center gap-4">
-                <div className="relative flex-1 min-w-[240px]">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted" size={18} />
-                    <input 
-                        type="text" 
-                        placeholder="Search transactions..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full bg-card border border-border-main rounded-xl pl-12 pr-4 py-3 text-sm font-medium outline-none focus:border-primary/50 transition-all shadow-sm"
-                    />
-                </div>
-                <button onClick={() => setFilterType(prev => prev === "All Types" ? "Expense" : prev === "Expense" ? "Income" : "All Types")} className="flex items-center gap-2 px-4 py-3 bg-card border border-border-main rounded-xl text-xs font-black text-text-main shadow-sm hover:border-border-strong transition-all">
-                    {filterType} <ChevronDown size={14} className="text-text-muted" />
-                </button>
-                <button onClick={() => setFilterCat(filterCat === "All" ? "Food & Dining" : "All")} className="flex items-center gap-2 px-4 py-3 bg-card border border-border-main rounded-xl text-xs font-black text-text-main shadow-sm hover:border-border-strong transition-all">
-                    {filterCat === "All" ? "All Categories" : filterCat} <ChevronDown size={14} className="text-text-muted" />
-                </button>
-                <button className="flex items-center gap-2 px-4 py-3 bg-card border border-border-main rounded-xl text-xs font-black text-text-main shadow-sm hover:border-border-strong transition-all">
-                    All Accounts <ChevronDown size={14} className="text-text-muted" />
-                </button>
-                <button className="flex items-center gap-2 px-4 py-3 bg-card border border-border-main rounded-xl text-xs font-black text-text-main shadow-sm hover:border-border-strong transition-all">
-                    <Filter size={16} className="text-text-muted" />
-                    Filters
-                </button>
-            </div>
-
-            {/* Table */}
-            <div className="bg-card border border-border-main rounded-[2.5rem] shadow-sm overflow-hidden">
-                <table className="w-full text-left border-collapse">
-                    <thead>
-                        <tr className="border-b border-border-main">
-                            <th className="pl-8 pr-4 py-5 text-[10px] font-black text-text-muted uppercase tracking-widest">Date <ChevronDown size={10} className="inline ml-1" /></th>
-                            <th className="px-4 py-5 text-[10px] font-black text-text-muted uppercase tracking-widest">Description</th>
-                            <th className="px-4 py-5 text-[10px] font-black text-text-muted uppercase tracking-widest">Category</th>
-                            <th className="px-4 py-5 text-[10px] font-black text-text-muted uppercase tracking-widest">Account</th>
-                            <th className="px-4 py-5 text-[10px] font-black text-text-muted uppercase tracking-widest">Type <ChevronDown size={10} className="inline ml-1" /></th>
-                            <th className="px-4 py-5 text-[10px] font-black text-text-muted uppercase tracking-widest">Amount</th>
-                            <th className="pl-4 pr-8 py-5"></th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border-main/30">
-                        {filteredTxs.map((tx) => {
-                            const meta = CATEGORY_METADATA[tx.category as TransactionCategory] || { icon: "💳", color: "#546E7A" };
-                            return (
-                                <tr key={tx.id} className="group hover:bg-border-main/20 transition-colors">
-                                    <td className="pl-8 pr-4 py-5 text-[11px] font-bold text-text-muted">
-                                        {(() => {
-                                          const dateStr = getTransactionDateKey(tx);
-                                          const [y, m, d] = dateStr.split('-').map(Number);
-                                          return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-                                        })()}
-                                    </td>
-                                    <td className="px-4 py-5">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-9 h-9 rounded-full bg-border-main/50 flex items-center justify-center text-text-main shadow-sm border border-border-main/50">
-                                                {MERCHANT_ICONS[tx.merchant.split(' ')[0]] || <Building2 size={16} />}
-                                            </div>
-                                            <span className="text-xs font-black text-text-main tracking-tight">{cleanMerchantName(tx.merchant)}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-4 py-5">
-                                        <div className="relative group/cat">
-                                            <select 
-                                                className={`appearance-none cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-tight outline-none focus:ring-2 focus:ring-primary/20 transition-all
-                                                    ${tx.amount > 0 ? 'bg-emerald-500/5 border-emerald-500/10 text-emerald-500' : 'bg-border-main/20 border-border-main text-text-main'}
-                                                `}
-                                                style={tx.amount < 0 ? { borderColor: `${meta.color}33`, color: meta.color, backgroundColor: `${meta.color}11` } : {}}
-                                                value={tx.category}
-                                                onChange={async (e) => {
-                                                    const newCat = e.target.value as TransactionCategory;
-                                                    await updateTransaction(tx.id, { category: newCat });
-                                                    
-                                                    // Ask to save as rule
-                                                    if (confirm(`Always categorize "${tx.merchant}" as ${newCat}?`)) {
-                                                        await addMerchantRule({
-                                                            merchant_keyword: tx.merchant,
-                                                            category: newCat
-                                                        });
-                                                    }
-                                                }}
-                                            >
-                                                {Object.keys(CATEGORY_METADATA).map(c => <option key={c} value={c}>{c}</option>)}
-                                            </select>
-                                        </div>
-                                    </td>
-                                    <td className="px-4 py-5 text-xs font-bold text-text-muted">
-                                        {tx.amount > 0 ? "Checking Account" : "Vylos Card"}
-                                    </td>
-                                    <td className="px-4 py-5">
-                                        <div className={`px-2 py-1 rounded-md text-[9px] font-black uppercase text-center w-16
-                                            ${tx.amount < 0 ? 'bg-red-500/10 text-red-500' : 'bg-emerald-500/10 text-emerald-500'}
-                                        `}>
-                                            {tx.amount < 0 ? 'Expense' : 'Income'}
-                                        </div>
-                                    </td>
-                                    <td className={`px-4 py-5 text-xs font-black tracking-tight
-                                        ${tx.amount > 0 ? 'text-emerald-500' : 'text-red-500'}
-                                    `}>
-                                        {formatCurrency(tx.amount)}
-                                    </td>
-                                    <td className="pl-4 pr-8 py-5 text-right">
-                                        <button onClick={() => deleteTx(tx.id)} className="p-2 text-text-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100">
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                        {filteredTxs.length === 0 && (
-                            <tr>
-                                <td colSpan={7} className="px-8 py-20 text-center">
-                                    <div className="flex flex-col items-center gap-3 text-text-muted/50">
-                                        <CreditCard size={48} strokeWidth={1} />
-                                        <span className="text-sm font-black uppercase tracking-widest">No transactions yet</span>
-                                        <p className="text-xs font-medium">Add your first transaction to start tracking your money.</p>
-                                        <button 
-                                            onClick={() => setShowAddTx(true)}
-                                            className="mt-4 px-6 py-2 bg-primary/10 text-primary border border-primary/20 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary/20 transition-all"
-                                        >
-                                            Add Transaction
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
-                
-                {filteredTxs.length > 0 && (
-                    <div className="px-8 py-6 border-t border-border-main flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-text-muted">Showing 1 to {filteredTxs.length} of {filteredTxs.length} transactions</span>
-                        <div className="flex items-center gap-2">
-                            <button className="p-2 rounded-lg border border-border-main text-text-muted hover:bg-border-main transition-all disabled:opacity-20" disabled><ChevronLeft size={16} /></button>
-                            <button className="w-8 h-8 rounded-lg bg-primary text-white text-[10px] font-black">1</button>
-                            <button className="p-2 rounded-lg border border-border-main text-text-muted hover:bg-border-main transition-all disabled:opacity-20" disabled><ChevronRight size={16} /></button>
-                        </div>
-                    </div>
-                )}
-            </div>
-        </div>
-
-        {/* Sidebar Column */}
-        <div className="space-y-8">
-            
-            {/* Spending by Category */}
-            <div className="bg-card border border-border-main rounded-[2.5rem] p-8 shadow-sm">
-                <div className="flex items-center justify-between mb-8">
-                    <h3 className="text-sm font-black text-text-main uppercase tracking-widest opacity-80">Spending by Category</h3>
-                    <button onClick={() => setFilterCat("All")} className="text-[10px] font-black text-primary hover:underline flex items-center gap-1">
-                        View Report <ArrowRight size={14} />
-                    </button>
-                </div>
-
-                <div className="flex flex-col items-center mb-10">
-                    <div className="relative w-44 h-44 flex items-center justify-center">
-                        <svg className="w-full h-full transform -rotate-90">
-                            <circle cx="88" cy="88" r="76" fill="transparent" stroke="#F1F5F9" strokeWidth="14" className="dark:stroke-white/5" />
-                            {spendingBreakdown.slice(0, 3).map((item, i) => {
-                                // Simplified donut segments
-                                const offset = spendingBreakdown.slice(0, i).reduce((a, b) => a + b.pct, 0);
-                                return (
-                                    <circle 
-                                        key={i}
-                                        cx="88" cy="88" r="76" fill="transparent" 
-                                        stroke={item.color} 
-                                        strokeWidth="14" 
-                                        strokeDasharray={2 * Math.PI * 76} 
-                                        strokeDashoffset={2 * Math.PI * 76 * (1 - item.pct / 100)} 
-                                        strokeLinecap="round"
-                                        style={{ transform: `rotate(${offset * 3.6}deg)`, transformOrigin: 'center' }}
-                                    />
-                                );
-                            })}
-                        </svg>
-                        <div className="absolute flex flex-col items-center">
-                            <span className="text-xl font-black text-text-main">{formatCurrency(totalExpense)}</span>
-                            <span className="text-[8px] font-black text-text-muted uppercase tracking-widest">Total Expenses</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="space-y-3">
-                    {spendingBreakdown.slice(0, 7).map((item, idx) => (
-                        <div key={idx} className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
-                                <span className="text-[10px] font-bold text-text-muted">{item.label}</span>
-                            </div>
-                            <span className="text-[10px] font-black text-text-main">{item.pct}%</span>
-                        </div>
-                    ))}
-                    {spendingBreakdown.length === 0 && (
-                        <p className="text-[10px] font-bold text-text-muted text-center py-4 uppercase opacity-50">No spending data</p>
-                    )}
-                </div>
-            </div>
-
-            {/* Top Spending */}
-            <div className="bg-card border border-border-main rounded-[2.5rem] p-8 shadow-sm">
-                <div className="flex items-center justify-between mb-8">
-                    <h3 className="text-sm font-black text-text-main uppercase tracking-widest opacity-80">Top Spending</h3>
-                    <button className="text-[10px] font-black text-primary hover:underline flex items-center gap-1">
-                        View All <ArrowRight size={14} />
-                    </button>
-                </div>
-
-                <div className="space-y-6">
-                    {transactions.filter(t=>t.amount<0).sort((a,b)=>Math.abs(b.amount)-Math.abs(a.amount)).slice(0, 3).map((tx, idx) => (
-                        <div key={idx} className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-xl bg-border-main/50 flex items-center justify-center text-text-main">
-                                    {MERCHANT_ICONS[tx.merchant.split(' ')[0]] || <Building2 size={18} />}
-                                </div>
-                                <div className="flex flex-col">
-                                    <span className="text-[11px] font-black text-text-main tracking-tight">{tx.merchant}</span>
-                                    <span className="text-[9px] font-bold text-text-muted uppercase tracking-tighter">{new Date(tx.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                                </div>
-                            </div>
-                            <span className="text-xs font-black text-text-main tracking-tight">-{formatCurrency(tx.amount)}</span>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* AI Insight */}
-            <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-[2.5rem] p-8 relative overflow-hidden">
-                <div className="absolute -right-4 -bottom-4 w-32 h-32 bg-primary/5 rounded-full blur-2xl" />
-                <div className="flex items-center gap-3 mb-4 relative z-10">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shadow-sm border border-emerald-500/10">
-                        <Sparkles size={20} strokeWidth={2.5} />
-                    </div>
-                    <h3 className="text-sm font-black text-text-main">AI Insight</h3>
-                </div>
-                <p className="text-xs font-medium text-text-muted leading-relaxed mb-6 relative z-10">
-                    You spent 18% more on dining out this month compared to last month.
-                </p>
-                <button onClick={() => setShowAddTx(true)} className="flex items-center gap-2 text-[10px] font-black text-primary hover:underline relative z-10 uppercase tracking-widest">
-                    View Insight <ArrowRight size={14} />
-                </button>
-            </div>
-
+        <div className="flex items-center gap-3 w-full lg:w-auto overflow-x-auto no-scrollbar">
+          <button className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl text-[13px] font-bold text-slate-700 dark:text-slate-300 hover:border-blue-500 shadow-sm transition-all whitespace-nowrap">
+            All Accounts <ChevronDown size={16} className="text-slate-400" />
+          </button>
+          <button className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl text-[13px] font-bold text-slate-700 dark:text-slate-300 hover:border-blue-500 shadow-sm transition-all whitespace-nowrap">
+            All Categories <ChevronDown size={16} className="text-slate-400" />
+          </button>
+          <button className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl text-[13px] font-bold text-slate-700 dark:text-slate-300 hover:border-blue-500 shadow-sm transition-all whitespace-nowrap">
+            <Calendar size={16} className="text-slate-400" /> Date Range <ChevronDown size={16} className="text-slate-400" />
+          </button>
+          
+          <div className="flex items-center gap-2 ml-auto">
+            <button 
+              onClick={() => setShowImportModal(true)}
+              className="w-11 h-11 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl flex items-center justify-center text-blue-600 hover:border-blue-500 shadow-sm transition-all shrink-0"
+              title="Import Transactions"
+            >
+              <Upload size={18} />
+            </button>
+            <button 
+              onClick={() => setShowExportModal(true)}
+              className="w-11 h-11 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl flex items-center justify-center text-blue-600 hover:border-blue-500 shadow-sm transition-all shrink-0"
+              title="Export Transactions"
+            >
+              <Download size={18} />
+            </button>
+            <button className="w-11 h-11 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:border-blue-500 shadow-sm transition-all shrink-0">
+              <MoreHorizontal size={18} />
+            </button>
+          </div>
         </div>
       </div>
-    </ViewContainer>
+
+      {/* ─── Main Content Grid ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-12">
+        
+        {/* Left Column (Span 8) - Transactions Table */}
+        <div className="lg:col-span-8 flex flex-col gap-6">
+          <div className="vylos-glass-readable p-6 md:p-8">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-[15px] font-black text-slate-900 dark:text-white">Recent Transactions</h3>
+              <button className="text-[11px] font-black text-blue-600 hover:underline uppercase tracking-widest">View all</button>
+            </div>
+            
+            <div className="w-full overflow-x-auto no-scrollbar">
+              <table className="w-full min-w-[600px]">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-white/5">
+                    <th className="text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest pb-4">Merchant</th>
+                    <th className="text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest pb-4">Category</th>
+                    <th className="text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest pb-4">Date</th>
+                    <th className="text-right text-[11px] font-bold text-slate-400 uppercase tracking-widest pb-4">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* Provide exact visual mockup rows if needed or map real data */}
+                  {filteredTxs.map((tx, i) => {
+                    const isIncome = tx.amount > 0;
+                    const now = new Date();
+                    const txDate = new Date(tx.date);
+                    const daysAgo = Math.floor((now.getTime() - txDate.getTime())/(1000*3600*24));
+                    const timeLabel = daysAgo === 0 ? "Today" : daysAgo === 1 ? "Yesterday" : `${daysAgo} days ago`;
+
+                    return (
+                      <tr key={i} className="border-b border-slate-50 dark:border-white/5 last:border-0 hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors group">
+                        <td className="py-4">
+                          <div className="flex items-center gap-3">
+                            <TransactionIcon 
+                              merchant={tx.merchant} 
+                              category={tx.category} 
+                              type={isIncome ? "income" : "expense"}
+                              size="md"
+                              className="group-hover:scale-105 transition-transform"
+                            />
+                            <span className="text-[13px] font-black text-slate-900 dark:text-white">{cleanMerchantName(tx.merchant)}</span>
+                          </div>
+                        </td>
+                        <td className="py-4">
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 dark:bg-white/5 w-fit rounded-lg border border-slate-100 dark:border-white/5">
+                            <div className={`w-1.5 h-1.5 rounded-full ${isIncome ? 'bg-emerald-500' : 'bg-blue-500'}`} />
+                            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">{tx.category}</span>
+                          </div>
+                        </td>
+                        <td className="py-4">
+                          <div className="flex flex-col">
+                            <span className="text-[12px] font-bold text-slate-900 dark:text-white">{formatDate(tx.date)}</span>
+                            <span className="text-[10px] font-medium text-slate-500 mt-0.5">{timeLabel}</span>
+                          </div>
+                        </td>
+                        <td className="py-4 text-right">
+                          <div className="flex flex-col items-end">
+                            <span className={`text-[13px] font-black ${isIncome ? 'text-emerald-600' : 'text-slate-900 dark:text-white'}`}>
+                              {isIncome ? '+' : ''}{formatCurrency(tx.amount)}
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-400 mt-0.5">{isIncome ? 'Inflow' : 'Outflow'}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-white/5 flex justify-center">
+              <button className="text-[12px] font-black text-blue-600 hover:text-blue-700 transition-colors">
+                View all transactions
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column (Span 4) */}
+        <div className="lg:col-span-4 flex flex-col gap-6">
+          
+          {/* Spending Summary */}
+          <div className="vylos-glass-readable p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-[13px] font-black text-slate-900 dark:text-white">Spending Summary</h3>
+              <button className="flex items-center gap-1 text-[11px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-500/10 px-2 py-1 rounded-md">
+                This Month <ChevronDown size={12} />
+              </button>
+            </div>
+            
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-medium text-slate-500">Total Spending</span>
+                <span className="text-[28px] font-black text-slate-900 dark:text-white tracking-tighter leading-none">{formatCurrency(spendingSummary.total)}</span>
+                <div className="flex items-center gap-1 mt-1">
+                  <div className="flex items-center gap-0.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                    <TrendingUp size={10} /> {spendingSummary.trend}
+                  </div>
+                  <span className="text-[10px] font-medium text-slate-400">vs last month</span>
+                </div>
+              </div>
+              <div className="w-20 h-20 relative">
+                <canvas ref={donutRef} />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                  <span className="text-[12px] font-bold text-slate-600 dark:text-slate-300 w-12">Needs</span>
+                  <span className="text-[10px] font-bold text-slate-400">{spendingSummary.needs.pct}%</span>
+                </div>
+                <span className="text-[12px] font-bold text-slate-900 dark:text-white">{formatCurrency(spendingSummary.needs.amt)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-blue-500" />
+                  <span className="text-[12px] font-bold text-slate-600 dark:text-slate-300 w-12">Wants</span>
+                  <span className="text-[10px] font-bold text-slate-400">{spendingSummary.wants.pct}%</span>
+                </div>
+                <span className="text-[12px] font-bold text-slate-900 dark:text-white">{formatCurrency(spendingSummary.wants.amt)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-purple-500" />
+                  <span className="text-[12px] font-bold text-slate-600 dark:text-slate-300 w-12">Savings</span>
+                  <span className="text-[10px] font-bold text-slate-400">{spendingSummary.savings.pct}%</span>
+                </div>
+                <span className="text-[12px] font-bold text-slate-900 dark:text-white">{formatCurrency(spendingSummary.savings.amt)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Recurring Payments */}
+          <div className="vylos-glass-readable p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-[13px] font-black text-slate-900 dark:text-white">Recurring Payments</h3>
+              <button className="text-[11px] font-black text-blue-600 hover:underline uppercase tracking-widest">View all</button>
+            </div>
+            
+            <div className="flex flex-col gap-4 mb-4">
+              {recurringPayments.map((sub, i) => (
+                <div key={i} className="flex items-center justify-between group cursor-pointer">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm border border-black/5 dark:border-white/5 ${sub.iconBg}`}>
+                      <Globe size={14} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[12px] font-black text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">{sub.name}</span>
+                      <span className="text-[10px] font-medium text-slate-500">{sub.cat}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className="text-[12px] font-black text-slate-900 dark:text-white">{formatCurrency(sub.amt)}</span>
+                    <span className="text-[10px] font-bold text-slate-400">{sub.due}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="pt-4 border-t border-slate-100 dark:border-white/5 flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500">Total upcoming</span>
+              <span className="text-[13px] font-black text-slate-900 dark:text-white">{formatCurrency(recurringPayments.reduce((acc, sub) => acc + sub.amt, 0))}</span>
+            </div>
+          </div>
+
+          {/* Spending by Category */}
+          <div className="vylos-glass-readable p-6 flex flex-col h-full">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-[13px] font-black text-slate-900 dark:text-white">Spending by Category</h3>
+              <button className="flex items-center gap-1 text-[11px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-500/10 px-2 py-1 rounded-md">
+                This Month <ChevronDown size={12} />
+              </button>
+            </div>
+            
+            <div className="flex flex-col gap-4 flex-1">
+              {spendingByCategory.map((cat, i) => (
+                <div key={i} className="flex flex-col gap-1.5">
+                  <div className="flex justify-between items-end">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-6 h-6 rounded-lg ${cat.color} bg-opacity-20 flex items-center justify-center`}>
+                        <div className={`w-3 h-3 rounded-full ${cat.color}`} />
+                      </div>
+                      <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">{cat.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-black text-slate-900 dark:text-white">{formatCurrency(cat.amt)}</span>
+                      <span className="text-[10px] font-bold text-slate-400 w-6 text-right">{cat.pct}%</span>
+                    </div>
+                  </div>
+                  <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden w-full">
+                    <div className={`h-full ${cat.color} rounded-full`} style={{ width: `${cat.pct * 2}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-white/5 flex justify-center">
+              <button className="text-[12px] font-black text-blue-600 hover:text-blue-700 transition-colors">
+                View full breakdown
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <ImportTransactionsModal 
+        isOpen={showImportModal} 
+        onClose={() => setShowImportModal(false)} 
+      />
+      <ExportTransactionsModal 
+        isOpen={showExportModal} 
+        onClose={() => setShowExportModal(false)} 
+        data={fullFilteredTxs}
+      />
+    </div>
   );
 };

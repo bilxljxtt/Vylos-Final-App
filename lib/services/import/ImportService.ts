@@ -28,7 +28,7 @@ export class ImportService {
     return CategorizationEngine.categorize(desc, type, []);
   }
 
-  static async processFile(file: File): Promise<ImportPreviewTransaction[]> {
+  static async processFile(file: File, existingTxs: any[] = []): Promise<ImportPreviewTransaction[]> {
     let extracted: ExtractedTransaction[] = [];
     const isExcel = file.name.endsWith(".xlsx") || file.name.endsWith(".xls");
     
@@ -56,6 +56,12 @@ export class ImportService {
         amt = -amt;
       }
 
+      const isDuplicate = existingTxs.some(et => 
+        et.date.startsWith(tx.date) && 
+        et.amount === amt && 
+        et.merchant.toLowerCase() === tx.merchant.toLowerCase()
+      );
+
       return {
         id: Math.random().toString(36).substr(2, 9),
         date: tx.date,
@@ -65,7 +71,7 @@ export class ImportService {
         cat: cat,
         category: cat,
         confidence: cat === "Other" ? 0.1 : 0.85,
-        isDuplicate: false,
+        isDuplicate: isDuplicate,
         _preview: true
       };
     });

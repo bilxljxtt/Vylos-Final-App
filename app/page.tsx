@@ -10,29 +10,36 @@ import { ExtractedTransaction } from "@/lib/services/import/ParserService";
 import { ImportPreviewTransaction, ImportService } from "@/lib/services/import/ImportService";
 import { normalizeTransactionCategory } from "@/lib/services/CategorizationEngine";
 import { BudgetService, BudgetSummary } from "@/lib/services/BudgetService";
+import { Permissions } from "@/lib/permissions";
+import { VylosCalculations } from "@/lib/vylosCalculations";
 
 // Standardized Components
-import { Sidebar } from "@/components/ui/Sidebar";
-import { TopHeader } from "@/components/ui/TopHeader";
-import { DashboardMain } from "@/components/dashboard/DashboardMain";
+import { DashboardV3 } from "@/components/dashboard/DashboardV3";
+import { V2Header } from "@/components/dashboard/v2/V2Header";
+import { V2ShortcutDock } from "@/components/dashboard/v2/V2ShortcutDock";
 import { TransactionsView } from "@/components/views/TransactionsView";
 import { BudgetView } from "@/components/views/BudgetView";
 import { GoalsView } from "@/components/views/GoalsView";
-import { AIAdvisorView } from "@/components/views/AIAdvisorView";
+import { AIAdvisorView, Message } from "@/components/views/AIAdvisorView";
 import { ImportView } from "@/components/views/ImportView";
 import { SettingsView } from "@/components/views/SettingsView";
 import { AnalyticsView } from "@/components/views/AnalyticsView";
 import { CalendarView } from "@/components/views/CalendarView";
+import { RemindersView } from "@/components/views/RemindersView";
 import { PricingView } from "@/components/views/PricingView";
 import { OnboardingView } from "@/components/views/OnboardingView";
 import { LandingPage } from "@/components/ui/LandingPage";
 import { LegalView } from "@/components/views/LegalView";
+import { ActivityView } from "@/components/views/ActivityView";
+import { TermsAcceptanceView } from "@/components/views/TermsAcceptanceView";
 import { TransactionModal, GoalModal } from "@/components/ui/Modals";
 import { HealthDetailModal } from "@/components/modals/HealthDetailModal";
-import { AddReminderModal } from "@/components/modals/AddReminderModal";
+import { RemindersModal } from "@/components/modals/RemindersModal";
 import { EditBudgetModal } from "@/components/modals/EditBudgetModal";
 import { FundCategoryModal } from "@/components/modals/FundCategoryModal";
 import { FeedbackModal } from "@/components/modals/FeedbackModal";
+import { XPSystemModal } from "@/components/modals/XPSystemModal";
+import { ComingSoonModal } from "@/components/modals/ComingSoonModal";
 import { useToast } from "@/components/Toast";
 
 // Register Chart.js
@@ -42,7 +49,7 @@ const ACCENT = "#00D8A5";
 
 
 export default function App() {
-  const { state, addTransaction, deleteTransaction, addGoal, deleteGoal, updateBudgetLimit, updateBudgets, updateProfile, sessionUser, isAuthLoaded, formatCurrency, categorizeTransaction } = useAppStore();
+  const { state, addTransaction, deleteTransaction, addGoal, deleteGoal, updateBudgetLimit, updateBudgets, updateProfile, awardXP, updateDailyConsistency, sessionUser, isAuthLoaded, formatCurrency, categorizeTransaction, setSelectedMonth } = useAppStore();
   const { toast: showToast } = useToast();
   
   const [dark, setDark] = useState(() => {
@@ -63,16 +70,44 @@ export default function App() {
       localStorage.setItem('vylos-theme', 'light');
     }
   }, [dark]);
+
   const [page, setPage] = useState<string>(() => {
     if (typeof window === "undefined") return "dashboard";
     const savedPage = localStorage.getItem('vylos-last-page');
     return savedPage || "dashboard";
   });
 
-  // Persist page to localStorage
+  // Daily XP and Consistency Check
+  useEffect(() => {
+    if (sessionUser && state.userProfile.termsAccepted && state.userProfile.onboardingCompleted) {
+      async function handleDailyXP() {
+        const today = new Date().toISOString().split('T')[0];
+        if (state.userProfile.lastLoginXpDate !== today) {
+          const { XP_CONFIG } = await import("@/lib/services/XPService");
+          await awardXP("DAILY_LOGIN", XP_CONFIG.DAILY_LOGIN.xp, "First login of the day");
+          await updateDailyConsistency("LOGIN");
+          await updateProfile({ lastLoginXpDate: today });
+          showToast(`+${XP_CONFIG.DAILY_LOGIN.xp} XP for your daily visit!`, "success");
+        }
+        
+        // Mark Dashboard Review
+        if (page === "dashboard") {
+           await updateDailyConsistency("REVIEW");
+        }
+      }
+      handleDailyXP();
+    }
+  }, [sessionUser, state.userProfile.termsAccepted, state.userProfile.onboardingCompleted, page]);
+
+  // Persist page to localStorage and Handle Route Protection
   useEffect(() => {
     localStorage.setItem('vylos-last-page', page);
-  }, [page]);
+    
+    // Protection: Redirect if free user tries to access premium AI
+    if (page === "ai" && !Permissions.canUseAIAdvisor(state.userProfile)) {
+      setPage("dashboard");
+    }
+  }, [page, state.userProfile]);
   const [showAddTx, setShowAddTx] = useState(false);
   const [showAddGoal, setShowAddGoal] = useState(false);
   const [txForm, setTxForm] = useState({desc:"",amount:"",cat: "Groceries" as TransactionCategory,date:new Date().toISOString().slice(0,10),type:"expense",notes:""});
@@ -89,63 +124,34 @@ export default function App() {
   const [importPreview, setImportPreview] = useState<ImportPreviewTransaction[] | null>(null);
 
   const [showHealthDetail, setShowHealthDetail] = useState(false);
+  const [showXPSystem, setShowXPSystem] = useState(false);
   const [showAddReminder, setShowAddReminder] = useState(false);
   const [showNewBudget, setShowNewBudget] = useState(false);
   const [showFundCategory, setShowFundCategory] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [showComingSoon, setShowComingSoon] = useState({ isOpen: false, source: "billing_upgrade", title: "Coming Soon" });
 
   // Compute stats (Real-time Calculation Engine)
   const selectedMonth = /^\d{4}-\d{2}-\d{2}$/.test(state.selectedMonth)
     ? state.selectedMonth
     : getMonthStart();
-  const [refYear, refMonth] = selectedMonth.split('-').map(Number);
-  const currentMonthStart = new Date(refYear, refMonth - 1, 1).getTime();
-  const currentMonthEnd = new Date(refYear, refMonth, 0, 23, 59, 59, 999).getTime();
-  const prevMonthStart = new Date(refYear, refMonth - 2, 1).getTime();
-  const prevMonthEnd = new Date(refYear, refMonth - 1, 0, 23, 59, 59, 999).getTime();
-
-  const getMonthStr = (d: number) => {
-    const date = new Date(d);
-    return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-01`;
-  };
   
-  const currentMonthStr = getMonthStr(currentMonthStart);
-  const previousMonthStr = getMonthStr(prevMonthStart);
+  const currentMonthStr = selectedMonth;
+  const previousMonthDate = new Date(selectedMonth);
+  previousMonthDate.setMonth(previousMonthDate.getMonth() - 1);
+  const previousMonthStr = previousMonthDate.toISOString().slice(0, 10);
 
-  const budgetSummary = BudgetService.getBudgetSummary(state, currentMonthStr);
-  const previousSummary = BudgetService.getBudgetSummary(state, previousMonthStr);
+  const stats = VylosCalculations.getMonthStats(state, currentMonthStr);
+  const prevStats = VylosCalculations.getMonthStats(state, previousMonthStr);
 
-  const isBudgetRecord = (title: string) => {
-    const t = title.toLowerCase();
-    return t.includes("budget top-up") || t.includes("budget allocation") || t.includes("top-up:") || t.includes("allocation:");
-  };
-
-  const income = state.transactions
-    .filter(t => {
-      const dateKey = getTransactionDateKey(t);
-      return dateKey.startsWith(currentMonthStr.slice(0, 7)) && t.amount > 0 && !isBudgetRecord(t.merchant);
-    })
-    .reduce((acc, t) => acc + t.amount, 0);
+  const income = stats.income;
+  const expense = stats.expense;
+  const netWorth = stats.netWorth;
+  const savingsRate = stats.savingsRate;
   
-  const expense = budgetSummary.totalSpent;
-  const spendByCat = Object.fromEntries(budgetSummary.categories.map(c => [c.category, c.spent]));
-
-  const prevIncome = state.transactions
-    .filter(t => {
-      const dateKey = getTransactionDateKey(t);
-      return dateKey.startsWith(previousMonthStr.slice(0, 7)) && t.amount > 0 && !isBudgetRecord(t.merchant);
-    })
-    .reduce((acc, t) => acc + t.amount, 0);
-
-  const prevExpense = previousSummary.totalSpent;
-
-  const netWorth = state.transactions.filter(t => !isBudgetRecord(t.merchant)).reduce((s, t) => s + t.amount, 0);
-  const savingsRate = income > 0 ? Math.round(((income - expense) / income) * 100) : (expense === 0 ? 100 : 0);
-  const prevNetWorth = netWorth - (income - expense);
-  
-  const incomeTrend = prevIncome > 0 ? ((income - prevIncome) / prevIncome) * 100 : 0;
-  const expenseTrend = prevExpense > 0 ? ((expense - prevExpense) / prevExpense) * 100 : 0;
-  const netWorthTrend = prevNetWorth > 0 ? ((netWorth - prevNetWorth) / prevNetWorth) * 100 : 0;
+  const incomeTrend = prevStats.income > 0 ? ((income - prevStats.income) / prevStats.income) * 100 : 0;
+  const expenseTrend = prevStats.expense > 0 ? ((expense - prevStats.expense) / prevStats.expense) * 100 : 0;
+  const netWorthTrend = prevStats.netWorth > 0 ? ((netWorth - prevStats.netWorth) / prevStats.netWorth) * 100 : 0;
 
   const engineOutput = VylosEngine.run(state);
   const healthMetrics = {
@@ -159,14 +165,14 @@ export default function App() {
     },
     stats: {
       runwayMonths: engineOutput.burnRateMonths,
-      budgetUtilization: Math.round((expense / engineOutput.monthlyBudget) * 100),
+      budgetUtilization: stats.budgetUtilization,
       savingsRate: savingsRate
     },
     explanation: VylosEngine.explainHealthScoreChange(engineOutput.healthScore, engineOutput.healthScore, { Q: 0, D: 0, C: 0, G: 0 })
   };
   const [filterCat, setFilterCat] = useState("All");
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiMessages, setAiMessages] = useState([
+  const [aiMessages, setAiMessages] = useState<Message[]>([
     {role:"assistant",content:"👋 Hi! I've analyzed your financial situation. Ask me anything — budget tips, savings advice, or what your numbers mean."}
   ]);
   const [aiInput, setAiInput] = useState("");
@@ -180,27 +186,27 @@ export default function App() {
     try {
       if (!sessionUser) return;
 
-      const incomeMap: Record<string, number> = {
-        "Less than $1,000": 500,
-        "$1,000 – $2,500": 1750,
-        "$2,500 – $5,000": 3750,
-        "$5,000 – $10,000": 7500,
-        "$10,000 – $20,000": 15000,
-        "More than $20,000": 25000
-      };
-
-      const comfortMap: Record<string, number> = {
-        "poor": 20, "low": 40, "neutral": 60, "good": 80, "high": 95
-      };
-
       const updates = {
-        monthlyIncome: incomeMap[answers.monthlyIncome] || 0,
-        riskTolerance: comfortMap[answers.financialComfort] || 65,
+        userType: answers.userType,
+        reason_for_using_vylos: answers.reason_for_using_vylos,
+        moneyConfidence: answers.moneyConfidence,
+        first_tracking_focus: answers.first_tracking_focus,
+        currentTrackingMethod: answers.currentTrackingMethod,
+        biggest_money_challenge: answers.biggest_money_challenge,
+        monthly_income_range: answers.monthly_income_range,
+        main_money_goal: answers.main_money_goal,
+        review_frequency: answers.review_frequency,
+        communication_preference: answers.communication_preference,
         onboardingCompleted: true,
+        onboardingCompletedAt: new Date().toISOString()
       };
 
       await updateProfile(updates);
-      showToast("Welcome to Vylos! Your experience is now personalized.", "success");
+      
+      const { XP_CONFIG } = await import("@/lib/services/XPService");
+      await awardXP("ONBOARDING_COMPLETE", XP_CONFIG.ONBOARDING_COMPLETE.xp, "Completed Onboarding Questionnaire");
+      
+      showToast(`Welcome to Vylos! +${XP_CONFIG.ONBOARDING_COMPLETE.xp} XP earned for personalizing your profile.`, "success");
     } catch (e: any) {
       showToast(e.message, "error");
     }
@@ -221,11 +227,13 @@ export default function App() {
   const lowestMonthSpend = spendValues.length > 0 ? Math.min(...spendValues) : 0;
   const highestMonthSpend = spendValues.length > 0 ? Math.max(...spendValues) : 0;
 
-  const isPro = state.userProfile?.subscriptionPlan === "pro" || state.userProfile?.isAdmin;
+  const isPro = Permissions.isInternalUser(state.userProfile) || state.userProfile.subscription_tier !== 'free';
 
   // Handle Charts
   useEffect(()=>{
     const drawCharts = () => {
+      const [refYear, refMonth] = selectedMonth.split('-').map(Number);
+      const budgetSummary = BudgetService.calculateBudgetSummary(state, currentMonthStr);
       const monthlySpend = new Array(6).fill(0);
       const labels = new Array(6).fill("");
       const now = new Date();
@@ -306,7 +314,7 @@ export default function App() {
       if(donutRef.current) {
         if(donutInst.current) donutInst.current.destroy();
         const catData = budgetSummary.categories
-          .map(c => [c.category, c.spent] as [string, number])
+          .map(c => [c.name, c.spent] as [string, number])
           .filter(([, v]) => v > 0);
         donutInst.current = new Chart(donutRef.current, {
           type: 'doughnut',
@@ -333,7 +341,7 @@ export default function App() {
     return () => { 
       clearTimeout(timer);
     };
-  }, [page, dark, state.transactions, spendByCat]);
+  }, [page, dark, state.transactions, currentMonthStr]);
 
   // Actions
   async function handleAddTransaction() {
@@ -350,7 +358,12 @@ export default function App() {
     setShowAddTx(false);
     // RESET with default cat
     setTxForm({desc:"",amount:"",cat:"Groceries",date:new Date().toISOString().slice(0,10),type:"expense",notes:""});
-    showToast("Transaction added!");
+    
+    const { XP_CONFIG } = await import("@/lib/services/XPService");
+    const earned = await awardXP("ADD_TRANSACTION", XP_CONFIG.ADD_TRANSACTION.xp, `Added transaction: ${txForm.desc}`);
+    await updateDailyConsistency("TRANSACTION");
+    
+    showToast(`Transaction added! +${earned} XP earned.`);
   }
 
   function handleQuickAddTransaction(cat: TransactionCategory) {
@@ -404,7 +417,11 @@ export default function App() {
       icon: "🎯",
       color: ACCENT
     });
-    showToast("Goal created!", "success");
+    const { XP_CONFIG } = await import("@/lib/services/XPService");
+    const earned = await awardXP("CREATE_GOAL", XP_CONFIG.CREATE_GOAL.xp, `Created goal: ${goalForm.name}`);
+    await updateDailyConsistency("BUDGET_UPDATE");
+    
+    showToast(`Goal created! +${earned} XP earned.`, "success");
   }
 
   async function sendAI() {
@@ -414,23 +431,11 @@ export default function App() {
     setAiInput("");
     setAiLoading(true);
 
-    const metrics = { score: engineOutput.healthScore, label: engineOutput.healthCategory, stats: { savingsRate: savingsRate, budgetUtilization: Math.round((expense / engineOutput.monthlyBudget) * 100), runwayMonths: engineOutput.burnRateMonths } };
-    const context = `
-      Income: ${formatCurrency(income)}
-      Expenses: ${formatCurrency(expense)}
-      Savings Rate: ${metrics.stats.savingsRate}%
-      Budget Utilization: ${metrics.stats.budgetUtilization}%
-      Financial Health Score: ${metrics.score}/100 (${metrics.label})
-      Emergency Runway: ${metrics.stats.runwayMonths} months
-      Top Expenses: ${Object.entries(spendByCat).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,v])=>`${k}: ${formatCurrency(v)}`).join(", ")}
-      Active Goals: ${state.goals.map(g => `${g.title} (${Math.round((g.currentAmount/g.targetAmount)*100)}% complete)`).join(", ")}
-    `;
-
     try {
       const res = await fetch("/api/ai/advisor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: [...aiMessages, {role: "user", content: userMsg}], context })
+        body: JSON.stringify({ messages: [...aiMessages, {role: "user", content: userMsg}] })
       });
       const data = await res.json();
       setAiMessages(prev=>[...prev,{role:"assistant",content:data.reply}]);
@@ -472,6 +477,7 @@ export default function App() {
     
     // Batch add transactions
     for (const tx of importPreview) {
+      if (tx.isDuplicate) continue;
       await addTransaction({
         date: tx.date,
         merchant: tx.desc,
@@ -481,16 +487,49 @@ export default function App() {
     }
     
     setImportPreview(null);
-    showToast(`Successfully imported ${count} transactions!`, "success");
+    const { XP_CONFIG } = await import("@/lib/services/XPService");
+    const earned = await awardXP("IMPORT_TRANSACTIONS", XP_CONFIG.IMPORT_TRANSACTIONS.xp, `Imported ${count} transactions`);
+    await updateDailyConsistency("TRANSACTION");
+    
+    showToast(`Successfully imported ${count} transactions! +${earned} XP earned.`, "success");
   }
 
   if (!isAuthLoaded) return (
-    <div className="h-screen w-full flex items-center justify-center bg-bg">
-      <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+    <div className="vylos-bg-premium h-screen w-full flex flex-col items-center justify-center">
+      <div className="relative">
+        <div className="w-24 h-24 rounded-3xl bg-white/10 backdrop-blur-3xl border border-white/20 flex items-center justify-center animate-pulse shadow-2xl">
+          <img src="/logo-icon.png" alt="Vylos" className="w-12 h-12 object-contain bg-white rounded-lg p-1" />
+        </div>
+        <div className="absolute -inset-4 bg-blue-400/20 rounded-[40px] blur-2xl animate-pulse -z-10" />
+      </div>
+      <div className="mt-8 flex flex-col items-center gap-2">
+        <span className="text-white font-black text-xl tracking-tighter animate-pulse">Vylos</span>
+        <div className="w-48 h-1 bg-white/10 rounded-full overflow-hidden">
+          <div className="h-full bg-white/40 rounded-full animate-loading-bar" />
+        </div>
+      </div>
     </div>
   );
 
   if (!sessionUser) return <LandingPage />;
+
+  if (!state.userProfile.termsAccepted) {
+    return (
+      <TermsAcceptanceView 
+        onAccept={async () => {
+          await updateProfile({ 
+            termsAccepted: true, 
+            termsAcceptedAt: new Date().toISOString(),
+            termsVersion: "v1.0",
+            termsLastUpdated: "2024-05-08"
+          });
+          const { XP_CONFIG } = await import("@/lib/services/XPService");
+          await awardXP("TERMS_ACCEPTANCE", XP_CONFIG.TERMS_ACCEPTANCE.xp, "Accepted Terms and Conditions");
+          showToast(`+${XP_CONFIG.TERMS_ACCEPTANCE.xp} XP earned!`, "success");
+        }} 
+      />
+    );
+  }
 
   if (!state.userProfile.onboardingCompleted) {
     return <OnboardingView userName={state.userProfile.name} onComplete={handleOnboardingComplete} />;
@@ -503,151 +542,148 @@ export default function App() {
     })
     .sort((a, b) => getTransactionDateKey(b).localeCompare(getTransactionDateKey(a)));
 
+  const firstName = state.userProfile.name?.split(" ")[0] || "User";
+
   return (
-    <div className="flex min-h-screen bg-bg text-text-main transition-colors duration-500 overflow-hidden">
-        <Sidebar 
-          currentPage={page} 
-          setPage={setPage} 
-          dark={dark} 
-          setDark={setDark} 
-          userName={state.userProfile.name || "User"} 
-          avatarUrl={state.userProfile.avatarUrl}
-          isPro={isPro}
-          onShowFeedback={() => setShowFeedback(true)}
-        />
+    <div className="vylos-bg-premium min-h-screen w-full flex flex-col pt-2 pb-8 px-4 md:pt-4 md:px-6 lg:pt-4 lg:px-8 font-inter overflow-x-hidden relative">
+      
+      {/* ─── Global App Header ─── */}
+      <V2Header 
+        firstName={firstName} 
+        avatarUrl={state.userProfile?.avatarUrl} 
+        onPageChange={setPage} 
+      />
 
-      <main className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        <TopHeader 
-          page={page}
-          title={
-            page === "dashboard" ? "Dashboard" :
-            page === "calendar" ? "Financial Calendar" :
-            page === "budget" ? "Budget" :
-            page === "goals" ? "Goals" :
-            page === "transactions" ? "Transactions" :
-            page === "ai" ? "Vylos Advisor" :
-            page === "analytics" ? "Progress" :
-            page === "pricing" ? "Upgrade" :
-            page === "settings" ? "Settings" :
-            page === "import" ? "Import" :
-            page === "privacy" ? "Privacy Policy" :
-            page === "terms" ? "Terms of Use" :
-            page.charAt(0).toUpperCase() + page.slice(1)
-          } 
-          setPage={setPage} 
-          userProfile={state.userProfile} 
-        />
+      {/* ─── Main Content Area ─── */}
+      <main className="flex-1 w-full max-w-[1400px] mx-auto flex flex-col gap-2 md:gap-4 pb-32 relative z-10">
+        {page === "dashboard" && (
+          <DashboardV3
+            income={income}
+            expense={expense}
+            netWorth={netWorth}
+            savingsRate={savingsRate}
+            transactions={filteredTransactions}
+            goals={state.goals}
+            healthScore={engineOutput.healthScore}
+            userName={state.userProfile.name}
+            userProfile={state.userProfile}
+            selectedMonth={currentMonthStr}
+            onMonthChange={(m) => setSelectedMonth(m)}
+            budgetSummary={BudgetService.calculateBudgetSummary(state, currentMonthStr)}
+            formatCurrency={formatCurrency}
+            setPage={setPage}
+            onXPClick={() => setShowXPSystem(true)}
+            onHealthClick={() => setShowHealthDetail(true)}
+          />
+        )}
 
-        <div className="flex-1 overflow-y-auto scrollbar-hide">
-          {page === "dashboard" && (
-            <DashboardMain 
-              income={income} 
-              expense={expense} 
-              netWorth={netWorth} 
-              savingsRate={savingsRate} 
-              transactions={filteredTransactions} 
-              goals={state.goals}
-              subscriptions={state.subscriptions}
-              chartRef={chartRef} 
-              donutRef={donutRef} 
-              setPage={setPage} 
-              trends={{ incomeTrend, expenseTrend, netWorthTrend }}
-              chartStats={{ avgMonthlySpend, lowestMonthSpend, highestMonthSpend }}
-              spendByCat={spendByCat}
-              setShowHealthDetail={setShowHealthDetail}
-              setShowAddReminder={setShowAddReminder}
-              healthScore={engineOutput.healthScore}
-              engineOutput={engineOutput}
-              userName={state.userProfile.name}
-              setShowNewBudget={setShowNewBudget}
-              onQuickAddTx={handleQuickAddTransaction}
-            />
-          )}
-          {page === "transactions" && (
-            <TransactionsView 
-              transactions={filteredTransactions} filterCat={filterCat} setFilterCat={setFilterCat} 
-              setShowAddTx={setShowAddTx} deleteTx={handleDeleteTx} setPage={setPage}
-              trends={{ incomeTrend, expenseTrend, netWorthTrend }}
-            />
-          )}
-          {page === "calendar" && (
-            <CalendarView />
-          )}
+        {page === "transactions" && (
+          <TransactionsView 
+            transactions={filteredTransactions} filterCat={filterCat} setFilterCat={setFilterCat} 
+            setShowAddTx={setShowAddTx} deleteTx={handleDeleteTx} setPage={setPage}
+            trends={{ incomeTrend, expenseTrend, netWorthTrend }}
+          />
+        )}
+        {page === "calendar" && (
+          <CalendarView />
+        )}
+        {page === "reminders" && (
+          <RemindersView setShowAddReminder={setShowAddReminder} />
+        )}
 
-          {page === "pricing" && (
-            <PricingView />
-          )}
+        {page === "pricing" && (
+          <PricingView 
+            onUpgrade={(title) => setShowComingSoon({ isOpen: true, source: "pricing_page", title })} 
+            user={state.userProfile}
+          />
+        )}
 
-          {page === "budget" && (
-            <BudgetView 
-              budgets={state.budgets} 
-              spendByCat={spendByCat} 
-              transactions={filteredTransactions}
-              savingsRate={savingsRate}
-              setShowNewBudget={setShowNewBudget} 
-              setShowFundCategory={setShowFundCategory}
-              handleDeleteCategory={handleDeleteCategory}
-              onQuickAddTx={handleQuickAddTransaction}
-              onQuickFundCat={handleQuickFundCategory}
-            />
-          )}
-          {page === "goals" && (
-            <GoalsView goals={state.goals} setShowAddGoal={setShowAddGoal} deleteGoal={deleteGoal} showToast={showToast} />
-          )}
-          {page === "ai" && (
-            <AIAdvisorView 
-              aiMessages={aiMessages} aiInput={aiInput} setAiInput={setAiInput} 
-              sendAI={sendAI} aiLoading={aiLoading} showToast={showToast}
-              healthMetrics={healthMetrics}
-              spendByCat={spendByCat}
-              totalSpend={expense}
-              goals={state.goals}
-              setPage={setPage}
-              setShowHealthDetail={setShowHealthDetail}
-              setAiMessages={setAiMessages}
-              isPro={isPro}
-            />
-          )}
-          {page === "analytics" && (
-            <AnalyticsView 
-              chartRef={chartRef} 
-              netWorth={netWorth} 
-              totalSaved={totalSaved} 
-              transactions={state.transactions}
-              budgets={state.budgets}
-              goals={state.goals}
-              userProfile={state.userProfile}
-            />
-          )}
-          {page === "import" && (
-            <ImportView 
-              handleCSV={()=>{}} 
-              handleImportResults={handleImportResults} 
-              showToast={showToast} 
-              importPreview={importPreview} 
-              setImportPreview={setImportPreview} 
-              confirmImport={confirmImport} 
-              processFile={async (file) => {
-                try {
-                  const results = await ImportService.processFile(file);
-                  if (results.length === 0) {
-                    showToast("No valid transactions found in file.", "info");
-                  } else {
-                    setImportPreview(results);
-                    const summary = ImportService.getSummary(results);
-                    showToast(`Found ${summary.total} transactions (${summary.categorized} auto-categorized).`, "success");
-                  }
-                } catch (err) {
-                  showToast("Error parsing file. Ensure it's a valid CSV or Excel document.", "error");
+        {page === "budget" && (
+          <BudgetView 
+            setShowNewBudget={setShowNewBudget} 
+            handleDeleteCategory={handleDeleteCategory}
+            onQuickAddTx={handleQuickAddTransaction}
+          />
+        )}
+        {page === "goals" && (
+          <GoalsView goals={state.goals} setShowAddGoal={setShowAddGoal} deleteGoal={deleteGoal} showToast={showToast} />
+        )}
+
+        {page === "activity" && (
+          <ActivityView />
+        )}
+
+        {page === "ai" && (
+          <AIAdvisorView 
+            aiMessages={aiMessages} 
+            aiInput={aiInput} 
+            setAiInput={setAiInput} 
+            sendAI={sendAI} 
+            aiLoading={aiLoading} 
+            showToast={showToast}
+            userProfile={state.userProfile}
+            setPage={setPage}
+            setAiMessages={setAiMessages}
+          />
+        )}
+
+        {page === "analytics" && (
+          <AnalyticsView 
+            chartRef={chartRef} 
+            netWorth={netWorth} 
+            totalSaved={totalSaved} 
+            transactions={state.transactions}
+            budgets={state.budgets}
+            goals={state.goals}
+            userProfile={state.userProfile}
+          />
+        )}
+        {page === "import" && (
+          <ImportView 
+            handleCSV={()=>{}} 
+            handleImportResults={handleImportResults} 
+            showToast={showToast} 
+            importPreview={importPreview} 
+            setImportPreview={setImportPreview} 
+            confirmImport={confirmImport} 
+            processFile={async (file) => {
+              try {
+                const results = await ImportService.processFile(file, state.transactions);
+                if (results.length === 0) {
+                  showToast("No valid transactions found in file.", "info");
+                } else {
+                  setImportPreview(results);
+                  const summary = ImportService.getSummary(results);
+                  showToast(`Found ${summary.total} transactions (${summary.categorized} auto-categorized).`, "success");
                 }
-              }}
-            />
-          )}
-          {page === "settings" && <SettingsView state={state} updateProfile={updateProfile} showToast={showToast} dark={dark} setDark={setDark} setPage={setPage} />}
-          {page === "privacy" && <LegalView type="privacy" onBack={() => setPage("dashboard")} />}
-          {page === "terms" && <LegalView type="terms" onBack={() => setPage("dashboard")} />}
-        </div>
+              } catch (err) {
+                showToast("Error parsing file. Ensure it's a valid CSV or Excel document.", "error");
+              }
+            }}
+          />
+        )}
+        {page === "settings" && (
+          <SettingsView 
+            state={state} 
+            updateProfile={updateProfile} 
+            showToast={showToast} 
+            dark={dark} 
+            setDark={setDark} 
+            setPage={setPage} 
+            onUpgrade={(title: string) => setShowComingSoon({ isOpen: true, source: "settings_page", title })}
+          />
+        )}
+        {page === "privacy" && <LegalView type="privacy" onBack={() => setPage("dashboard")} />}
+        {page === "terms" && <LegalView type="terms" onBack={() => setPage("dashboard")} />}
       </main>
+
+      {/* ─── Global Floating Navigation Dock ─── */}
+      <V2ShortcutDock onPageChange={setPage} currentPage={page} userProfile={state.userProfile} />
+
+      {/* Abstract Background Shapes */}
+      <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-blue-600/20 rounded-full blur-[160px] pointer-events-none animate-pulse" />
+      <div className="absolute bottom-[-5%] right-[-5%] w-[50%] h-[50%] bg-indigo-600/15 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute top-[40%] right-[-10%] w-[30%] h-[40%] bg-cyan-600/10 rounded-full blur-[120px] pointer-events-none" />
 
       {showAddTx && (
         <TransactionModal 
@@ -666,7 +702,11 @@ export default function App() {
         onClose={() => setShowHealthDetail(false)} 
         metrics={healthMetrics}
       />
-      <AddReminderModal 
+      <XPSystemModal 
+        isOpen={showXPSystem} 
+        onClose={() => setShowXPSystem(false)}
+      />
+      <RemindersModal 
         isOpen={showAddReminder} 
         onClose={() => setShowAddReminder(false)}
       />
@@ -684,6 +724,12 @@ export default function App() {
         isOpen={showFeedback}
         onClose={() => setShowFeedback(false)}
         showToast={showToast}
+      />
+      <ComingSoonModal 
+        isOpen={showComingSoon.isOpen}
+        onClose={() => setShowComingSoon({ ...showComingSoon, isOpen: false })}
+        source={showComingSoon.source}
+        title={showComingSoon.title}
       />
     </div>
   );

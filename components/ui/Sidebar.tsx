@@ -1,22 +1,25 @@
 "use client";
 
 import React from "react";
-import { 
-  LayoutGrid, 
-  Wallet, 
-  Target, 
-  MessageSquare, 
-  BarChart3, 
-  Settings, 
+import {
+  LayoutGrid,
+  Wallet,
+  Target,
+  Sparkles,
+  BarChart3,
+  Settings,
   LogOut,
   CreditCard,
   Calendar as CalendarIcon,
-  Zap,
-  MessageCircle
+  Bell,
+  Star,
+  MessageCircle,
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
+import { UserProfile } from "@/lib/store";
+import { Permissions, FeatureName } from "@/lib/permissions";
 
 interface SidebarProps {
   currentPage: string;
@@ -25,30 +28,31 @@ interface SidebarProps {
   setDark: (dark: boolean) => void;
   userName: string;
   avatarUrl?: string;
-  isPro?: boolean;
+  userProfile: UserProfile;
   onShowFeedback?: () => void;
 }
 
-const NAV_ITEMS = [
+const NAV_ITEMS: { id: string; label: string; icon: any; feature?: FeatureName }[] = [
   { id: "dashboard", label: "Home", icon: LayoutGrid },
   { id: "calendar", label: "Calendar", icon: CalendarIcon },
   { id: "budget", label: "Budget", icon: Wallet },
   { id: "goals", label: "Goals", icon: Target },
   { id: "transactions", label: "Transactions", icon: CreditCard },
-  { id: "ai", label: "Vylos Advisor", icon: MessageSquare },
+  { id: "ai", label: "Vylos Advisor", icon: Sparkles },
   { id: "analytics", label: "Progress", icon: BarChart3 },
+  { id: "reminders", label: "Reminders", icon: Bell },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
-export const Sidebar: React.FC<SidebarProps> = ({ 
-  currentPage, 
-  setPage, 
-  dark, 
-  setDark, 
+export const Sidebar: React.FC<SidebarProps> = ({
+  currentPage,
+  setPage,
+  dark,
+  setDark,
   userName,
   avatarUrl,
-  isPro = true,
-  onShowFeedback
+  userProfile,
+  onShowFeedback,
 }) => {
   const router = useRouter();
   const supabase = createClient();
@@ -64,81 +68,87 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   }
 
+  const initials = userName
+    ? userName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
+    : "U";
+
+  const tierLabel =
+    userProfile?.subscription_tier === "internal"
+      ? "Internal"
+      : userProfile?.subscription_tier === "free"
+      ? "Free"
+      : userProfile?.subscription_tier
+      ? userProfile.subscription_tier.charAt(0).toUpperCase() + userProfile.subscription_tier.slice(1)
+      : "Free";
+
   return (
-    <aside className="w-64 h-screen bg-sidebar border-r border-border-main flex flex-col py-8 px-6 shrink-0 sticky top-0 transition-all duration-300">
-      {/* Logo Section */}
-      <div className="flex items-center gap-4 mb-12 px-1">
-        <div className="w-12 h-12 rounded-full border border-[#00A86B]/10 flex items-center justify-center overflow-hidden shrink-0">
-          <img src="/logo.png" alt="Vylos Logo" className="w-full h-full object-cover scale-[1.1]" />
+    <aside className="vylos-sidebar w-full h-full flex flex-col overflow-hidden">
+      {/* ── User Profile Block ── */}
+      <div className="flex flex-col items-center gap-2 px-4 pt-6 pb-4">
+        {/* Avatar */}
+        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-sky-100 via-blue-100 to-indigo-100 flex items-center justify-center text-primary font-bold text-2xl overflow-hidden border-2 border-white shadow-md">
+          {avatarUrl ? (
+            <img src={avatarUrl} alt={userName} className="w-full h-full object-cover" />
+          ) : (
+            <span>{initials}</span>
+          )}
         </div>
-        <span className="text-3xl font-bold tracking-tight text-[#00A86B]">
-          Vylos
-        </span>
+        {/* Name */}
+        <div className="flex flex-col items-center gap-0.5 w-full text-center mt-1">
+          <span className="text-sm font-semibold text-text-main leading-tight truncate max-w-full">
+            {userName || "User"}
+          </span>
+          <span className="text-[11px] text-text-muted truncate max-w-full">
+            {userProfile?.email || ""}
+          </span>
+        </div>
+        {/* Tier Badge */}
+        <div className="vylos-plus-badge mt-1">
+          <Star size={10} fill="currentColor" />
+          <span>Vylos{tierLabel !== "Free" ? "+" : ""}</span>
+        </div>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 flex flex-col gap-1">
+      {/* ── Navigation ── */}
+      <nav className="flex-1 flex flex-col gap-1 px-3 py-2 overflow-y-auto scrollbar-hide">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const active = currentPage === item.id;
-          
+
           return (
             <button
               key={item.id}
               onClick={() => setPage(item.id)}
-              className={`
-                flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all
-                ${active 
-                  ? "bg-bg-mint text-primary shadow-sm shadow-primary/5" 
-                  : "text-text-muted hover:bg-border-main hover:text-text-main"
-                }
-              `}
+              className={`sidebar-nav-item ${active ? "active" : ""}`}
             >
-              <Icon className="w-5 h-5" strokeWidth={active ? 2.5 : 2} />
-              <span className="tracking-tight">{item.label}</span>
+              <Icon
+                className={`shrink-0 ${active ? "text-primary" : "text-text-muted"}`}
+                size={18}
+                strokeWidth={active ? 2.5 : 1.8}
+              />
+              <span className="text-[13px] leading-none">{item.label}</span>
             </button>
           );
         })}
       </nav>
 
-      {/* Footer Section */}
-      <div className="mt-auto flex flex-col gap-4 pt-6">
-        {/* Feedback Button */}
-        <button 
-          onClick={onShowFeedback}
-          className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-text-muted hover:bg-border-main hover:text-text-main transition-all group"
-        >
-          <MessageCircle className="w-5 h-5 group-hover:text-primary transition-colors" />
-          <span className="tracking-tight">Give Feedback</span>
+      {/* ── Footer ── */}
+      <div className="flex flex-col gap-0.5 px-3 py-3 border-t border-border-main">
+        {/* Feedback */}
+        <button onClick={onShowFeedback} className="sidebar-nav-item">
+          <MessageCircle size={16} className="text-text-muted shrink-0" />
+          <span className="text-[13px]">Feedback</span>
         </button>
 
-        {/* User Profile */}
-        <div className="flex items-center justify-between gap-3 bg-card border border-border-main p-3 rounded-2xl shadow-sm hover:border-border-strong transition-all">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#fd8489] via-[#f9a6d4] to-[#80aefe] flex items-center justify-center text-white font-bold text-xs shadow-sm cursor-pointer hover:scale-105 transition-transform shrink-0 overflow-hidden">
-               {avatarUrl ? <img src={avatarUrl} alt={userName} className="w-full h-full object-cover" /> : null}
-            </div>
-            <div className="flex flex-col min-w-0">
-              <span className="text-xs font-bold text-text-main truncate tracking-tight">{userName}</span>
-              {isPro && (
-                <span className="text-[9px] font-bold text-primary flex items-center gap-1">
-                  Vylos Intelligence
-                </span>
-              )}
-            </div>
-          </div>
-          <button 
-            onClick={handleSignOut}
-            className="p-1.5 rounded-lg text-text-muted hover:text-red-500 hover:bg-red-500/10 transition-all group"
-            title="Sign Out"
-          >
-            <LogOut size={16} strokeWidth={2.5} />
-          </button>
-        </div>
+        {/* Sign Out */}
+        <button onClick={handleSignOut} className="sidebar-nav-item hover:!text-red-500">
+          <LogOut size={16} className="text-text-muted shrink-0" />
+          <span className="text-[13px]">Sign out</span>
+        </button>
 
         {/* Version */}
-        <div className="flex items-center justify-center px-2">
-          <span className="text-[10px] font-bold text-text-muted/50">v1.2.0</span>
+        <div className="text-center pt-1">
+          <span className="text-[10px] text-text-muted/40">v1.2.0</span>
         </div>
       </div>
     </aside>

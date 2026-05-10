@@ -16,8 +16,8 @@ export type TransactionCategory =
   | "Education"
   | "Entertainment"
   | "Subscriptions"
-  | "Savings"
   | "Debt Payments"
+  | "Savings"
   | "Other";
 
 export const CATEGORY_METADATA: Record<TransactionCategory, { icon: string; color: string }> = {
@@ -35,8 +35,8 @@ export const CATEGORY_METADATA: Record<TransactionCategory, { icon: string; colo
   "Education": { icon: "📚", color: "#3F51B5" },
   "Entertainment": { icon: "🎬", color: "#F50057" },
   "Subscriptions": { icon: "📱", color: "#00BCD4" },
-  "Savings": { icon: "🏦", color: "#4CAF50" },
-  "Debt Payments": { icon: "💳", color: "#607D8B" },
+  "Debt Payments": { icon: "💳", color: "#FF1744" },
+  "Savings": { icon: "🐷", color: "#00BFA5" },
   "Other": { icon: "📦", color: "#546E7A" },
 };
 
@@ -91,6 +91,7 @@ export interface BudgetCategory {
 }
 
 export interface UserProfile {
+  id: string;
   name: string;
   email: string;
   phone: string;
@@ -103,19 +104,51 @@ export interface UserProfile {
   age?: number;
   householdSize?: number;
   riskTolerance?: number;
-  trialStartedAt?: string;
-  subscriptionPlan?: 'starter' | 'go' | 'pro';
-  subscriptionStatus?: 'active' | 'canceled' | 'trialing';
+  subscription_tier: 'free' | 'individual' | 'entrepreneur' | 'business' | 'internal';
+  subscription_status: 'active' | 'inactive' | 'trialing' | 'past_due' | 'canceled';
+  role: 'user' | 'tester' | 'admin' | 'founder';
+  is_internal_user: boolean;
+  subscription_started_at?: string;
+  subscription_expires_at?: string;
+  trial_ends_at?: string;
+  payment_provider?: string;
+  payment_customer_id?: string;
+  termsAccepted?: boolean;
+  termsAcceptedAt?: string;
+  termsVersion?: string;
+  termsLastUpdated?: string;
   onboardingCompleted?: boolean;
+  onboardingCompletedAt?: string;
+  userType?: string;
+  reason_for_using_vylos?: string;
+  moneyConfidence?: string;
+  first_tracking_focus?: string;
+  currentTrackingMethod?: string;
+  biggest_money_challenge?: string;
+  monthly_income_range?: string;
+  main_money_goal?: string;
+  review_frequency?: string;
+  communication_preference?: string;
   budgetAlertSent?: boolean;
   budgetAlertEnabled?: boolean;
-  isAdmin?: boolean;
+  created_at?: string;
+  totalXp?: number;
+  currentRank?: string;
+  xpMultiplier?: number;
+  currentStreak?: number;
+  longestStreak?: number;
+  dailyConsistencyScore?: number;
+  lastConsistencyDate?: string;
+  lastLoginXpDate?: string;
+  dismissed_notifications?: string[];
 }
 
 export interface NotificationPrefs {
   budgetAlerts: boolean;
   billReminders: boolean;
   securityAlerts: boolean;
+  goalUpdates: boolean;
+  weeklySummary: boolean;
 }
 
 export interface Notification {
@@ -126,16 +159,21 @@ export interface Notification {
   type: 'info' | 'warning' | 'success';
   read: boolean;
   created_at: string;
+  stable_id?: string;
 }
 
 export interface Reminder {
   id: string;
   title: string;
-  amount: number;
-  date: string; // ISO string
+  description?: string;
   category: string;
-  repeat?: string;
-  isPaid?: boolean;
+  due_date: string; // YYYY-MM-DD
+  due_time?: string; // HH:mm
+  priority: "low" | "medium" | "high";
+  recurring: "none" | "daily" | "weekly" | "monthly";
+  status: "pending" | "completed" | "overdue";
+  amount?: number; // Optional amount if linked to a bill
+  completed_at?: string;
 }
 
 import { MerchantRule } from "./services/CategorizationEngine";
@@ -153,6 +191,7 @@ export interface AppState {
   notificationList: Notification[];
   unreadNotificationCount: number;
   selectedMonth: string; // ISO format "YYYY-MM-DD"
+  aiUsage: { messages_used: number; billing_month: string };
 }
 
 export const TRANSACTION_CATEGORIES: TransactionCategory[] = [
@@ -170,8 +209,8 @@ export const TRANSACTION_CATEGORIES: TransactionCategory[] = [
   "Education",
   "Entertainment",
   "Subscriptions",
-  "Savings",
   "Debt Payments",
+  "Savings",
   "Other",
 ];
 
@@ -193,31 +232,63 @@ export const initialState: AppState = {
   unreadNotificationCount: 0,
   notificationList: [],
   selectedMonth: getMonthStart(),
+  aiUsage: { messages_used: 0, billing_month: new Date().toISOString().slice(0, 7) },
   budgets: {
     "Groceries": { limit: 3000, type: "limit" },
     "Bills": { limit: 3500, type: "limit" },
     "Rent / Housing": { limit: 8000, type: "limit" },
   },
   userProfile: {
+    id: "",
     name: "",
     email: "",
     phone: "",
     theme: "Light",
     language: "English (US)",
-    currency: "South African Rand (R)",
     avatarUrl: "",
     monthlyIncome: 0,
-    country: "South Africa (ZAR)",
+    country: "South Africa",
     age: 0,
     householdSize: 1,
     riskTolerance: 65,
     budgetAlertSent: false,
     budgetAlertEnabled: true,
+    currency: "ZAR",
+    termsAccepted: false,
+    termsAcceptedAt: "",
+    termsVersion: "v1.0",
+    termsLastUpdated: "2024-05-08",
+    onboardingCompleted: false,
+    onboardingCompletedAt: "",
+    userType: "",
+    reason_for_using_vylos: "",
+    moneyConfidence: "",
+    first_tracking_focus: "",
+    currentTrackingMethod: "",
+    biggest_money_challenge: "",
+    monthly_income_range: "",
+    main_money_goal: "",
+    review_frequency: "",
+    communication_preference: "",
+    subscription_tier: 'free',
+    subscription_status: 'active',
+    role: 'user',
+    is_internal_user: false,
+    totalXp: 0,
+    currentRank: "Scout Analyst",
+    xpMultiplier: 1.0,
+    currentStreak: 0,
+    longestStreak: 0,
+    dailyConsistencyScore: 0,
+    lastConsistencyDate: "",
+    lastLoginXpDate: ""
   },
   notifications: {
     budgetAlerts: true,
     billReminders: true,
     securityAlerts: false,
+    goalUpdates: true,
+    weeklySummary: true,
   },
 };
 
@@ -316,12 +387,27 @@ export function getCurrencySymbol(countryStr?: string): string {
   return "R";
 }
 
-export function formatMoney(val: number, country?: string): string {
-  const symbol = getCurrencySymbol(country);
-  // Ensure we get raw numbers like "50,000" rather than browser locale quirks
-  const formatted = new Intl.NumberFormat("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Math.abs(val));
-  const prefix = val < 0 ? "-" : "";
-  return `${prefix}${symbol}${formatted}`;
+export function formatMoney(val: number, currency: string = "ZAR"): string {
+  // Map internal currency codes to their proper symbols/locales
+  const isZar = currency === "ZAR" || currency.includes("Rand");
+  const currencyCode = isZar ? "ZAR" : (currency.length === 3 ? currency : "ZAR");
+  const locale = "en-US"; // Always use en-US to get comma separators
+
+  const formatter = new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: currencyCode,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: (val % 1 !== 0) ? 2 : 0
+  });
+  
+  let formatted = formatter.format(val);
+  
+  // Custom cleanup for ZAR to match "R1,234" style
+  if (isZar) {
+    formatted = formatted.replace("ZAR", "R").replace(/\s/g, "");
+  }
+  
+  return formatted;
 }
 
 export function generateId(): string {

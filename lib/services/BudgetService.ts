@@ -2,29 +2,29 @@ import { AppState, Transaction, BudgetCategory, TransactionCategory } from "../s
 import { getTransactionDateKey, toDateKey } from "../utils";
 
 export interface CategorySummary {
-  category: string;
-  limit: number;
+  name: string;
+  allocated: number;
   spent: number;
-  funding: number;
-  available: number;
-  percent: number;
+  remaining: number;
+  percentageUsed: number;
+  status: "safe" | "warning" | "over";
 }
 
 export interface BudgetSummary {
-  totalLimit: number;
+  totalAllocated: number;
   totalSpent: number;
-  totalFunding: number;
-  totalAvailable: number;
-  totalSpentPercent: number;
+  totalRemaining: number;
+  percentageUsed: number;
   categories: CategorySummary[];
+  billsTotal: number;
 }
 
 export class BudgetService {
   /**
    * Centralized calculation engine for Vylos budgets.
-   * Derives all spending and funding from transactions for a specific month.
+   * Single source of truth for the Budget view.
    */
-  static getBudgetSummary(state: AppState, selectedMonth: string): BudgetSummary {
+  static calculateBudgetSummary(state: AppState, selectedMonth: string): BudgetSummary {
     const monthPrefix = selectedMonth.slice(0, 7); // YYYY-MM
 
     // Filter transactions for the selected month
@@ -44,26 +44,21 @@ export class BudgetService {
       return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
     };
 
-    // Get all unique categories from budgets, transactions, and subscriptions
+    const incomeCategories = ["Salary", "Business Income", "Refund", "Other Income"];
+
+    // Get all unique categories
     const allCategories = new Set([
       ...Object.keys(state.budgets).map(normalize),
-      ...monthTxs.map(t => normalize(t.category)),
+      ...monthTxs.filter(t => t.amount < 0).map(t => normalize(t.category)), // Only negative amounts count towards spending categories
       ...monthSubs.map(s => normalize(s.category))
     ]);
-
-    const incomeCategories = ["Salary", "Business Income", "Refund", "Other Income"];
 
     const categories: CategorySummary[] = Array.from(allCategories)
       .filter(cat => !incomeCategories.includes(cat))
       .map(cat => {
-        const catTxs = monthTxs.filter(t => t.category === cat);
-        const catSubs = monthSubs.filter(s => s.category === cat);
+        const catTxs = monthTxs.filter(t => normalize(t.category) === cat);
+        const catSubs = monthSubs.filter(s => normalize(s.category) === cat);
         
-        // Funding = positive amounts in non-income categories
-        const funding = catTxs
-          .filter(t => t.amount > 0)
-          .reduce((sum, t) => sum + t.amount, 0);
-
         // Spent = absolute value of negative amounts + subscriptions
         const txSpent = catTxs
           .filter(t => t.amount < 0)
@@ -72,38 +67,57 @@ export class BudgetService {
         const subSpent = catSubs.reduce((sum, s) => sum + s.amount, 0);
         const spent = txSpent + subSpent;
 
-        const b = state.budgets[cat] || { limit: 0, type: "limit" };
-        const limit = b.limit || 0;
-        const cap = limit + funding;
-        const available = cap - spent;
-        const percent = cap > 0 ? Math.round((spent / cap) * 100) : (spent > 0 ? 100 : 0);
+        // Allocated = budget limit
+        // We match budget keys case-insensitively
+        const budgetKey = Object.keys(state.budgets).find(k => normalize(k) === cat);
+        const allocated = budgetKey ? (state.budgets[budgetKey]?.limit || 0) : 0;
+        
+        const remaining = allocated - spent;
+        let percentageUsed = 0;
+        
+        if (allocated > 0) {
+          percentageUsed = (spent / allocated) * 100;
+        } else if (spent > 0) {
+          percentageUsed = 100; // Over budget by definition
+        }
+
+        let status: "safe" | "warning" | "over" = "safe";
+        if (allocated === 0 && spent > 0) status = "over";
+        else if (percentageUsed >= 100) status = "over";
+        else if (percentageUsed >= 75) status = "warning";
 
         return {
-          category: cat,
-          limit,
-          funding,
+          name: cat,
+          allocated,
           spent,
-          available,
-          percent
+          remaining,
+          percentageUsed,
+          status
         };
       })
       .sort((a, b) => b.spent - a.spent); // Sort by highest spend
 
-    const totalLimit = categories.reduce((sum, c) => sum + c.limit, 0);
-    const totalFunding = categories.reduce((sum, c) => sum + c.funding, 0);
+    const totalAllocated = categories.reduce((sum, c) => sum + c.allocated, 0);
     const totalSpent = categories.reduce((sum, c) => sum + c.spent, 0);
+    const totalRemaining = totalAllocated - totalSpent;
     
-    const totalCap = totalLimit + totalFunding;
-    const totalAvailable = totalCap - totalSpent;
-    const totalSpentPercent = totalCap > 0 ? Math.round((totalSpent / totalCap) * 100) : (totalSpent > 0 ? 100 : 0);
+    let percentageUsed = 0;
+    if (totalAllocated > 0) {
+      percentageUsed = (totalSpent / totalAllocated) * 100;
+    } else if (totalSpent > 0) {
+      percentageUsed = 100;
+    }
+
+    const billsCat = categories.find(c => c.name === "Bills");
+    const billsTotal = billsCat ? billsCat.spent : 0;
 
     return {
-      totalLimit,
+      totalAllocated,
       totalSpent,
-      totalFunding,
-      totalAvailable,
-      totalSpentPercent,
-      categories
+      totalRemaining,
+      percentageUsed,
+      categories,
+      billsTotal
     };
   }
 
@@ -164,14 +178,14 @@ export class BudgetService {
     });
     const subscriptionsTotal = monthSubs.reduce((sum, s) => sum + s.amount, 0);
     
-    const budgetSummary = this.getBudgetSummary(state, monthStr);
+    const budgetSummary = this.calculateBudgetSummary(state, monthStr);
 
     return {
       totalIncome: income,
       totalExpenses: expenses + subscriptionsTotal,
       totalSubscriptions: subscriptionsTotal,
       netBalance: income - (expenses + subscriptionsTotal),
-      remainingBudget: budgetSummary.totalAvailable,
+      remainingBudget: budgetSummary.totalRemaining,
       upcomingPaymentsCount: monthSubs.filter(s => {
         const todayStr = toDateKey(new Date());
         return s.nextDue >= todayStr;

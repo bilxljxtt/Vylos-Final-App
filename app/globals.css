@@ -1,39 +1,58 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
 @import "tailwindcss";
 @custom-variant dark (&:is(.dark *));
 
 /* ─── Design Tokens ─────────────────────────────────────────────────────────── */
 :root {
-  --bg: #F9FAFB;
+  /* App Background — Premium Vibrant Blue */
+  --bg-premium: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%);
   --text: #0F172A;
   --text-muted: #64748B;
-  --card: #FFFFFF;
-  --border: #F1F5F9;
-  --border-strong: #E2E8F0;
-  --sidebar: #FFFFFF;
-  --primary: #10B981;
-  --primary-dark: #059669;
-  --bg-mint: #F0FDF4;
-  --accent-purple: #7C3AED;
-  --accent-blue: #2563EB;
+
+  /* Glassmorphism — Production Grade */
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.5);
+  --glass-shadow: 0 20px 50px 0 rgba(0, 0, 0, 0.15);
+
+  /* Brand Primary */
+  --primary: #2563EB;
+  --primary-dark: #1D4ED8;
+  --primary-light: rgba(37, 99, 235, 0.1);
+
+  /* Semantics */
+  --accent-green: #10B981;
+  --accent-red: #EF4444;
+  --accent-orange: #F59E0B;
 }
 
 .dark {
-  --bg: #020617;
+  --bg: #0B1120;
+  --bg-alt: #111827;
   --text: #F8FAFC;
   --text-muted: #94A3B8;
-  --card: #0F172A;
-  --border: rgba(255, 255, 255, 0.05);
-  --border-strong: rgba(255, 255, 255, 0.1);
-  --sidebar: #020617;
-  --primary: #10B981;
-  --accent-purple: #A78BFA;
-  --accent-blue: #60A5FA;
-  --bg-mint: rgba(16, 185, 129, 0.1);
+
+  --card: #1E293B;
+  --border: rgba(148, 163, 184, 0.12);
+  --border-strong: rgba(148, 163, 184, 0.2);
+
+  --sidebar: #1E293B;
+  --sidebar-active-bg: rgba(59, 130, 246, 0.15);
+  --sidebar-active-text: #60A5FA;
+
+  --primary: #3B82F6;
+  --primary-dark: #2563EB;
+  --primary-light: rgba(59, 130, 246, 0.15);
+
+  --accent-green: #10B981;
+  --accent-green-dark: #059669;
+  --bg-mint: rgba(16, 185, 129, 0.15);
+  --accent-red: #F87171;
+  --accent-orange: #FBBF24;
 }
 
 @theme inline {
   --color-bg: var(--bg);
+  --color-bg-alt: var(--bg-alt);
   --color-text-main: var(--text);
   --color-text-muted: var(--text-muted);
   --color-card: var(--card);
@@ -42,45 +61,18 @@
   --color-sidebar: var(--sidebar);
   --color-primary: var(--primary);
   --color-primary-dark: var(--primary-dark);
+  --color-primary-light: var(--primary-light);
   --color-bg-mint: var(--bg-mint);
-  --color-acc-purple: var(--accent-purple);
-  --color-acc-blue: var(--accent-blue);
-}
-
-/* ─── Premium Components ───────────────────────────────────────────────────── */
-.glass-card {
-  @apply bg-card/80 backdrop-blur-xl border border-border-main shadow-lg;
-}
-
-.dashboard-card {
-  @apply bg-card border border-border-main rounded-[1.5rem] p-6 transition-all duration-300;
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.01), 0 2px 4px -2px rgb(0 0 0 / 0.01);
-}
-
-.dashboard-card:hover {
-  @apply border-border-strong;
-  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.03), 0 4px 6px -4px rgb(0 0 0 / 0.03);
-}
-
-.login-btn {
-  background: var(--primary);
-  color: white;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.login-btn:hover {
-  background: var(--primary-dark);
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px -5px rgba(16, 185, 129, 0.4);
-}
-
-.social-btn {
-  @apply flex items-center justify-center gap-3 px-4 py-3 border border-border-main rounded-xl bg-card text-sm font-medium transition-all hover:bg-border-main hover:border-border-strong;
+  --color-acc-green: var(--accent-green);
+  --color-acc-red: var(--accent-red);
 }
 
 /* ─── Base ──────────────────────────────────────────────────────────────────── */
-* {
-  box-sizing: border-box;
+* { box-sizing: border-box; }
+
+html {
+  font-family: 'Inter', system-ui, sans-serif;
+  scroll-behavior: smooth;
 }
 
 body {
@@ -90,49 +82,501 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ─── Custom Scrollbar ──────────────────────────────────────────────────────── */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* ─── Global Focus & Accessibility ─── */
+:focus {
+  outline: none;
 }
-::-webkit-scrollbar-track {
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: inherit;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
+}
+
+/* Custom Focus Ring Utility — Production Grade Accessibility */
+.vylos-focus {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  outline: none !important;
+}
+
+.vylos-focus:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3), 0 0 20px rgba(37, 99, 235, 0.4);
+  border-radius: inherit;
+}
+
+.dark .vylos-focus:focus-visible {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3), 0 0 25px rgba(59, 130, 246, 0.4);
+}
+
+/* ─── Interaction Polish ─── */
+.vylos-no-select {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.vylos-focus-clean {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.vylos-focus-clean:focus-visible {
+  box-shadow: 0 0 0 2px var(--primary) !important;
+}
+
+/* Global Selection Control — Disabled on UI, allowed on inputs */
+body {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+input, textarea, [contenteditable="true"], .selectable-text {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+/* ─── Premium Background ─────────────────────────────────────────────────── */
+.vylos-bg-premium {
+  background-color: #2563eb;
+  background-image: 
+    radial-gradient(ellipse at top right, #1e3a8a 0%, transparent 60%),
+    radial-gradient(ellipse at bottom left, #1d4ed8 0%, transparent 60%),
+    radial-gradient(circle at 10% 20%, rgba(56, 189, 248, 0.4) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(14, 165, 233, 0.4) 0%, transparent 40%);
+  
+  background-attachment: fixed;
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
+
+.dark .vylos-bg-premium {
+  background-color: #020617;
+  background-image: 
+    radial-gradient(ellipse at top right, rgba(30, 58, 138, 0.4) 0%, transparent 60%),
+    radial-gradient(ellipse at bottom left, rgba(29, 78, 216, 0.3) 0%, transparent 60%),
+    radial-gradient(circle at 10% 20%, rgba(56, 189, 248, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(14, 165, 233, 0.08) 0%, transparent 40%);
+  background-attachment: fixed;
+}
+
+/* Abstract blurred floating shapes */
+.vylos-bg-premium::before {
+  content: '';
+  position: absolute;
+  top: -15%;
+  left: -10%;
+  width: 50vw;
+  height: 50vw;
+  background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 60%);
+  filter: blur(90px);
+  animation: floatGlow 18s infinite alternate ease-in-out;
+  pointer-events: none;
+}
+
+.vylos-bg-premium::after {
+  content: '';
+  position: absolute;
+  bottom: -20%;
+  right: -10%;
+  width: 60vw;
+  height: 60vw;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.1) 0%, transparent 60%);
+  filter: blur(100px);
+  animation: floatGlowReverse 22s infinite alternate ease-in-out;
+  pointer-events: none;
+}
+
+@keyframes floatGlow {
+  0% { transform: translate(0, 0) scale(1); opacity: 0.6; }
+  100% { transform: translate(8%, 5%) scale(1.1); opacity: 1; }
+}
+
+@keyframes floatGlowReverse {
+  0% { transform: translate(0, 0) scale(1); opacity: 0.5; }
+  100% { transform: translate(-5%, -8%) scale(1.05); opacity: 0.9; }
+}
+
+/* ─── Vylos Standardized Glass System ─────────────────────────────────────── */
+
+/* Soft Glass — For normal dashboard cards/widgets */
+@utility vylos-glass-soft {
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 10px 30px 0 rgba(0, 0, 0, 0.1);
+  border-radius: 24px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+
+  @variant dark {
+    background: rgba(15, 23, 42, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* Readable Glass — For main cards and primary content */
+@utility vylos-glass-readable {
+  background: rgba(225, 235, 255, 0.85);
+  backdrop-filter: blur(28px) saturate(165%);
+  -webkit-backdrop-filter: blur(28px) saturate(165%);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 20px 55px rgba(0, 0, 0, 0.2);
+  border-radius: 28px;
+
+  @variant dark {
+    background: rgba(10, 18, 35, 0.88);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 25px 65px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* Modal Glass — For high-focus overlays and fullscreen modals */
+@utility vylos-glass-modal {
+  background: rgba(235, 242, 255, 0.95);
+  backdrop-filter: blur(36px) saturate(180%);
+  -webkit-backdrop-filter: blur(36px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow: 0 45px 130px rgba(0, 0, 0, 0.35);
+  border-radius: 32px;
+
+  @variant dark {
+    background: rgba(8, 12, 24, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 55px 160px rgba(0, 0, 0, 0.7);
+  }
+}
+
+/* Popup Glass — For dropdowns, floating menus, and notifications */
+@utility vylos-glass-popup {
+  background: rgba(235, 242, 255, 0.92);
+  backdrop-filter: blur(34px) saturate(170%);
+  -webkit-backdrop-filter: blur(34px) saturate(170%);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.24);
+  border-radius: 28px;
+  z-index: 10002;
+
+  @variant dark {
+    background: rgba(8, 15, 30, 0.94);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+  }
+}
+
+/* Notification Card Glass — Specific for activity alerts */
+@utility vylos-glass-notification-card {
+  background: rgba(220, 232, 255, 0.72);
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  border: 1px solid rgba(80, 130, 255, 0.28);
+  border-radius: 22px;
+  
+  @variant dark {
+    background: rgba(15, 23, 42, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* Modal Glass — For centered modals */
+@utility vylos-glass-modal {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(50px) saturate(200%);
+  -webkit-backdrop-filter: blur(50px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 40px 120px -20px rgba(0, 0, 0, 0.5);
+  border-radius: 32px;
+
+  @variant dark {
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+}
+
+/* Overlay Glass — For backdrop behind modals/sidebars */
+.vylos-glass-overlay {
+  background: rgba(5, 12, 30, 0.45);
+  backdrop-filter: blur(10px);
+}
+
+/* Legacy Compat classes — Map to new system */
+.vylos-glass { @apply vylos-glass-readable; }
+.glass-card { @apply vylos-glass-soft; }
+.vylos-modal-glass { @apply vylos-glass-modal; }
+.vylos-glass-panel { @apply vylos-glass-readable; }
+.glass-menu { @apply vylos-glass-popup; }
+
+.vylos-glass-input {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  transition: all 0.2s ease;
+}
+
+.vylos-glass-input:focus {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.15);
+}
+
+.dark .vylos-glass-input {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+
+.glass-option {
+  width: 100%;
+  text-align: left;
+  padding: 12px 16px;
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a; /* Dark Navy */
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.dark .glass-option {
+  color: #f8fafc;
+}
+
+.glass-option:hover {
+  background: #e2e8f0;
+  color: #2563eb;
+}
+
+.dark .glass-option:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #60a5fa;
+}
+
+.glass-option.active {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.glass-option.active:hover {
+  background: #1d4ed8;
+}
+
+.glass-option.active:hover {
+  background: var(--primary-dark);
+  transform: none;
+}
+
+/* Legacy Dock — Map to new system if needed */
+.glass-dock { @apply vylos-glass-popup; border-radius: 32px; }
+
+
+/* ─── Header Gradient ─────────────────────────────────────────────────────── */
+.vylos-header {
+  background: linear-gradient(90deg, #1E3A8A 0%, #2563EB 50%, #0EA5E9 100%);
+}
+
+.dark .vylos-header {
+  background: linear-gradient(90deg, #0F172A 0%, #1E3A8A 100%);
+}
+
+/* ─── Sidebar Nav ─────────────────────────────────────────────────────────── */
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: none;
   background: transparent;
+  width: 100%;
+  text-align: left;
 }
-::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.12);
-  border-radius: 9999px;
+
+.sidebar-nav-item:hover {
+  background: var(--primary-light);
+  color: var(--text);
 }
-::-webkit-scrollbar-thumb:hover {
+
+.sidebar-nav-item.active {
+  background: var(--sidebar-active-bg);
+  color: var(--sidebar-active-text);
+  font-weight: 600;
+}
+
+/* ─── Progress Bars ───────────────────────────────────────────────────────── */
+.progress-bar-track {
+  height: 6px;
+  background: rgba(148, 163, 184, 0.15);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent-green);
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.progress-bar-fill.blue { background: var(--primary); }
+.progress-bar-fill.red { background: var(--accent-red); }
+.progress-bar-fill.amber { background: var(--accent-orange); }
+
+/* ─── Buttons & Badges ────────────────────────────────────────────────────── */
+.btn-primary {
   background: var(--primary);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 14px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
 }
 
-/* ─── Utility Animations ────────────────────────────────────────────────────── */
+.btn-primary:hover {
+  background: var(--primary-dark);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.btn-secondary {
+  background: var(--card);
+  color: var(--text);
+  padding: 10px 20px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-secondary:hover {
+  background: var(--bg);
+  border-color: var(--border-strong);
+}
+
+.badge-green {
+  display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px;
+  background: rgba(16, 185, 129, 0.1); color: var(--accent-green-dark);
+  border-radius: 999px; font-size: 11px; font-weight: 600;
+}
+.dark .badge-green { color: var(--accent-green); }
+
+.badge-red {
+  display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px;
+  background: rgba(239, 68, 68, 0.1); color: #B91C1C;
+  border-radius: 999px; font-size: 11px; font-weight: 600;
+}
+.dark .badge-red { color: var(--accent-red); }
+
+.vylos-plus-badge {
+  display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px;
+  background: linear-gradient(135deg, rgba(219, 234, 254, 0.6), rgba(239, 246, 255, 0.6));
+  border: 1px solid rgba(191, 219, 254, 0.5);
+  color: var(--primary); border-radius: 999px; font-size: 11px; font-weight: 700;
+}
+.dark .vylos-plus-badge {
+  background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.2);
+  color: var(--primary);
+}
+
+/* ─── Inputs ──────────────────────────────────────────────────────────────── */
+.vylos-input {
+  width: 100%; background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 10px 14px; font-size: 14px; color: var(--text);
+  transition: all 0.2s ease; outline: none;
+}
+.vylos-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+
+/* ─── Scrollbar & Animations ──────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.2); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ─── Premium Utility Classes ─────────────────────────────────────────────── */
+.text-gradient {
+  background: linear-gradient(135deg, #ffffff 0%, rgba(255, 255, 255, 0.7) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-blue {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.bg-gradient-blue {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+}
+
+.bg-gradient-emerald {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.glow-blue {
+  box-shadow: 0 0 20px rgba(37, 99, 235, 0.3);
+}
+
+.glow-emerald {
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+}
+
+.hover-lift {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes loading-bar {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(0%); }
+  100% { transform: translateX(100%); }
+}
+
+.animate-loading-bar {
+  animation: loading-bar 2s ease-in-out infinite;
+}
 @keyframes shimmer {
-  0%   { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
 
-.shimmer {
-  background: linear-gradient(90deg, var(--card) 25%, var(--border) 50%, var(--card) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.4s ease-in-out infinite;
-}
-
-/* ─── Form elements resets ──────────────────────────────────────────────────── */
-input[type="number"]::-webkit-inner-spin-button,
-input[type="number"]::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-input[type="number"] {
-  -moz-appearance: textfield;
-  appearance: textfield;
-}
-
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+.animate-shimmer {
+  animation: shimmer 1.5s infinite;
 }

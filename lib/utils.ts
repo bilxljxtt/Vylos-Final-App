@@ -80,6 +80,130 @@ export function formatRelativeTime(date: Date): string {
 }
 
 /**
+ * Standardized Date Formatter for Vylos
+ * Formats date to South African style: 1 May 2026
+ */
+export function formatDate(dateStr: string): string {
+  if (!dateStr) return "";
+  
+  let date: Date;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    // Prevent timezone shifting by parsing as local date
+    date = parseDateKey(dateStr);
+  } else {
+    date = new Date(dateStr);
+  }
+  
+  if (isNaN(date.getTime())) return dateStr;
+
+  return new Intl.DateTimeFormat("en-ZA", {
+    day: "numeric",
+    month: "long",
+    year: "numeric"
+  }).format(date);
+}
+
+/**
+ * Gets current date/time components for South Africa (Africa/Johannesburg)
+ */
+export function getSouthAfricanNow() {
+  const parts = new Intl.DateTimeFormat("en-ZA", {
+    timeZone: "Africa/Johannesburg",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    hourCycle: "h23"
+  }).formatToParts(new Date());
+
+  const getPart = (type: string) => parts.find(p => p.type === type)?.value || "0";
+  
+  const year = parseInt(getPart("year"));
+  const month = parseInt(getPart("month"));
+  const day = parseInt(getPart("day"));
+  const hour = parseInt(getPart("hour"));
+  const minute = parseInt(getPart("minute"));
+
+  return {
+    year,
+    month,
+    day,
+    hour,
+    minute,
+    dateKey: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+  };
+}
+
+/**
+ * Calculates derived status of a reminder based on South African current time.
+ */
+export function getReminderDerivedStatus(reminder: { 
+  due_date: string, 
+  due_time?: string, 
+  status: string, 
+  completed_at?: string 
+}): "upcoming" | "overdue" | "completed" {
+  // If explicitly marked as completed, it's completed
+  if (reminder.status === "completed" || (reminder.completed_at && reminder.completed_at.length > 0)) return "completed";
+
+  const saNow = getSouthAfricanNow();
+  
+  // Compare date keys (YYYY-MM-DD)
+  if (reminder.due_date < saNow.dateKey) return "overdue";
+  
+  if (reminder.due_date === saNow.dateKey) {
+    // If no time is specified, it's upcoming for the whole day until it's tomorrow
+    if (!reminder.due_time) return "upcoming";
+    
+    // Parse time
+    const timeMatch = reminder.due_time.match(/(\d{1,2}):(\d{2})/);
+    if (!timeMatch) return "upcoming";
+
+    const h = parseInt(timeMatch[1]);
+    const m = parseInt(timeMatch[2]);
+    
+    // If current SA hour/minute has passed the due time
+    if (saNow.hour > h || (saNow.hour === h && saNow.minute >= m)) {
+      return "overdue";
+    }
+  }
+
+  return "upcoming";
+}
+
+/**
+ * Calculates the next occurrence date for a recurring reminder.
+ */
+export function getNextOccurrence(currentDueDate: string, pattern: "none" | "daily" | "weekly" | "monthly"): string | null {
+  if (pattern === "none") return null;
+
+  const date = parseDateKey(currentDueDate);
+  
+  switch (pattern) {
+    case "daily":
+      date.setDate(date.getDate() + 1);
+      break;
+    case "weekly":
+      date.setDate(date.getDate() + 7);
+      break;
+    case "monthly":
+      // Safely increment month
+      const currentMonth = date.getMonth();
+      date.setMonth(currentMonth + 1);
+      // Handle edge cases like Jan 31 -> Feb 28
+      if (date.getMonth() !== (currentMonth + 1) % 12) {
+          date.setDate(0); // Go back to last day of previous month
+      }
+      break;
+    default:
+      return null;
+  }
+
+  return toDateKey(date);
+}
+
+/**
  * Strips confusing prefixes like "Budget Top-up:" or "Budget Allocation:" 
  * from merchant/transaction titles for a cleaner UI.
  */

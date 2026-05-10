@@ -1,27 +1,19 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  Calendar as CalendarIcon,
-  X,
-  Bell,
-  ArrowUp,
-  ArrowDown
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Home, Lightbulb, Smartphone, Music, TrendingUp, CreditCard as CreditCardIcon, Calendar as CalendarIcon, CheckCircle2, Clock } from "lucide-react";
 import { useAppStore } from "@/lib/AppContext";
-import { BudgetService } from "@/lib/services/BudgetService";
-import { CATEGORY_METADATA, TransactionCategory } from "@/lib/store";
-import { ViewContainer } from "../ui/ViewContainer";
-import { toDateKey, createLocalDate, getTransactionDateKey, cleanMerchantName, parseDateKey } from "@/lib/utils";
+import { toDateKey, createLocalDate, getTransactionDateKey, formatDate, getReminderDerivedStatus } from "@/lib/utils";
+import { CalendarEventModal } from "@/components/modals/CalendarEventModal";
+import { TransactionIcon } from "@/components/ui/TransactionIcon";
 
 export const CalendarView: React.FC = () => {
   const { state, setSelectedMonth, formatCurrency } = useAppStore();
-  const [selectedDate, setSelectedDate] = useState<string>(toDateKey(new Date()));
-  const [showModal, setShowModal] = useState(false);
-
-  // Sync internal view with global selectedMonth
+  const [activeTab, setActiveTab] = useState<"month" | "week" | "list">("month");
+  const [showEventModal, setShowEventModal] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<any>(null);
+  
+  // Keep track of the currently viewed month internally, or use global
   const currentDate = useMemo(() => {
     const [y, m] = state.selectedMonth.split('-').map(Number);
     return createLocalDate(y, m - 1, 1);
@@ -29,18 +21,12 @@ export const CalendarView: React.FC = () => {
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
-  const monthStr = state.selectedMonth;
-
-  // Real data calculations
-  const dailyMovement = useMemo(() => BudgetService.getDailyMovement(state, monthStr), [state, monthStr]);
 
   const monthStart = createLocalDate(year, month, 1);
   const monthEnd = createLocalDate(year, month + 1, 0);
   
-  // Adjusted startDay for Mon-Sun (0=Mon, 6=Sun)
-  let startDay = monthStart.getDay() - 1;
-  if (startDay === -1) startDay = 6; 
-
+  // Sun-Sat (0=Sun, 6=Sat)
+  const startDay = monthStart.getDay();
   const numDays = monthEnd.getDate();
 
   const days = [];
@@ -52,7 +38,7 @@ export const CalendarView: React.FC = () => {
   // Current month
   for (let i = 1; i <= numDays; i++) {
     const d = createLocalDate(year, month, i);
-    days.push({ date: d, dateKey: toDateKey(d), inMonth: true });
+    days.push({ date: d, dateKey: toDateKey(d), inMonth: true, isToday: toDateKey(d) === toDateKey(new Date()) });
   }
   // Next month padding
   const totalCells = Math.ceil(days.length / 7) * 7;
@@ -68,298 +54,395 @@ export const CalendarView: React.FC = () => {
     return `${y}-${m}-01`;
   };
 
-  const prevMonth = () => {
-    const d = createLocalDate(year, month - 1, 1);
-    setSelectedMonth(formatMonthKey(d));
-  };
+  const prevMonth = () => setSelectedMonth(formatMonthKey(createLocalDate(year, month - 1, 1)));
+  const nextMonth = () => setSelectedMonth(formatMonthKey(createLocalDate(year, month + 1, 1)));
+  const goToday = () => setSelectedMonth(formatMonthKey(new Date()));
 
-  const nextMonth = () => {
-    const d = createLocalDate(year, month + 1, 1);
-    setSelectedMonth(formatMonthKey(d));
-  };
+  const monthName = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
 
-  const monthName = currentDate.toLocaleString('default', { month: 'long' });
+  // Map state.transactions and state.reminders to calendar events
+  const calendarEvents = useMemo(() => {
+    const events: Record<string, any[]> = {};
+    
+    state.transactions.forEach(t => {
+      const key = getTransactionDateKey(t);
+      if (!events[key]) events[key] = [];
+      events[key].push({
+        title: t.merchant || t.notes || 'Transaction',
+        subtitle: t.category,
+        amount: formatCurrency(t.amount),
+        type: t.amount >= 0 ? 'income' : 'expense',
+        dot: t.amount >= 0 ? 'bg-emerald-500' : 'bg-red-500'
+      });
+    });
 
-  // Get items for a specific day
-  const getDayItems = (dateKey: string) => {
-    const txs = state.transactions.filter(t => getTransactionDateKey(t) === dateKey);
-    const subs = state.subscriptions.filter(s => s.nextDue === dateKey);
-    return {
-        transactions: txs,
-        subscriptions: subs,
-        totalItems: txs.length + subs.length
-    };
-  };
+    state.reminders.forEach(r => {
+      const key = r.due_date;
+      if (!events[key]) events[key] = [];
+      events[key].push({
+        title: r.title,
+        subtitle: r.category,
+        amount: r.amount ? formatCurrency(r.amount) : '',
+        type: 'reminder',
+        dot: 'bg-blue-600'
+      });
+    });
 
-  // Chip Style Mapping
-  const getChipStyle = (item: any, type: 'transaction' | 'subscription') => {
-    if (type === 'subscription') {
-      return "bg-acc-blue/10 text-acc-blue border-acc-blue/20 border-dashed border shadow-sm";
+    return events;
+  }, [state, formatCurrency]);
+
+  const [selectedDay, setSelectedDay] = useState<Date>(new Date());
+
+  const weekDays = useMemo(() => {
+    const startOfWeek = new Date(selectedDay);
+    startOfWeek.setDate(selectedDay.getDate() - selectedDay.getDay());
+    
+    const daysArr = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(startOfWeek);
+      d.setDate(startOfWeek.getDate() + i);
+      daysArr.push(d);
     }
-    
-    const cat = item.category as TransactionCategory;
-    const amount = item.amount;
-    
-    if (amount > 0) return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 shadow-sm";
-    
-    switch (cat) {
-      case "Groceries":
-      case "Eating Out":
-        return "bg-amber-500/10 text-amber-500 border-amber-500/20 shadow-sm";
-      case "Transport":
-        return "bg-blue-500/10 text-blue-500 border-blue-500/20 shadow-sm";
-      case "Shopping":
-        return "bg-rose-500/10 text-rose-500 border-rose-500/20 shadow-sm";
-      case "Bills":
-      case "Rent / Housing":
-      case "Health":
-        return "bg-purple-500/10 text-purple-500 border-purple-500/20 shadow-sm";
-      case "Entertainment":
-        return "bg-indigo-500/10 text-indigo-500 border-indigo-500/20 shadow-sm";
-      default:
-        return "bg-text-muted/10 text-text-muted border-border-main shadow-sm";
-    }
-  };
+    return daysArr;
+  }, [selectedDay]);
 
-  const getEmoji = (item: any, type: 'transaction' | 'subscription') => {
-    if (type === 'subscription') return "📱";
-    const meta = CATEGORY_METADATA[item.category as TransactionCategory];
-    return meta?.icon || "📦";
-  };
+  const upcomingEvents = useMemo(() => {
+    const todayStr = toDateKey(new Date());
+    return state.reminders
+      .filter(r => {
+        const status = getReminderDerivedStatus(r);
+        return status !== 'completed' && r.due_date >= todayStr;
+      })
+      .sort((a, b) => a.due_date.localeCompare(b.due_date))
+      .slice(0, 8)
+      .map(r => ({
+        date: r.due_date === todayStr ? 'Today' : formatDate(r.due_date),
+        title: r.title,
+        amount: r.amount ? formatCurrency(r.amount) : '',
+        icon: <TransactionIcon merchant={r.title} category={r.category} size="sm" />,
+        bg: "bg-white/5 dark:bg-white/5"
+      }));
+  }, [state.reminders, formatCurrency]);
 
-  // Selected Day Details for Modal
-  const detailData = useMemo(() => {
-    if (!showModal) return null;
-    const items = getDayItems(selectedDate);
-    const incomeTotal = items.transactions.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
-    const expenseTotal = items.transactions.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
-    const subTotal = items.subscriptions.reduce((s, b) => s + b.amount, 0);
-
-    return {
-      date: selectedDate,
-      transactions: items.transactions,
-      subscriptions: items.subscriptions,
-      incomeTotal,
-      expenseTotal,
-      subTotal,
-      netTotal: incomeTotal - expenseTotal - subTotal
-    };
-  }, [showModal, selectedDate, state.transactions, state.subscriptions]);
+  const getEventsForDay = (dateStr: string) => calendarEvents[dateStr] || [];
 
   return (
-    <ViewContainer className="flex flex-col pt-8 pb-20 max-w-[1600px] mx-auto min-h-screen">
+    <div className="flex flex-col lg:flex-row gap-8 h-full min-h-[850px] animate-in fade-in duration-500">
       
-      {/* Redesigned Header Area */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-4 mb-10 mt-2">
-        <div className="flex flex-col gap-2">
-            <h1 className="text-4xl font-black text-text-main tracking-tight">Financial Calendar</h1>
-            <p className="text-text-muted font-medium text-sm">See your upcoming income, expenses, bills, and reminders.</p>
-        </div>
-
-        <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 bg-border-main/20 p-1.5 rounded-2xl border border-border-main min-w-[200px] justify-between shadow-sm">
-                <button 
-                  onClick={prevMonth} 
-                  className="p-2 hover:bg-card hover:shadow-sm rounded-xl transition-all text-text-main"
-                >
-                  <ChevronLeft size={20} />
-                </button>
-                
-                <span className="text-xs font-black text-text-main uppercase tracking-widest px-4">
-                  {monthName} {year}
-                </span>
-
-                <button 
-                  onClick={nextMonth} 
-                  className="p-2 hover:bg-card hover:shadow-sm rounded-xl transition-all text-text-main"
-                >
-                  <ChevronRight size={20} />
-                </button>
-            </div>
-        </div>
-      </div>
-
-      {/* Calendar Grid Container */}
-      <div className="border border-border-main rounded-[2.5rem] shadow-sm overflow-hidden bg-card mx-4">
-        {/* Day Headers */}
-        <div className="grid grid-cols-7 border-b border-border-main">
-          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => (
-            <div key={d} className="py-4 text-center text-[10px] font-black text-text-muted uppercase tracking-[0.3em]">{d}</div>
-          ))}
-        </div>
-
-        {/* Grid Cells */}
-        <div className="grid grid-cols-7 border-l border-t border-border-main">
-          {days.map((dayObj, idx) => {
-            const { date, dateKey, inMonth } = dayObj;
-            const isTodayCell = toDateKey(new Date()) === dateKey;
-            const isSelected = selectedDate === dateKey;
-            const movement = dailyMovement[dateKey];
-            const items = getDayItems(dateKey);
-            const displayItems = [...items.transactions, ...items.subscriptions].slice(0, 4);
-            const remainingCount = items.totalItems - displayItems.length;
-
-            return (
-              <div 
-                key={idx}
-                onClick={() => {
-                  setSelectedDate(dateKey);
-                  setShowModal(true);
-                }}
-                className={`
-                  min-h-[160px] p-3 border-r border-b border-border-main flex flex-col gap-2 group transition-all cursor-pointer relative
-                  ${!inMonth ? 'bg-bg/40' : 'bg-card hover:bg-bg/30'}
-                  ${isSelected ? 'ring-2 ring-primary/40 bg-primary/5 z-10' : ''}
-                `}
-              >
-                {/* Cell Header: Date & Net */}
-                <div className="flex justify-between items-start">
-                   <div className={`
-                     w-8 h-8 rounded-full flex items-center justify-center text-sm font-black transition-all
-                     ${isTodayCell ? 'bg-primary text-white shadow-lg shadow-primary/20' : inMonth ? 'text-text-main' : 'text-text-muted opacity-40'}
-                     ${isSelected && !isTodayCell ? 'border-2 border-primary text-primary' : ''}
-                   `}>
-                     {date.getDate()}
-                   </div>
-                   
-                   {movement && movement.net !== 0 && inMonth && (
-                     <div className={`text-[10px] font-black tracking-tight ${movement.net > 0 ? 'text-emerald-500' : 'text-text-muted'}`}>
-                        {movement.net > 0 ? '+' : ''}{formatCurrency(Math.round(movement.net)).replace(/\.00$/, '')}
-                     </div>
-                   )}
-                </div>
-
-                {/* Transaction Chips */}
-                <div className="flex flex-col gap-1.5 overflow-hidden">
-                   {displayItems.map((item, i) => {
-                     const isSub = 'nextDue' in item;
-                     return (
-                        <div 
-                          key={i} 
-                          className={`
-                            px-2 py-1.5 rounded-xl border flex items-center gap-2 transition-all group-hover:translate-x-0.5
-                            ${getChipStyle(item, isSub ? 'subscription' : 'transaction')}
-                          `}
-                        >
-                           <span className="text-xs">{getEmoji(item, isSub ? 'subscription' : 'transaction')}</span>
-                           <div className="flex-1 min-w-0 flex flex-col">
-                              <span className="text-[10px] font-bold truncate leading-tight capitalize">
-                                {isSub ? item.name : cleanMerchantName(item.merchant || item.category)}
-                              </span>
-                              {!isSub && item.amount > 0 && <span className="text-[8px] opacity-80 font-black">+{formatCurrency(item.amount)}</span>}
-                           </div>
-                        </div>
-                     );
-                   })}
-                   
-                   {remainingCount > 0 && (
-                      <div className="px-2 py-1 text-[9px] font-black text-text-muted uppercase tracking-widest text-center mt-1">
-                        + {remainingCount} more
-                      </div>
-                   )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Modern Detail Modal */}
-      {showModal && detailData && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-card border border-border-main w-full max-w-xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-            {/* Modal Header */}
-            <div className="p-8 pb-4 flex items-center justify-between">
-              <div className="flex flex-col">
-                  <h3 className="text-2xl font-black text-text-main tracking-tight">
-                    {(() => {
-                      const d = parseDateKey(selectedDate);
-                      return d.toLocaleDateString('default', { weekday: 'long', month: 'long', day: 'numeric' });
-                    })()}
-                  </h3>
-                  <span className="text-xs font-bold text-text-muted uppercase tracking-widest mt-1">Daily Summary</span>
-              </div>
-              <button onClick={() => setShowModal(false)} className="p-3 hover:bg-border-main rounded-2xl transition-all">
-                <X size={24} className="text-text-muted" />
+      {/* ─── Main Calendar Area ─── */}
+      <div className="flex-1 vylos-glass-readable p-8 flex flex-col relative overflow-hidden">
+        {/* Subtle background glow */}
+        <div className="absolute -top-24 -left-24 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
+        
+        {/* Calendar Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-6 relative z-10">
+          <div className="flex flex-col">
+             <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-none mb-2">Calendar</h2>
+             <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Financial Timeline & Tasks</p>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center bg-slate-100/50 dark:bg-white/5 rounded-2xl shadow-inner border border-slate-200 dark:border-white/10 p-1">
+              <button onClick={prevMonth} className="p-2.5 hover:bg-white dark:hover:bg-white/10 rounded-xl transition-all hover:shadow-sm">
+                <ChevronLeft size={20} className="text-slate-600 dark:text-slate-400" />
+              </button>
+              <span className="w-44 text-center text-sm font-black text-slate-900 dark:text-white tracking-tight">{monthName}</span>
+              <button onClick={nextMonth} className="p-2.5 hover:bg-white dark:hover:bg-white/10 rounded-xl transition-all hover:shadow-sm">
+                <ChevronRight size={20} className="text-slate-600 dark:text-slate-400" />
               </button>
             </div>
+            
+            <button onClick={goToday} className="px-6 py-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/10 shadow-sm transition-all active:scale-95">
+              Today
+            </button>
 
-            <div className="p-8 pt-4">
-               {/* Totals */}
-               <div className="grid grid-cols-2 gap-4 mb-8">
-                  <div className="p-6 rounded-3xl bg-emerald-500/10 border border-emerald-500/20 flex flex-col gap-1">
-                     <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Income</span>
-                     <span className="text-2xl font-black text-emerald-600">+{formatCurrency(detailData.incomeTotal)}</span>
-                  </div>
-                  <div className="p-6 rounded-3xl bg-rose-500/10 border border-rose-500/20 flex flex-col gap-1">
-                     <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Spending</span>
-                     <span className="text-2xl font-black text-rose-600">-{formatCurrency(detailData.expenseTotal + detailData.subTotal)}</span>
-                  </div>
-               </div>
-
-               {/* Items List */}
-               <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2 scrollbar-hide">
-                  {[...detailData.transactions, ...detailData.subscriptions].length === 0 ? (
-                    <div className="py-10 text-center opacity-40 flex flex-col items-center gap-3">
-                       <CalendarIcon size={40} className="text-text-muted/30" />
-                       <span className="text-xs font-black uppercase tracking-widest">No activity</span>
-                    </div>
-                  ) : (
-                    <>
-                      {detailData.transactions.map(tx => {
-                        const isInc = tx.amount > 0;
-                        return (
-                          <div key={tx.id} className="flex items-center justify-between p-4 rounded-2xl bg-bg border border-border-main group">
-                             <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-xl bg-card border border-border-main flex items-center justify-center text-lg shadow-sm">
-                                   {getEmoji(tx, 'transaction')}
-                                </div>
-                                <div className="flex flex-col">
-                                   <span className="text-sm font-black text-text-main capitalize">{cleanMerchantName(tx.merchant || tx.category)}</span>
-                                   <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">{tx.category}</span>
-                                </div>
-                             </div>
-                             <span className={`text-sm font-black ${isInc ? 'text-emerald-500' : 'text-text-main'}`}>
-                                {isInc ? '+' : '-'}{formatCurrency(Math.abs(tx.amount))}
-                             </span>
-                          </div>
-                        );
-                      })}
-                      {detailData.subscriptions.map(sub => (
-                        <div key={sub.id} className="flex items-center justify-between p-4 rounded-2xl bg-acc-blue/5 border border-acc-blue/10 group">
-                           <div className="flex items-center gap-4">
-                              <div className="w-10 h-10 rounded-xl bg-card border border-border-main flex items-center justify-center text-lg shadow-sm">
-                                 📱
-                              </div>
-                              <div className="flex flex-col">
-                                 <span className="text-sm font-black text-text-main">{sub.name}</span>
-                                 <span className="text-[10px] font-bold text-acc-blue uppercase tracking-widest">Subscription</span>
-                              </div>
-                           </div>
-                           <span className="text-sm font-black text-text-main">
-                              -{formatCurrency(sub.amount)}
-                           </span>
-                        </div>
-                      ))}
-                    </>
-                  )}
-               </div>
-
-               <div className={`mt-8 p-6 rounded-3xl flex items-center justify-between ${detailData.netTotal >= 0 ? 'bg-primary/10' : 'bg-border-main/40'}`}>
-                  <div className="flex items-center gap-3">
-                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${detailData.netTotal >= 0 ? 'bg-primary text-white' : 'bg-text-muted/30 text-text-main'}`}>
-                        {detailData.netTotal >= 0 ? <ArrowUp size={20} /> : <ArrowDown size={20} />}
-                     </div>
-                     <span className="text-sm font-black text-text-main">Daily Net Balance</span>
-                  </div>
-                  <span className={`text-xl font-black ${detailData.netTotal >= 0 ? 'text-primary' : 'text-text-main'}`}>
-                     {detailData.netTotal >= 0 ? '+' : ''}{formatCurrency(detailData.netTotal)}
-                  </span>
-               </div>
+            <div className="flex items-center bg-slate-100/50 dark:bg-white/5 rounded-2xl shadow-inner border border-slate-200 dark:border-white/10 p-1">
+              {[
+                { id: "month", label: "Month" },
+                { id: "week", label: "Week" },
+                { id: "list", label: "List" }
+              ].map(tab => (
+                <button 
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`px-5 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? "bg-white dark:bg-blue-600 text-blue-600 dark:text-white shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"}`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
+
+            <button 
+              onClick={() => {
+                setEditingEvent(null);
+                setShowEventModal(true);
+              }}
+              className="flex items-center gap-3 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-blue-600/20 transition-all active:scale-95"
+            >
+              <Plus size={18} strokeWidth={3} />
+              New Event
+            </button>
           </div>
         </div>
-      )}
-    </ViewContainer>
+
+        {/* Calendar Grid / Content Area */}
+        <div className="flex-1 flex flex-col min-h-0 relative z-10">
+          {activeTab === "month" && (
+            <div className="flex-1 flex flex-col animate-in fade-in duration-500">
+              {/* Days Header */}
+              <div className="grid grid-cols-7 mb-4">
+                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(day => (
+                  <div key={day} className="text-center text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
+                    {day}
+                  </div>
+                ))}
+              </div>
+
+              {/* Grid Cells */}
+              <div className="flex-1 grid grid-cols-7 gap-px bg-slate-200/50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-[2rem] overflow-hidden shadow-inner">
+                {days.map((day, i) => {
+                  const events = getEventsForDay(day.dateKey);
+                  return (
+                    <div 
+                      key={i} 
+                      onClick={() => setSelectedDay(day.date)}
+                      className={`bg-white/80 dark:bg-slate-900/40 p-2 lg:p-4 min-h-[110px] flex flex-col gap-1.5 transition-all hover:bg-blue-50 dark:hover:bg-blue-500/5 group cursor-pointer
+                        ${!day.inMonth ? 'opacity-30' : ''}
+                        ${toDateKey(selectedDay) === day.dateKey ? 'ring-2 ring-inset ring-blue-500/50 bg-blue-50/50 dark:bg-blue-500/5' : ''}
+                      `}
+                    >
+                      <div className="flex justify-between items-start mb-1">
+                        <span className={`
+                          text-xs font-black w-7 h-7 flex items-center justify-center rounded-lg transition-all
+                          ${day.isToday 
+                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' 
+                            : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white'}
+                        `}>
+                          {day.date.getDate()}
+                        </span>
+                        {events.length > 0 && <span className="text-[9px] font-black text-slate-300 dark:text-slate-600">{events.length}</span>}
+                      </div>
+                      
+                      <div className="flex flex-col gap-1 overflow-hidden flex-1">
+                        {events.slice(0, 3).map((ev, j) => (
+                          <div 
+                            key={j} 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (ev.type === 'reminder') {
+                                const realReminder = state.reminders.find(r => r.title === ev.title && r.due_date === day.dateKey);
+                                if (realReminder) {
+                                  setEditingEvent(realReminder);
+                                  setShowEventModal(true);
+                                }
+                              }
+                            }}
+                            className="flex items-center gap-1.5 p-1 rounded-md bg-slate-50/50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 transition-colors"
+                          >
+                            <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${ev.dot}`} />
+                            <span className="text-[9px] font-black text-slate-800 dark:text-slate-200 truncate leading-tight">{ev.title}</span>
+                          </div>
+                        ))}
+                        {events.length > 3 && (
+                          <span className="text-[9px] font-black text-blue-600 dark:text-blue-400 mt-1">+{events.length - 3} more</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {activeTab === "week" && (
+            <div className="flex-1 flex flex-col gap-4 animate-in fade-in slide-in-from-right-4 duration-500 overflow-y-auto pr-2 custom-scrollbar">
+              <div className="flex items-center justify-between mb-2">
+                 <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest">Week of {formatDate(toDateKey(weekDays[0]))}</h3>
+              </div>
+              <div className="grid grid-cols-1 gap-4">
+                {weekDays.map((d, i) => {
+                  const dKey = toDateKey(d);
+                  const events = getEventsForDay(dKey);
+                  const isToday = dKey === toDateKey(new Date());
+
+                  return (
+                    <div key={i} className={`p-6 rounded-[2rem] border flex flex-col md:flex-row gap-6 transition-all ${isToday ? 'bg-blue-600/5 border-blue-600/20 ring-1 ring-blue-600/10 shadow-lg shadow-blue-600/5' : 'bg-white/40 dark:bg-white/5 border-slate-200/50 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20'}`}>
+                      <div className="flex flex-col items-center justify-center min-w-[100px] md:border-r border-slate-200 dark:border-white/10 md:pr-6">
+                        <span className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">{d.toLocaleDateString('default', { weekday: 'long' })}</span>
+                        <span className={`text-3xl font-black ${isToday ? 'text-blue-600' : 'text-slate-900 dark:text-white'}`}>{d.getDate()}</span>
+                      </div>
+                      <div className="flex-1 flex flex-col gap-4">
+                        {events.length > 0 ? (
+                          events.map((ev, j) => (
+                            <div 
+                              key={j} 
+                              onClick={() => {
+                                if (ev.type === 'reminder') {
+                                  const realReminder = state.reminders.find(r => r.title === ev.title && r.due_date === dKey);
+                                  if (realReminder) {
+                                    setEditingEvent(realReminder);
+                                    setShowEventModal(true);
+                                  }
+                                }
+                              }}
+                              className="flex items-center justify-between p-4 bg-white/50 dark:bg-white/5 rounded-2xl hover:bg-white dark:hover:bg-white/10 transition-all cursor-pointer group border border-transparent hover:border-slate-100 dark:hover:border-white/5 shadow-sm"
+                            >
+                              <div className="flex items-center gap-4">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${ev.dot.replace('bg-', 'bg-').includes('emerald') ? 'bg-emerald-500/10 text-emerald-600' : ev.dot.includes('red') ? 'bg-red-500/10 text-red-600' : 'bg-blue-600/10 text-blue-600'}`}>
+                                  {ev.type === 'reminder' ? <Clock size={18} /> : <CreditCardIcon size={18} />}
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="text-[13px] font-black text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">{ev.title}</span>
+                                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{ev.subtitle}</span>
+                                </div>
+                              </div>
+                              <span className={`text-sm font-black ${ev.amount.includes('+') ? 'text-emerald-500' : 'text-slate-900 dark:text-white'}`}>{ev.amount}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="flex items-center justify-center py-6 text-slate-400/40 italic text-xs font-bold border-2 border-dashed border-slate-100 dark:border-white/5 rounded-2xl">
+                            No events or transactions
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {activeTab === "list" && (
+            <div className="flex-1 flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300 overflow-y-auto pr-2 custom-scrollbar">
+              {state.reminders.length > 0 ? (
+                state.reminders
+                  .sort((a, b) => a.due_date.localeCompare(b.due_date))
+                  .map((r, i) => (
+                    <div 
+                      key={i} 
+                      onClick={() => {
+                        setEditingEvent(r);
+                        setShowEventModal(true);
+                      }}
+                      className="flex items-center justify-between p-5 bg-white/40 dark:bg-white/5 border border-slate-200/50 dark:border-white/10 rounded-2xl hover:bg-white dark:hover:bg-white/10 transition-all cursor-pointer group shadow-sm"
+                    >
+                      <div className="flex items-center gap-5">
+                        <div className="w-12 h-12 rounded-2xl bg-blue-600/10 dark:bg-blue-600/20 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <CalendarIcon size={20} />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[14px] font-black text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">{r.title}</span>
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-0.5">{formatDate(r.due_date)} • {r.due_time || 'All Day'}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-8">
+                        <div className="flex flex-col items-end">
+                          <span className="text-sm font-black text-slate-900 dark:text-white">{r.amount ? formatCurrency(r.amount) : '—'}</span>
+                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{r.category}</span>
+                        </div>
+                        {(() => {
+                          const status = getReminderDerivedStatus(r);
+                          return (
+                            <div className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${status === 'completed' ? 'bg-emerald-500/10 text-emerald-600' : status === 'overdue' ? 'bg-rose-500/10 text-rose-600' : 'bg-amber-500/10 text-amber-600'}`}>
+                              {status}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  ))
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center text-center p-20 bg-slate-50/50 dark:bg-white/5 rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:border-white/10">
+                  <div className="w-24 h-24 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center mb-6">
+                    <CalendarIcon size={40} className="text-slate-300 opacity-50" />
+                  </div>
+                  <h4 className="text-xl font-black text-slate-900 dark:text-white mb-2">Your timeline is empty</h4>
+                  <p className="text-sm font-medium text-slate-500 max-w-[280px] leading-relaxed">Stay organized by adding upcoming bills, goals, and important events.</p>
+                  <button 
+                    onClick={() => setShowEventModal(true)}
+                    className="mt-8 px-8 py-3 bg-blue-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/20"
+                  >
+                    Create First Event
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+      </div>
+
+      {/* ─── Right Panel: Upcoming ─── */}
+      <div className="w-full lg:w-[360px] flex flex-col gap-8">
+        
+        {/* Upcoming Events Card */}
+        <div className="flex-1 vylos-glass-readable p-8 flex flex-col relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/5 rounded-full blur-3xl" />
+          
+          <div className="flex items-center justify-between mb-8 relative z-10">
+            <h3 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">Timeline</h3>
+            <div className="w-8 h-8 rounded-lg bg-blue-600/10 flex items-center justify-center text-blue-600">
+               <TrendingUp size={16} />
+            </div>
+          </div>
+          
+          <div className="flex flex-col gap-6 flex-1 overflow-y-auto custom-scrollbar pr-2 relative z-10">
+            {upcomingEvents.length > 0 ? upcomingEvents.map((ev, i) => (
+              <div key={i} className="flex gap-4 group cursor-pointer">
+                <div className={`w-12 h-12 rounded-2xl ${ev.bg} dark:bg-white/10 flex items-center justify-center shrink-0 shadow-sm border border-black/5 dark:border-white/5 group-hover:scale-110 transition-all duration-300`}>
+                  {ev.icon}
+                </div>
+                <div className="flex flex-col justify-center min-w-0 flex-1">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">{ev.date}</span>
+                  <span className="text-[14px] font-black text-slate-900 dark:text-white truncate leading-tight group-hover:text-blue-600 transition-colors">{ev.title}</span>
+                  {ev.amount && <span className="text-[11px] font-black text-slate-500 mt-1">{ev.amount}</span>}
+                </div>
+              </div>
+            )) : (
+              <div className="text-center py-12">
+                 <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest opacity-60">No upcoming tasks</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Intelligence CTA */}
+        <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[2.5rem] p-8 shadow-2xl shadow-blue-600/30 relative overflow-hidden group">
+          <div className="absolute -bottom-12 -right-12 w-48 h-48 bg-white/10 rounded-full blur-3xl transition-all group-hover:scale-150 duration-700" />
+          <div className="absolute -top-12 -left-12 w-32 h-32 bg-blue-400/20 rounded-full blur-2xl" />
+          
+          <div className="relative z-10 flex flex-col h-full">
+            <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mb-6 border border-white/20">
+               <Lightbulb size={28} className="text-white animate-pulse" />
+            </div>
+            <h4 className="text-xl font-black text-white leading-tight mb-3">Maximize Your Wealth Consistency</h4>
+            <p className="text-xs font-bold text-white/70 leading-relaxed mb-8">
+              Users who schedule tasks are 3.5x more likely to reach their savings goals early.
+            </p>
+            <button 
+              onClick={() => {
+                setEditingEvent(null);
+                setShowEventModal(true);
+              }}
+              className="mt-auto flex items-center justify-center gap-3 w-full py-4 bg-white text-blue-600 rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl hover:bg-slate-50 transition-all active:scale-95"
+            >
+              <Plus size={16} strokeWidth={3} />
+              Add Calendar Task
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <CalendarEventModal 
+        isOpen={showEventModal} 
+        onClose={() => {
+          setShowEventModal(false);
+          setEditingEvent(null);
+        }} 
+        editingEvent={editingEvent}
+      />
+    </div>
   );
 };
+

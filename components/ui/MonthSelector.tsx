@@ -31,7 +31,7 @@ export function MonthSelector() {
   const monthLabel = current.toLocaleString('default', { month: 'long', year: 'numeric' });
 
   return (
-    <div className="flex items-center gap-2 bg-card border border-border-main rounded-xl p-1 shadow-sm">
+    <div className="flex items-center gap-2 vylos-glass-readable p-1.5 shadow-sm !rounded-2xl">
       <button 
         onClick={handlePrev}
         className="p-2 hover:bg-border-main rounded-lg text-text-muted hover:text-text-main transition-all"

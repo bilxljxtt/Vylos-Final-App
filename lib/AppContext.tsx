@@ -27,6 +27,7 @@ import {
   Notification
 } from "./store";
 import { CategorizationEngine, MerchantRule } from "./services/CategorizationEngine";
+import { formatDate } from "./utils";
 
 // ─── Action Types ─────────────────────────────────────────────────────────────
 
@@ -56,6 +57,8 @@ type Action =
   | { type: "ADD_MERCHANT_RULE"; payload: MerchantRule }
   | { type: "SET_NOTIFICATIONS"; payload: Notification[] }
   | { type: "DELETE_NOTIFICATION"; payload: string }
+  | { type: "UPDATE_REMINDERS"; payload: Reminder[] }
+  | { type: "UPDATE_REMINDER"; payload: { id: string; updates: Partial<Reminder> } }
   | { type: "MARK_ALL_READ" }
   | { type: "RESET" };
 
@@ -159,6 +162,13 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, unreadNotificationCount: action.payload };
     case "ADD_REMINDER":
       return { ...state, reminders: [action.payload, ...state.reminders] };
+    case "UPDATE_REMINDERS":
+      return { ...state, reminders: action.payload };
+    case "UPDATE_REMINDER":
+      return {
+        ...state,
+        reminders: state.reminders.map(r => r.id === action.payload.id ? { ...r, ...action.payload.updates } : r)
+      };
     case "DELETE_REMINDER":
       return { ...state, reminders: state.reminders.filter(r => r.id !== action.payload) };
     case "SET_SELECTED_MONTH":
@@ -203,10 +213,14 @@ interface AppContextValue {
   updateBudgetLimit: (category: string, limit: number) => Promise<void>;
   updateBudgets: (updates: Record<string, number>) => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
+  awardXP: (eventType: string, baseXp: number, description: string) => Promise<number | undefined>;
+  updateDailyConsistency: (actionType: "LOGIN" | "TRANSACTION" | "REVIEW" | "BUDGET_UPDATE" | "REPORT_CHECK") => Promise<void>;
   updateNotifications: (updates: Partial<NotificationPrefs>) => void;
   deleteNotification: (id: string) => Promise<void>;
+  addNotification: (notif: Omit<Notification, "id" | "read" | "created_at">) => Promise<void>;
   markAllNotificationsAsRead: () => Promise<void>;
   addReminder: (rem: Omit<Reminder, "id">) => Promise<void>;
+  updateReminder: (id: string, updates: Partial<Reminder>) => Promise<void>;
   deleteReminder: (id: string) => Promise<void>;
   addMerchantRule: (rule: Omit<MerchantRule, "id">) => Promise<void>;
   categorizeTransaction: (desc: string, type: "income" | "expense") => TransactionCategory;
@@ -215,6 +229,7 @@ interface AppContextValue {
   isAuthLoaded: boolean;
   lastSynced: Date | null;
   setSelectedMonth: (date: string) => void;
+  refreshData: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -223,175 +238,167 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [sessionUser, setSessionUser] = useState<any>(null);
   const [isAuthLoaded, setIsAuthLoaded] = useState(false);
+  const [lastNotificationCheck, setLastNotificationCheck] = useState<number>(0);
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const supabase = useMemo(() => createClient(), []);
 
-  useEffect(() => {
-    async function hydrateCloudState(user: any) {
-      if (!user) {
-        setSessionUser(null);
-        dispatch({ type: "RESET" });
-        setIsAuthLoaded(true);
-        return;
-      }
-      setSessionUser(user);
+  const updateProfile = useCallback(
+    async (updates: Partial<UserProfile>) => {
+      if (!sessionUser) return;
+      const previousProfile = { ...state.userProfile };
+      dispatch({ type: "UPDATE_PROFILE", payload: updates });
+      const pgUpdates: any = {};
+      if (updates.name) pgUpdates.name = updates.name;
+      if (updates.email) pgUpdates.email = updates.email;
+      if (updates.monthlyIncome !== undefined) pgUpdates.monthly_income = updates.monthlyIncome;
+      if (updates.riskTolerance !== undefined) pgUpdates.risk_tolerance = updates.riskTolerance;
+      if (updates.age !== undefined) pgUpdates.age = updates.age;
+      if (updates.avatarUrl !== undefined) pgUpdates.avatar_url = updates.avatarUrl;
+      if (updates.country !== undefined) pgUpdates.country = updates.country;
+      if (updates.householdSize !== undefined) pgUpdates.household_size = updates.householdSize;
+      if (updates.theme !== undefined) pgUpdates.theme = updates.theme;
+      if (updates.language !== undefined) pgUpdates.language = updates.language;
+      if (updates.currency !== undefined) pgUpdates.currency = updates.currency;
+      if (updates.onboardingCompleted !== undefined) pgUpdates.onboarding_completed = updates.onboardingCompleted;
+      if (updates.onboardingCompletedAt !== undefined) pgUpdates.onboarding_completed_at = updates.onboardingCompletedAt;
+      if (updates.userType !== undefined) pgUpdates.user_type = updates.userType;
+      if (updates.reason_for_using_vylos !== undefined) pgUpdates.reason_for_using_vylos = updates.reason_for_using_vylos;
+      if (updates.moneyConfidence !== undefined) pgUpdates.money_confidence = updates.moneyConfidence;
+      if (updates.first_tracking_focus !== undefined) pgUpdates.first_tracking_focus = updates.first_tracking_focus;
+      if (updates.currentTrackingMethod !== undefined) pgUpdates.current_tracking_method = updates.currentTrackingMethod;
+      if (updates.biggest_money_challenge !== undefined) pgUpdates.biggest_money_challenge = updates.biggest_money_challenge;
+      if (updates.monthly_income_range !== undefined) pgUpdates.monthly_income_range = updates.monthly_income_range;
+      if (updates.main_money_goal !== undefined) pgUpdates.main_money_goal = updates.main_money_goal;
+      if (updates.review_frequency !== undefined) pgUpdates.review_frequency = updates.review_frequency;
+      if (updates.communication_preference !== undefined) pgUpdates.communication_preference = updates.communication_preference;
+      
+      if (updates.termsAccepted !== undefined) pgUpdates.terms_accepted = updates.termsAccepted;
+      if (updates.termsAcceptedAt !== undefined) pgUpdates.terms_accepted_at = updates.termsAcceptedAt;
+      if (updates.termsVersion !== undefined) pgUpdates.terms_version = updates.termsVersion;
+      if (updates.termsLastUpdated !== undefined) pgUpdates.terms_last_updated = updates.termsLastUpdated;
+      if (updates.totalXp !== undefined) pgUpdates.total_xp = updates.totalXp;
+      if (updates.currentRank !== undefined) pgUpdates.current_rank = updates.currentRank;
+      if (updates.xpMultiplier !== undefined) pgUpdates.xp_multiplier = updates.xpMultiplier;
+      if (updates.currentStreak !== undefined) pgUpdates.current_streak = updates.currentStreak;
+      if (updates.longestStreak !== undefined) pgUpdates.longest_streak = updates.longestStreak;
+      if (updates.dailyConsistencyScore !== undefined) pgUpdates.daily_consistency_score = updates.dailyConsistencyScore;
+      if (updates.lastConsistencyDate !== undefined) pgUpdates.last_consistency_date = updates.lastConsistencyDate;
+      if (updates.lastLoginXpDate !== undefined) pgUpdates.last_login_xp_date = updates.lastLoginXpDate;
+      if (updates.dismissed_notifications !== undefined) pgUpdates.dismissed_notifications = updates.dismissed_notifications;
 
-      const results = await Promise.all([
-        supabase.from('user_profiles').select('*').eq('id', user.id).single(),
-        supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false }),
-        supabase.from('subscriptions').select('*').eq('user_id', user.id),
-        supabase.from('goals').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-        supabase.from('goal_contributions').select('*').eq('user_id', user.id),
-        supabase.from('budgets').select('*').eq('user_id', user.id),
-        supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-        supabase.from('reminders').select('*').eq('user_id', user.id).order('date', { ascending: true }),
-        supabase.from('merchant_rules').select('*').eq('user_id', user.id)
-      ]);
+      const { error } = await supabase.from('user_profiles').update(pgUpdates).eq('id', sessionUser.id);
+      if (error) { dispatch({ type: "UPDATE_PROFILE", payload: previousProfile }); throw new Error(error.message); }
+    },
+    [sessionUser, state.userProfile, supabase]
+  );
 
-      const [profRes, txsRes, subsRes, gpsRes, contribsRes, budgetsRes, notifyRes, remRes, rulesRes] = results;
-      const prof = profRes.data;
-      const txs = txsRes.data;
-      const subs = subsRes.data;
-      const gps = gpsRes.data;
-      const contribs = contribsRes.data;
-      const budgets = budgetsRes.data;
-      const rems = remRes.data;
-      const rules = rulesRes.data;
+  const awardXP = useCallback(
+    async (eventType: string, baseXP: number, description: string) => {
+      if (!sessionUser) return;
+      
+      const profile = state.userProfile;
+      const finalXP = Math.round(baseXP * (profile.xpMultiplier || 1.0));
+      const newTotalXP = (profile.totalXp || 0) + finalXP;
+      
+      const { XPService } = await import("./services/XPService");
+      const { current } = XPService.calculateRank(newTotalXP);
+      
+      // Save event to Supabase
+      const { error: eventError } = await supabase.from('xp_events').insert([{
+        user_id: sessionUser.id,
+        event_type: eventType,
+        base_xp: baseXP,
+        multiplier: profile.xpMultiplier || 1.0,
+        final_xp: finalXP,
+        description: description
+      }]);
 
-      const budgetsObj: Record<string, BudgetCategory> = {};
-      if (budgets) {
-        budgets.forEach((b: any) => {
-          budgetsObj[b.category] = { limit: parseFloat(b.limit), type: b.type as any };
-        });
-      }
+      if (eventError) console.error("Failed to record XP event:", eventError);
 
-      dispatch({
-        type: "HYDRATE_STATE",
-        payload: {
-          transactions: txs ? txs.map((t: any) => ({ 
-            id: t.id, 
-            merchant: t.title, 
-            amount: parseFloat(t.amount), 
-            date: t.date, 
-            transaction_date: t.transaction_date,
-            category: t.category, 
-            notes: t.notes,
-            recurring: t.recurring,
-            payment_status: t.payment_status,
-            createdAt: t.created_at,
-            updatedAt: t.updated_at
-          })) : [],
-          subscriptions: subs ? subs.map((s: any) => ({ id: s.id, name: s.name, amount: parseFloat(s.amount), category: s.category, frequency: s.frequency, nextDue: s.next_due })) : [],
-          goals: gps ? gps.map((g: any) => ({ 
-            id: g.id, 
-            title: g.title, 
-            targetAmount: parseFloat(g.target_amount), 
-            currentAmount: parseFloat(g.current_amount), 
-            deadline: g.deadline || new Date().toISOString(),
-            status: g.status || "On Track",
-            category: g.category,
-            notes: g.notes,
-            icon: g.icon,
-            color: g.color,
-            createdAt: g.created_at 
-          })) : [],
-          goalContributions: contribs ? contribs.map((c: any) => ({ id: c.id, goalId: c.goal_id, amount: parseFloat(c.amount), date: c.date, notes: c.notes })) : [],
-          reminders: rems ? rems.map((r: any) => ({ id: r.id, title: r.title, amount: parseFloat(r.amount), date: r.date, category: r.category, repeat: r.repeat, isPaid: r.is_paid })) : [],
-          merchantRules: rules ? rules.map((r: any) => ({ id: r.id, user_id: r.user_id, merchant_keyword: r.merchant_keyword, category: r.category })) : [],
-          budgets: Object.keys(budgetsObj).length > 0 ? budgetsObj : initialState.budgets,
-          userProfile: prof ? {
-            name: prof.name || "",
-            email: prof.email || "",
-            phone: prof.phone || "",
-            avatarUrl: prof.avatar_url || "",
-            theme: prof.theme,
-            language: prof.language || "en",
-            currency: prof.currency || "R",
-            monthlyIncome: parseFloat(prof.monthly_income),
-            country: prof.country || "ZA",
-            age: prof.age,
-            householdSize: prof.household_size,
-            riskTolerance: prof.risk_tolerance,
-            trialStartedAt: prof.trial_started_at,
-            subscriptionPlan: prof.subscription_plan,
-            subscriptionStatus: prof.subscription_status,
-            onboardingCompleted: prof.onboarding_completed || false,
-            budgetAlertSent: prof.budget_alert_sent || false,
-            budgetAlertEnabled: prof.budget_alert_enabled !== false, // default true
-          } : initialState.userProfile,
-          notifications: prof?.notifications ? (prof.notifications as any) : initialState.notifications,
-          notificationList: notifyRes?.data || [],
-          unreadNotificationCount: (notifyRes?.data || []).filter((n: any) => !n.read).length,
-          selectedMonth: getMonthStart()
-        }
+      // Update profile with new XP and Rank
+      await updateProfile({
+        totalXp: newTotalXP,
+        currentRank: current.name
       });
-      setLastSynced(new Date());
-      setIsAuthLoaded(true);
-    }
 
-    // Initial check
-    supabase.auth.getUser().then(({ data: { user } }: { data: { user: any } }) => {
-      hydrateCloudState(user);
-    });
+      return finalXP;
+    },
+    [sessionUser, state.userProfile, updateProfile, supabase]
+  );
 
-    // Listen for changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: any) => {
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        hydrateCloudState(session?.user);
-      } else if (event === 'SIGNED_OUT') {
-        hydrateCloudState(null);
+  const updateDailyConsistency = useCallback(
+    async (actionType: "LOGIN" | "TRANSACTION" | "REVIEW" | "BUDGET_UPDATE" | "REPORT_CHECK") => {
+      if (!sessionUser) return;
+      
+      const profile = state.userProfile;
+      const today = new Date().toISOString().split('T')[0];
+      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+      const isNewDay = profile.lastConsistencyDate !== today;
+      const isYesterday = profile.lastConsistencyDate === yesterday;
+      
+      const { XPService, XP_CONFIG } = await import("./services/XPService");
+      const increment = XPService.getDailyConsistencyIncrement(actionType);
+      
+      let newScore = isNewDay ? increment : (profile.dailyConsistencyScore || 0) + increment;
+      if (newScore > 100) newScore = 100;
+
+      const updates: any = {
+        dailyConsistencyScore: newScore,
+        lastConsistencyDate: today
+      };
+
+      // Streak Reset Logic: If not today and not yesterday, reset streak
+      if (isNewDay && !isYesterday && profile.lastConsistencyDate !== "") {
+        updates.currentStreak = 0;
       }
-    });
 
-    // Realtime Listeners
-    let txChannel: any = null;
-    let goalsChannel: any = null;
-    let contribChannel: any = null;
+      // Check for consistency threshold (75%)
+      const reachedThreshold = newScore >= 75;
+      const previouslyReachedToday = (profile.dailyConsistencyScore || 0) >= 75 && !isNewDay;
 
-    supabase.auth.getUser().then(({ data: { user } }: { data: { user: any } }) => {
-      if (user) {
-        txChannel = supabase.channel('public:transactions')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${user.id}` }, async () => {
-            const { data: txs } = await supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false });
-            if (txs) dispatch({ type: "UPDATE_TRANSACTIONS", payload: txs.map((t: any) => ({ 
-              id: t.id, 
-              merchant: t.title, 
-              amount: parseFloat(t.amount), 
-              date: t.date, 
-              transaction_date: t.transaction_date,
-              category: t.category,
-              notes: t.notes,
-              recurring: t.recurring,
-              payment_status: t.payment_status,
-              createdAt: t.created_at,
-              updatedAt: t.updated_at
-            })) });
-            setLastSynced(new Date());
-          }).subscribe();
+      if (reachedThreshold && !previouslyReachedToday) {
+        // Increment streak
+        const newStreak = (profile.currentStreak || 0) + 1;
+        updates.currentStreak = newStreak;
+        if (newStreak > (profile.longestStreak || 0)) {
+          updates.longestStreak = newStreak;
+        }
 
-        goalsChannel = supabase.channel('public:goals')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'goals', filter: `user_id=eq.${user.id}` }, async () => {
-            const { data: gps } = await supabase.from('goals').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
-            if (gps) dispatch({ type: "UPDATE_GOALS", payload: gps.map((g: any) => ({ id: g.id, title: g.title, targetAmount: parseFloat(g.target_amount), currentAmount: parseFloat(g.current_amount), deadline: g.deadline, status: g.status, category: g.category, notes: g.notes, icon: g.icon, color: g.color, createdAt: g.created_at })) });
-            setLastSynced(new Date());
-          }).subscribe();
+        // Apply Streak Bonuses
+        if (newStreak === 3) {
+          const bonusXP = XP_CONFIG.STREAK_3_DAY.xp;
+          await awardXP("STREAK_BONUS", bonusXP, "3-Day Consistency Streak Milestone");
+          await supabase.from('streak_bonus_events').insert([{
+            user_id: sessionUser.id,
+            streak_milestone: 3,
+            xp_awarded: bonusXP
+          }]);
+        } else if (newStreak === 30) {
+          const bonusXP = XP_CONFIG.STREAK_30_DAY.xp;
+          await awardXP("STREAK_BONUS", bonusXP, "30-Day Consistency Streak Milestone");
+          await supabase.from('streak_bonus_events').insert([{
+            user_id: sessionUser.id,
+            streak_milestone: 30,
+            xp_awarded: bonusXP
+          }]);
+        }
 
-        contribChannel = supabase.channel('public:goal_contributions')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'goal_contributions', filter: `user_id=eq.${user.id}` }, async () => {
-            const { data: contribs } = await supabase.from('goal_contributions').select('*').eq('user_id', user.id);
-            if (contribs) dispatch({ type: "UPDATE_CONTRIBUTIONS", payload: contribs.map((c: any) => ({ id: c.id, goalId: c.goal_id, amount: parseFloat(c.amount), date: c.date, notes: c.notes })) });
-            setLastSynced(new Date());
-          }).subscribe();
+        // Multiplier Logic: Every 7 days
+        if (newStreak % 7 === 0) {
+          const newMultiplier = Math.min((profile.xpMultiplier || 1.0) + 0.1, 2.2);
+          updates.xpMultiplier = newMultiplier;
+          await supabase.from('streak_bonus_events').insert([{
+            user_id: sessionUser.id,
+            streak_milestone: newStreak,
+            multiplier_increase: 0.1
+          }]);
+        }
       }
-    });
 
-    return () => {
-      subscription.unsubscribe();
-      if (txChannel) supabase.removeChannel(txChannel);
-      if (goalsChannel) supabase.removeChannel(goalsChannel);
-      if (contribChannel) supabase.removeChannel(contribChannel);
-    };
-  }, []);
+      await updateProfile(updates);
+    },
+    [sessionUser, state.userProfile, updateProfile, awardXP, supabase]
+  );
 
   const addTransaction = useCallback(
     async (tx: Omit<Transaction, "id">) => {
@@ -417,6 +424,46 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     },
     [sessionUser, state.budgets, supabase]
   );
+
+  // Automated Reminder Notifications
+  useEffect(() => {
+    if (!sessionUser || state.reminders.length === 0) return;
+    
+    const now = Date.now();
+    // Check every 5 minutes
+    if (now - lastNotificationCheck < 300000) return;
+
+    const checkReminders = async () => {
+      const { getReminderDerivedStatus } = await import("./utils");
+      const overdue = state.reminders.filter(r => getReminderDerivedStatus(r) === 'overdue');
+
+      for (const r of overdue) {
+        const stableId = `overdue_${r.id}_${r.due_date}`;
+        
+        // Check if user has already dismissed this specific notification
+        const isDismissed = state.userProfile.dismissed_notifications?.includes(stableId);
+        if (isDismissed) continue;
+
+        // Check if we already have this in our current list (check both stable_id and message search)
+        const alreadyExists = state.notificationList.some(n => 
+          n.stable_id === stableId || 
+          n.message?.includes(`[SID:${stableId}]`)
+        );
+
+        if (!alreadyExists) {
+          await addNotification({
+            title: `Overdue: ${r.title}`,
+            message: `Your ${r.category} task was due on ${formatDate(r.due_date)}. Please clear it as soon as possible. [SID:${stableId}]`,
+            type: 'warning',
+            stable_id: stableId
+          });
+        }
+      }
+      setLastNotificationCheck(now);
+    };
+
+    checkReminders();
+  }, [state.reminders, state.notificationList, sessionUser, lastNotificationCheck]);
 
   const updateTransaction = useCallback(
     async (id: string, updates: Partial<Transaction>) => {
@@ -558,9 +605,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
         }
         dispatch({ type: "ADD_CONTRIBUTION", payload: { ...contribution, id: data.id } });
+        
+        const { XP_CONFIG } = await import("./services/XPService");
+        await awardXP("UPDATE_GOAL_PROGRESS", XP_CONFIG.UPDATE_GOAL_PROGRESS.xp, `Added contribution to goal: ${contribution.goalId}`);
+        await updateDailyConsistency("BUDGET_UPDATE");
       }
     },
-    [sessionUser, state.goals, supabase]
+    [sessionUser, state.goals, supabase, awardXP, updateDailyConsistency]
   );
 
   const updateBudgetLimit = useCallback(
@@ -569,8 +620,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.from('budgets').upsert({ user_id: sessionUser.id, category, limit, type: state.budgets[category]?.type || "limit" }, { onConflict: "user_id,category" });
       if (error) throw new Error(error.message);
       dispatch({ type: "UPDATE_BUDGET_LIMIT", payload: { category, limit } });
+      
+      const { XP_CONFIG } = await import("./services/XPService");
+      await awardXP("UPDATE_BUDGET", XP_CONFIG.UPDATE_BUDGET.xp, `Updated budget limit for ${category}`);
+      await updateDailyConsistency("BUDGET_UPDATE");
     },
-    [sessionUser, state.budgets, supabase]
+    [sessionUser, state.budgets, supabase, awardXP, updateDailyConsistency]
   );
 
   const updateBudgets = useCallback(
@@ -580,32 +635,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.from('budgets').upsert(rows, { onConflict: "user_id,category" });
       if (error) throw new Error(error.message);
       dispatch({ type: "UPDATE_BUDGETS", payload: updates });
-    },
-    [sessionUser, state.budgets, supabase]
-  );
 
-  const updateProfile = useCallback(
-    async (updates: Partial<UserProfile>) => {
-      if (!sessionUser) return;
-      const previousProfile = { ...state.userProfile };
-      dispatch({ type: "UPDATE_PROFILE", payload: updates });
-      const pgUpdates: any = {};
-      if (updates.name) pgUpdates.name = updates.name;
-      if (updates.email) pgUpdates.email = updates.email;
-      if (updates.monthlyIncome !== undefined) pgUpdates.monthly_income = updates.monthlyIncome;
-      if (updates.riskTolerance !== undefined) pgUpdates.risk_tolerance = updates.riskTolerance;
-      if (updates.age !== undefined) pgUpdates.age = updates.age;
-      if (updates.avatarUrl !== undefined) pgUpdates.avatar_url = updates.avatarUrl;
-      if (updates.country !== undefined) pgUpdates.country = updates.country;
-      if (updates.householdSize !== undefined) pgUpdates.household_size = updates.householdSize;
-      if (updates.theme !== undefined) pgUpdates.theme = updates.theme;
-      if (updates.language !== undefined) pgUpdates.language = updates.language;
-      if (updates.currency !== undefined) pgUpdates.currency = updates.currency;
-      if (updates.onboardingCompleted !== undefined) pgUpdates.onboarding_completed = updates.onboardingCompleted;
-      const { error } = await supabase.from('user_profiles').update(pgUpdates).eq('id', sessionUser.id);
-      if (error) { dispatch({ type: "UPDATE_PROFILE", payload: previousProfile }); throw new Error(error.message); }
+      const { XP_CONFIG } = await import("./services/XPService");
+      const count = Object.keys(updates).length;
+      await awardXP(count > 1 ? "CREATE_BUDGET" : "UPDATE_BUDGET", count > 1 ? XP_CONFIG.CREATE_BUDGET.xp : XP_CONFIG.UPDATE_BUDGET.xp, `Updated ${count} budgets`);
+      await updateDailyConsistency("BUDGET_UPDATE");
     },
-    [sessionUser, state.userProfile, supabase]
+    [sessionUser, state.budgets, supabase, awardXP, updateDailyConsistency]
   );
 
   const updateNotifications = useCallback(
@@ -622,19 +658,94 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const deleteNotification = useCallback(
     async (id: string) => {
       if (!sessionUser) return;
-      const { error } = await supabase.from('notifications').delete().eq('id', id).eq('user_id', sessionUser.id);
-      if (error) console.error("Delete notification error:", error);
+      
+      const notif = state.notificationList.find(n => n.id === id);
+      
+      // Optimistic update
       dispatch({ type: "DELETE_NOTIFICATION", payload: id });
+      
+      // If it has a stable_id (or hidden in message), track it as dismissed
+      let stableId = notif?.stable_id;
+      if (!stableId && notif?.message?.includes("[SID:")) {
+        const match = notif.message?.match(/\[SID:([^\]]+)\]/);
+        if (match) stableId = match[1];
+      }
+
+      if (stableId) {
+        const currentDismissed = state.userProfile.dismissed_notifications || [];
+        if (!currentDismissed.includes(stableId)) {
+          await updateProfile({
+            dismissed_notifications: [...currentDismissed, stableId]
+          });
+        }
+      }
+      
+      const { error } = await supabase.from('notifications').delete().eq('id', id).eq('user_id', sessionUser.id);
+      if (error) {
+        console.error("Delete notification error:", error);
+        throw new Error(error.message);
+      }
     },
-    [sessionUser, supabase]
+    [sessionUser, state.notificationList, state.userProfile.dismissed_notifications, updateProfile, supabase]
+  );
+  
+  const addNotification = useCallback(
+    async (notif: Omit<Notification, "id" | "read" | "created_at">) => {
+      if (!sessionUser) return;
+      
+      const insertData: any = {
+        user_id: sessionUser.id,
+        title: notif.title,
+        message: notif.message,
+        type: notif.type,
+        read: false
+      };
+      
+      // Try to include stable_id if provided
+      if (notif.stable_id) insertData.stable_id = notif.stable_id;
+
+      const { data, error } = await supabase.from('notifications').insert([insertData]).select().single();
+      
+      if (error) {
+        // If it failed because of stable_id column missing, try again without it
+        if (error.message.includes("stable_id") || error.code === "P0001") {
+          const { data: retryData, error: retryError } = await supabase.from('notifications').insert([{
+            user_id: sessionUser.id,
+            title: notif.title,
+            message: notif.message,
+            type: notif.type,
+            read: false
+          }]).select().single();
+          
+          if (retryError) throw new Error(retryError.message);
+          if (retryData) {
+            dispatch({ type: "SET_NOTIFICATIONS", payload: [retryData, ...state.notificationList] });
+            dispatch({ type: "SET_UNREAD_COUNT", payload: state.unreadNotificationCount + 1 });
+          }
+          return;
+        }
+        throw new Error(error.message);
+      }
+      
+      if (data) {
+        dispatch({ type: "SET_NOTIFICATIONS", payload: [data, ...state.notificationList] });
+        dispatch({ type: "SET_UNREAD_COUNT", payload: state.unreadNotificationCount + 1 });
+      }
+    },
+    [sessionUser, state.notificationList, state.unreadNotificationCount, supabase]
   );
 
   const markAllNotificationsAsRead = useCallback(
     async () => {
       if (!sessionUser) return;
-      const { error } = await supabase.from('notifications').update({ read: true }).eq('user_id', sessionUser.id).eq('read', false);
-      if (error) console.error("Mark all read error:", error);
+      
+      // Optimistic update
       dispatch({ type: "MARK_ALL_READ" });
+      
+      const { error } = await supabase.from('notifications').update({ read: true }).eq('user_id', sessionUser.id).eq('read', false);
+      if (error) {
+        console.error("Mark all read error:", error);
+      }
     },
     [sessionUser, supabase]
   );
@@ -642,12 +753,63 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addReminder = useCallback(
     async (rem: Omit<Reminder, "id">) => {
       if (!sessionUser) return;
-      const id = Math.random().toString(36).substr(2, 9);
-      const { error } = await supabase.from('reminders').insert([{ id, user_id: sessionUser.id, title: rem.title, amount: rem.amount, date: rem.date, category: rem.category, repeat: rem.repeat, is_paid: false }]);
+      const { data, error } = await supabase.from('reminders').insert([{ 
+        user_id: sessionUser.id, 
+        title: rem.title, 
+        description: rem.description,
+        amount: rem.amount, 
+        due_date: rem.due_date, 
+        due_time: rem.due_time,
+        category: rem.category, 
+        priority: rem.priority,
+        recurring: rem.recurring,
+        status: rem.status || 'pending'
+      }]).select().single();
       if (error) throw new Error(error.message);
-      dispatch({ type: "ADD_REMINDER", payload: { ...rem, id, isPaid: false } });
+      if (data) dispatch({ type: "ADD_REMINDER", payload: { ...rem, id: data.id } });
     },
     [sessionUser, supabase]
+  );
+
+  const updateReminder = useCallback(
+    async (id: string, updates: Partial<Reminder>) => {
+      if (!sessionUser) return;
+      const { error } = await supabase
+      .from('reminders')
+      .update(updates)
+      .eq('id', id)
+      .eq('user_id', sessionUser.id);
+
+      if (!error) {
+        dispatch({ type: "UPDATE_REMINDER", payload: { id, updates } });
+
+        // Recurrence Logic: If task is completed and has a recurring pattern, create the next instance
+        if (updates.status === 'completed') {
+          const fullReminder = state.reminders.find(r => r.id === id);
+          if (fullReminder && fullReminder.recurring !== 'none') {
+            const { getNextOccurrence } = await import("./utils");
+            const nextDate = getNextOccurrence(fullReminder.due_date, fullReminder.recurring);
+            
+            if (nextDate) {
+              await addReminder({
+                title: fullReminder.title,
+                description: fullReminder.description,
+                amount: fullReminder.amount,
+                due_date: nextDate,
+                due_time: fullReminder.due_time,
+                category: fullReminder.category,
+                priority: fullReminder.priority,
+                recurring: fullReminder.recurring,
+                status: 'pending'
+              });
+            }
+          }
+        }
+      } else {
+        throw new Error(error.message);
+      }
+    },
+    [sessionUser, supabase, state.reminders, addReminder]
   );
 
   const deleteReminder = useCallback(
@@ -682,6 +844,243 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: "SET_SELECTED_MONTH", payload: date });
   }, []);
 
+  const hydrateCloudState = useCallback(async (user: any) => {
+    if (!user) {
+      setSessionUser(null);
+      dispatch({ type: "RESET" });
+      setIsAuthLoaded(true);
+      return;
+    }
+    setSessionUser(user);
+
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const results = await Promise.all([
+      supabase.from('user_profiles').select('*').eq('id', user.id).single(),
+      supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false }),
+      supabase.from('subscriptions').select('*').eq('user_id', user.id),
+      supabase.from('goals').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('goal_contributions').select('*').eq('user_id', user.id),
+      supabase.from('budgets').select('*').eq('user_id', user.id),
+      supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('reminders').select('*').eq('user_id', user.id).order('due_date', { ascending: true }),
+      supabase.from('merchant_rules').select('*').eq('user_id', user.id),
+      supabase.from('ai_usage').select('*').eq('user_id', user.id).eq('billing_month', currentMonth).single()
+    ]);
+
+    const [profRes, txsRes, subsRes, gpsRes, contribsRes, budgetsRes, notifyRes, remRes, rulesRes, usageRes] = results;
+    const prof = profRes.data;
+    const txs = txsRes.data;
+    const subs = subsRes.data;
+    const gps = gpsRes.data;
+    const contribs = contribsRes.data;
+    const budgets = budgetsRes.data;
+    const rems = remRes.data;
+    const rules = rulesRes.data;
+    const usage = usageRes?.data;
+
+    const budgetsObj: Record<string, BudgetCategory> = {};
+    if (budgets) {
+      budgets.forEach((b: any) => {
+        budgetsObj[b.category] = { limit: parseFloat(b.limit), type: b.type as any };
+      });
+    }
+
+    dispatch({
+      type: "HYDRATE_STATE",
+      payload: {
+        transactions: txs ? txs.map((t: any) => ({ 
+          id: t.id, 
+          merchant: t.title, 
+          amount: parseFloat(t.amount), 
+          date: t.date, 
+          transaction_date: t.transaction_date,
+          category: t.category, 
+          notes: t.notes,
+          recurring: t.recurring,
+          payment_status: t.payment_status,
+          createdAt: t.created_at,
+          updatedAt: t.updated_at
+        })) : [],
+        subscriptions: subs ? subs.map((s: any) => ({ id: s.id, name: s.name, amount: parseFloat(s.amount), category: s.category, frequency: s.frequency, nextDue: s.next_due })) : [],
+        goals: gps ? gps.map((g: any) => ({ 
+          id: g.id, 
+          title: g.title, 
+          targetAmount: parseFloat(g.target_amount), 
+          currentAmount: parseFloat(g.current_amount), 
+          deadline: g.deadline || new Date().toISOString(),
+          status: g.status || "On Track",
+          category: g.category,
+          notes: g.notes,
+          icon: g.icon,
+          color: g.color,
+          createdAt: g.created_at 
+        })) : [],
+        goalContributions: contribs ? contribs.map((c: any) => ({ id: c.id, goalId: c.goal_id, amount: parseFloat(c.amount), date: c.date, notes: c.notes })) : [],
+        reminders: rems ? rems.map((r: any) => ({ 
+          id: r.id, 
+          title: r.title, 
+          description: r.description,
+          amount: r.amount ? parseFloat(r.amount) : undefined, 
+          due_date: r.due_date, 
+          due_time: r.due_time,
+          category: r.category, 
+          priority: r.priority,
+          recurring: r.recurring, 
+          status: r.status,
+          completed_at: r.completed_at
+        })) : [],
+        merchantRules: rules ? rules.map((r: any) => ({ id: r.id, user_id: r.user_id, merchant_keyword: r.merchant_keyword, category: r.category })) : [],
+        budgets: Object.keys(budgetsObj).length > 0 ? budgetsObj : initialState.budgets,
+        aiUsage: usage ? { messages_used: usage.messages_used, billing_month: usage.billing_month } : { messages_used: 0, billing_month: currentMonth },
+        userProfile: prof ? {
+          id: prof.id || user.id,
+          name: prof.name || "",
+          email: prof.email || "",
+          phone: prof.phone || "",
+          avatarUrl: prof.avatar_url || "",
+          theme: prof.theme || "System Default",
+          language: prof.language || "en",
+          currency: prof.currency || "R",
+          monthlyIncome: parseFloat(prof.monthly_income),
+          country: prof.country || "ZA",
+          age: prof.age,
+          householdSize: prof.household_size,
+          riskTolerance: prof.risk_tolerance,
+          subscription_tier: prof.subscription_tier || 'free',
+          subscription_status: prof.subscription_status || 'active',
+          role: prof.role || 'user',
+          is_internal_user: prof.is_internal_user || false,
+          subscription_started_at: prof.subscription_started_at,
+          subscription_expires_at: prof.subscription_expires_at,
+          trial_ends_at: prof.trial_ends_at,
+          payment_provider: prof.payment_provider,
+          payment_customer_id: prof.payment_customer_id,
+          onboardingCompleted: prof.onboarding_completed || false,
+          onboardingCompletedAt: prof.onboarding_completed_at || "",
+          userType: prof.user_type || "",
+          reason_for_using_vylos: prof.reason_for_using_vylos || "",
+          moneyConfidence: prof.money_confidence || "",
+          first_tracking_focus: prof.first_tracking_focus || "",
+          currentTrackingMethod: prof.current_tracking_method || "",
+          biggest_money_challenge: prof.biggest_money_challenge || "",
+          monthly_income_range: prof.monthly_income_range || "",
+          main_money_goal: prof.main_money_goal || "",
+          review_frequency: prof.review_frequency || "",
+          communication_preference: prof.communication_preference || "",
+          budgetAlertSent: prof.budget_alert_sent || false,
+          budgetAlertEnabled: prof.budget_alert_enabled !== false,
+          termsAccepted: prof.terms_accepted || false,
+          termsAcceptedAt: prof.terms_accepted_at || "",
+          termsVersion: prof.terms_version || "v1.0",
+          termsLastUpdated: prof.terms_last_updated || "2024-05-08",
+          totalXp: parseFloat(prof.total_xp || "0"),
+          currentRank: prof.current_rank || "Scout Analyst",
+          xpMultiplier: parseFloat(prof.xp_multiplier || "1.0"),
+          currentStreak: parseInt(prof.current_streak || "0"),
+          longestStreak: parseInt(prof.longest_streak || "0"),
+          dailyConsistencyScore: parseFloat(prof.daily_consistency_score || "0"),
+          lastConsistencyDate: prof.last_consistency_date || "",
+          lastLoginXpDate: prof.last_login_xp_date || "",
+          dismissed_notifications: prof.dismissed_notifications || [],
+        } : initialState.userProfile,
+        notifications: prof?.notifications ? (prof.notifications as any) : initialState.notifications,
+        notificationList: notifyRes?.data || [],
+        unreadNotificationCount: (notifyRes?.data || []).filter((n: any) => !n.read).length,
+        selectedMonth: getMonthStart()
+      }
+    });
+    setLastSynced(new Date());
+    setIsAuthLoaded(true);
+  }, [supabase]);
+
+  const refreshData = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) await hydrateCloudState(user);
+  }, [hydrateCloudState, supabase]);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }: { data: { user: any } }) => {
+      hydrateCloudState(user);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: any) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        hydrateCloudState(session?.user);
+      } else if (event === 'SIGNED_OUT') {
+        hydrateCloudState(null);
+      }
+    });
+
+    let txChannel: any = null;
+    let goalsChannel: any = null;
+    let contribChannel: any = null;
+    let remChannel: any = null;
+
+    supabase.auth.getUser().then(({ data: { user } }: { data: { user: any } }) => {
+      if (user) {
+        txChannel = supabase.channel('public:transactions')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${user.id}` }, async () => {
+            const { data: txs } = await supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false });
+            if (txs) dispatch({ type: "UPDATE_TRANSACTIONS", payload: txs.map((t: any) => ({ 
+              id: t.id, 
+              merchant: t.title, 
+              amount: parseFloat(t.amount), 
+              date: t.date, 
+              transaction_date: t.transaction_date,
+              category: t.category,
+              notes: t.notes,
+              recurring: t.recurring,
+              payment_status: t.payment_status,
+              createdAt: t.created_at,
+              updatedAt: t.updated_at
+            })) });
+            setLastSynced(new Date());
+          }).subscribe();
+
+        goalsChannel = supabase.channel('public:goals')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'goals', filter: `user_id=eq.${user.id}` }, async () => {
+            const { data: gps } = await supabase.from('goals').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+            if (gps) dispatch({ type: "UPDATE_GOALS", payload: gps.map((g: any) => ({ id: g.id, title: g.title, targetAmount: parseFloat(g.target_amount), currentAmount: parseFloat(g.current_amount), deadline: g.deadline, status: g.status, category: g.category, notes: g.notes, icon: g.icon, color: g.color, createdAt: g.created_at })) });
+            setLastSynced(new Date());
+          }).subscribe();
+
+        contribChannel = supabase.channel('public:goal_contributions')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'goal_contributions', filter: `user_id=eq.${user.id}` }, async () => {
+            const { data: contribs } = await supabase.from('goal_contributions').select('*').eq('user_id', user.id);
+            if (contribs) dispatch({ type: "UPDATE_CONTRIBUTIONS", payload: contribs.map((c: any) => ({ id: c.id, goalId: c.goal_id, amount: parseFloat(c.amount), date: c.date, notes: c.notes })) });
+            setLastSynced(new Date());
+          }).subscribe();
+
+        remChannel = supabase.channel('public:reminders')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'reminders', filter: `user_id=eq.${user.id}` }, async () => {
+            const { data: rems } = await supabase.from('reminders').select('*').eq('user_id', user.id).order('due_date', { ascending: true });
+            if (rems) dispatch({ type: "UPDATE_REMINDERS", payload: rems.map((r: any) => ({ 
+              id: r.id, 
+              title: r.title, 
+              description: r.description,
+              amount: r.amount ? parseFloat(r.amount) : undefined, 
+              due_date: r.due_date, 
+              due_time: r.due_time,
+              category: r.category, 
+              priority: r.priority,
+              recurring: r.recurring, 
+              status: r.status,
+              completed_at: r.completed_at
+            })) });
+            setLastSynced(new Date());
+          }).subscribe();
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+      if (txChannel) supabase.removeChannel(txChannel);
+      if (goalsChannel) supabase.removeChannel(goalsChannel);
+      if (contribChannel) supabase.removeChannel(contribChannel);
+      if (remChannel) supabase.removeChannel(remChannel);
+    };
+  }, [supabase, hydrateCloudState]);
+
   return (
     <AppContext.Provider
       value={{
@@ -698,10 +1097,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         updateBudgetLimit,
         updateBudgets,
         updateProfile,
+        awardXP,
+        updateDailyConsistency,
         updateNotifications,
         deleteNotification,
+        addNotification,
         markAllNotificationsAsRead,
         addReminder,
+        updateReminder,
         deleteReminder,
         addMerchantRule,
         categorizeTransaction,
@@ -710,6 +1113,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isAuthLoaded,
         lastSynced,
         setSelectedMonth,
+        refreshData,
       }}
     >
       {children}

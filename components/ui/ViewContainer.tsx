@@ -10,7 +10,7 @@ interface ViewContainerProps {
 
 export function ViewContainer({ children, className = "" }: ViewContainerProps) {
   return (
-    <div className={`w-full max-w-[1440px] mx-auto px-8 pb-12 ${className}`}>
+    <div className={`w-full max-w-[1400px] mx-auto ${className}`}>
       {children}
     </div>
   );
