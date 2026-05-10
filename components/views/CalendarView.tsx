@@ -5,30 +5,26 @@ import {
   ChevronLeft, 
   ChevronRight, 
   Calendar as CalendarIcon,
-  TrendingUp,
-  TrendingDown,
-  Clock,
   X,
-  Wallet,
-  ArrowUpRight,
-  ArrowDownLeft,
-  CalendarCheck,
-  MoreVertical,
-  Activity
+  Bell,
+  ArrowUp,
+  ArrowDown
 } from "lucide-react";
 import { useAppStore } from "@/lib/AppContext";
 import { BudgetService } from "@/lib/services/BudgetService";
 import { CATEGORY_METADATA, TransactionCategory } from "@/lib/store";
 import { ViewContainer } from "../ui/ViewContainer";
+import { toDateKey, createLocalDate, getTransactionDateKey, cleanMerchantName, parseDateKey } from "@/lib/utils";
 
 export const CalendarView: React.FC = () => {
   const { state, setSelectedMonth, formatCurrency } = useAppStore();
-  const [selectedDayDetail, setSelectedDayDetail] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string>(toDateKey(new Date()));
+  const [showModal, setShowModal] = useState(false);
 
   // Sync internal view with global selectedMonth
   const currentDate = useMemo(() => {
-    const [y, m, d] = state.selectedMonth.split('-').map(Number);
-    return new Date(y, m - 1, d || 1);
+    const [y, m] = state.selectedMonth.split('-').map(Number);
+    return createLocalDate(y, m - 1, 1);
   }, [state.selectedMonth]);
 
   const year = currentDate.getFullYear();
@@ -36,159 +32,231 @@ export const CalendarView: React.FC = () => {
   const monthStr = state.selectedMonth;
 
   // Real data calculations
-  const monthSummary = useMemo(() => BudgetService.getMonthFinancialSummary(state, monthStr), [state, monthStr]);
   const dailyMovement = useMemo(() => BudgetService.getDailyMovement(state, monthStr), [state, monthStr]);
 
-  const monthStart = new Date(year, month, 1);
-  const monthEnd = new Date(year, month + 1, 0);
-  const startDay = (monthStart.getDay() + 6) % 7; // Mon-Sun
+  const monthStart = createLocalDate(year, month, 1);
+  const monthEnd = createLocalDate(year, month + 1, 0);
+  
+  // Adjusted startDay for Mon-Sun (0=Mon, 6=Sun)
+  let startDay = monthStart.getDay() - 1;
+  if (startDay === -1) startDay = 6; 
+
   const numDays = monthEnd.getDate();
 
   const days = [];
+  // Previous month padding
   for (let i = 0; i < startDay; i++) {
-    days.push({ date: new Date(year, month, 1 - (startDay - i)), inMonth: false });
+    const d = createLocalDate(year, month, 1 - (startDay - i));
+    days.push({ date: d, dateKey: toDateKey(d), inMonth: false });
   }
+  // Current month
   for (let i = 1; i <= numDays; i++) {
-    days.push({ date: new Date(year, month, i), inMonth: true });
+    const d = createLocalDate(year, month, i);
+    days.push({ date: d, dateKey: toDateKey(d), inMonth: true });
+  }
+  // Next month padding
+  const totalCells = Math.ceil(days.length / 7) * 7;
+  const paddingNeeded = totalCells - days.length;
+  for (let i = 1; i <= paddingNeeded; i++) {
+    const d = createLocalDate(year, month + 1, i);
+    days.push({ date: d, dateKey: toDateKey(d), inMonth: false });
   }
 
-  const formatDate = (d: Date) => {
+  const formatMonthKey = (d: Date) => {
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
     return `${y}-${m}-01`;
   };
 
-  const prevMonth = () => setSelectedMonth(formatDate(new Date(year, month - 1, 1)));
-  const nextMonth = () => setSelectedMonth(formatDate(new Date(year, month + 1, 1)));
-  const goToday = () => {
-    const today = new Date();
-    setSelectedMonth(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`);
+  const prevMonth = () => {
+    const d = createLocalDate(year, month - 1, 1);
+    setSelectedMonth(formatMonthKey(d));
+  };
+
+  const nextMonth = () => {
+    const d = createLocalDate(year, month + 1, 1);
+    setSelectedMonth(formatMonthKey(d));
   };
 
   const monthName = currentDate.toLocaleString('default', { month: 'long' });
 
-  // Get selected day details
-  const detailData = useMemo(() => {
-    if (!selectedDayDetail) return null;
-    const dateStr = selectedDayDetail;
-    const txs = state.transactions.filter(t => (t.date || t.createdAt || "").startsWith(dateStr));
-    const subs = state.subscriptions.filter(s => s.nextDue === dateStr);
+  // Get items for a specific day
+  const getDayItems = (dateKey: string) => {
+    const txs = state.transactions.filter(t => getTransactionDateKey(t) === dateKey);
+    const subs = state.subscriptions.filter(s => s.nextDue === dateKey);
+    return {
+        transactions: txs,
+        subscriptions: subs,
+        totalItems: txs.length + subs.length
+    };
+  };
+
+  // Chip Style Mapping
+  const getChipStyle = (item: any, type: 'transaction' | 'subscription') => {
+    if (type === 'subscription') {
+      return "bg-acc-blue/10 text-acc-blue border-acc-blue/20 border-dashed border shadow-sm";
+    }
     
-    const incomeTotal = txs.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
-    const expenseTotal = txs.filter(t => t.amount < 0).reduce((sum, t) => sum + Math.abs(t.amount), 0);
-    const subTotal = subs.reduce((sum, s) => sum + s.amount, 0);
+    const cat = item.category as TransactionCategory;
+    const amount = item.amount;
+    
+    if (amount > 0) return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 shadow-sm";
+    
+    switch (cat) {
+      case "Groceries":
+      case "Eating Out":
+        return "bg-amber-500/10 text-amber-500 border-amber-500/20 shadow-sm";
+      case "Transport":
+        return "bg-blue-500/10 text-blue-500 border-blue-500/20 shadow-sm";
+      case "Shopping":
+        return "bg-rose-500/10 text-rose-500 border-rose-500/20 shadow-sm";
+      case "Bills":
+      case "Rent / Housing":
+      case "Health":
+        return "bg-purple-500/10 text-purple-500 border-purple-500/20 shadow-sm";
+      case "Entertainment":
+        return "bg-indigo-500/10 text-indigo-500 border-indigo-500/20 shadow-sm";
+      default:
+        return "bg-text-muted/10 text-text-muted border-border-main shadow-sm";
+    }
+  };
+
+  const getEmoji = (item: any, type: 'transaction' | 'subscription') => {
+    if (type === 'subscription') return "📱";
+    const meta = CATEGORY_METADATA[item.category as TransactionCategory];
+    return meta?.icon || "📦";
+  };
+
+  // Selected Day Details for Modal
+  const detailData = useMemo(() => {
+    if (!showModal) return null;
+    const items = getDayItems(selectedDate);
+    const incomeTotal = items.transactions.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+    const expenseTotal = items.transactions.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
+    const subTotal = items.subscriptions.reduce((s, b) => s + b.amount, 0);
 
     return {
-      date: dateStr,
-      transactions: txs,
-      subscriptions: subs,
+      date: selectedDate,
+      transactions: items.transactions,
+      subscriptions: items.subscriptions,
       incomeTotal,
       expenseTotal,
       subTotal,
       netTotal: incomeTotal - expenseTotal - subTotal
     };
-  }, [selectedDayDetail, state.transactions, state.subscriptions]);
+  }, [showModal, selectedDate, state.transactions, state.subscriptions]);
 
   return (
-    <ViewContainer className="flex flex-col gap-8 pt-4 pb-20 max-w-[1400px] mx-auto bg-bg">
-      {/* Real Monthly Summary Header */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 px-2">
-         <div className="bg-card border border-border-main p-6 rounded-[2rem] shadow-sm flex flex-col gap-2">
-            <div className="flex items-center gap-2 text-emerald-500">
-               <TrendingUp size={16} />
-               <span className="text-[10px] font-black uppercase tracking-widest">Monthly Income</span>
-            </div>
-            <span className="text-2xl font-black text-text-main">{formatCurrency(monthSummary.totalIncome)}</span>
-         </div>
-         <div className="bg-card border border-border-main p-6 rounded-[2rem] shadow-sm flex flex-col gap-2">
-            <div className="flex items-center gap-2 text-rose-500">
-               <TrendingDown size={16} />
-               <span className="text-[10px] font-black uppercase tracking-widest">Monthly Expenses</span>
-            </div>
-            <span className="text-2xl font-black text-text-main">{formatCurrency(monthSummary.totalExpenses)}</span>
-         </div>
-         <div className="bg-card border border-border-main p-6 rounded-[2rem] shadow-sm flex flex-col gap-2">
-            <div className="flex items-center gap-2 text-indigo-500">
-               <Wallet size={16} />
-               <span className="text-[10px] font-black uppercase tracking-widest">Remaining Budget</span>
-            </div>
-            <span className="text-2xl font-black text-text-main">{formatCurrency(monthSummary.remainingBudget)}</span>
-         </div>
-         <div className="bg-card border border-border-main p-6 rounded-[2rem] shadow-sm flex flex-col gap-2">
-            <div className="flex items-center gap-2 text-primary">
-               <Clock size={16} />
-               <span className="text-[10px] font-black uppercase tracking-widest">Upcoming Bills</span>
-            </div>
-            <span className="text-2xl font-black text-text-main">{monthSummary.upcomingPaymentsCount} Payments</span>
-         </div>
-      </div>
-
-      {/* Navigation & Month Selector */}
-      <div className="flex items-center justify-between px-2">
-        <div className="flex flex-col">
-          <h2 className="text-3xl font-black text-text-main tracking-tight">{monthName} {year}</h2>
-          <span className="text-[10px] font-bold text-text-muted uppercase tracking-[0.2em]">Financial Cashflow Calendar</span>
+    <ViewContainer className="flex flex-col pt-8 pb-20 max-w-[1600px] mx-auto min-h-screen">
+      
+      {/* Redesigned Header Area */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-4 mb-10 mt-2">
+        <div className="flex flex-col gap-2">
+            <h1 className="text-4xl font-black text-text-main tracking-tight">Financial Calendar</h1>
+            <p className="text-text-muted font-medium text-sm">See your upcoming income, expenses, bills, and reminders.</p>
         </div>
-        <div className="flex items-center gap-3 bg-card border border-border-main p-1.5 rounded-2xl">
-          <button onClick={prevMonth} className="p-2 hover:bg-border-main rounded-xl transition-all text-text-main"><ChevronLeft size={20} /></button>
-          <button onClick={goToday} className="px-4 py-2 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 rounded-xl transition-all">Today</button>
-          <button onClick={nextMonth} className="p-2 hover:bg-border-main rounded-xl transition-all text-text-main"><ChevronRight size={20} /></button>
+
+        <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 bg-border-main/20 p-1.5 rounded-2xl border border-border-main min-w-[200px] justify-between shadow-sm">
+                <button 
+                  onClick={prevMonth} 
+                  className="p-2 hover:bg-card hover:shadow-sm rounded-xl transition-all text-text-main"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+                
+                <span className="text-xs font-black text-text-main uppercase tracking-widest px-4">
+                  {monthName} {year}
+                </span>
+
+                <button 
+                  onClick={nextMonth} 
+                  className="p-2 hover:bg-card hover:shadow-sm rounded-xl transition-all text-text-main"
+                >
+                  <ChevronRight size={20} />
+                </button>
+            </div>
         </div>
       </div>
 
-      {/* Calendar Grid */}
-      <div className="bg-card border border-border-main rounded-[2.5rem] p-6 shadow-sm overflow-hidden">
-        <div className="grid grid-cols-7 mb-6">
+      {/* Calendar Grid Container */}
+      <div className="border border-border-main rounded-[2.5rem] shadow-sm overflow-hidden bg-card mx-4">
+        {/* Day Headers */}
+        <div className="grid grid-cols-7 border-b border-border-main">
           {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => (
-            <div key={d} className="text-center text-[10px] font-black text-text-muted uppercase tracking-[0.3em] pb-2">{d}</div>
+            <div key={d} className="py-4 text-center text-[10px] font-black text-text-muted uppercase tracking-[0.3em]">{d}</div>
           ))}
         </div>
-        
-        <div className="grid grid-cols-7 gap-px bg-border-main/20 border border-border-main/20 rounded-2xl overflow-hidden shadow-inner">
+
+        {/* Grid Cells */}
+        <div className="grid grid-cols-7 border-l border-t border-border-main">
           {days.map((dayObj, idx) => {
-            const { date, inMonth } = dayObj;
-            const dateStr = date.toISOString().slice(0, 10);
-            const isToday = new Date().toDateString() === date.toDateString();
-            const movement = dailyMovement[dateStr];
-            
-            // Subs for this day
-            const daySubs = state.subscriptions.filter(s => s.nextDue === dateStr);
-            const subTotal = daySubs.reduce((sum, s) => sum + s.amount, 0);
+            const { date, dateKey, inMonth } = dayObj;
+            const isTodayCell = toDateKey(new Date()) === dateKey;
+            const isSelected = selectedDate === dateKey;
+            const movement = dailyMovement[dateKey];
+            const items = getDayItems(dateKey);
+            const displayItems = [...items.transactions, ...items.subscriptions].slice(0, 4);
+            const remainingCount = items.totalItems - displayItems.length;
 
             return (
               <div 
-                key={idx} 
-                onClick={() => inMonth && setSelectedDayDetail(dateStr)}
-                className={`bg-card min-h-[140px] p-4 flex flex-col justify-between group transition-all hover:bg-primary/5 cursor-pointer relative ${!inMonth ? 'opacity-20 pointer-events-none' : ''} ${isToday ? 'ring-2 ring-primary ring-inset z-10' : ''}`}
+                key={idx}
+                onClick={() => {
+                  setSelectedDate(dateKey);
+                  setShowModal(true);
+                }}
+                className={`
+                  min-h-[160px] p-3 border-r border-b border-border-main flex flex-col gap-2 group transition-all cursor-pointer relative
+                  ${!inMonth ? 'bg-bg/40' : 'bg-card hover:bg-bg/30'}
+                  ${isSelected ? 'ring-2 ring-primary/40 bg-primary/5 z-10' : ''}
+                `}
               >
-                <div className="flex justify-between items-start mb-2">
-                  <span className={`text-sm font-black ${isToday ? 'text-primary' : 'text-text-muted/60'}`}>{date.getDate()}</span>
-                  {movement?.net !== 0 && (
-                     <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-lg ${movement?.net > 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
-                       {movement?.net > 0 ? '+' : ''}{Math.round(movement?.net)}
-                     </span>
-                  )}
+                {/* Cell Header: Date & Net */}
+                <div className="flex justify-between items-start">
+                   <div className={`
+                     w-8 h-8 rounded-full flex items-center justify-center text-sm font-black transition-all
+                     ${isTodayCell ? 'bg-primary text-white shadow-lg shadow-primary/20' : inMonth ? 'text-text-main' : 'text-text-muted opacity-40'}
+                     ${isSelected && !isTodayCell ? 'border-2 border-primary text-primary' : ''}
+                   `}>
+                     {date.getDate()}
+                   </div>
+                   
+                   {movement && movement.net !== 0 && inMonth && (
+                     <div className={`text-[10px] font-black tracking-tight ${movement.net > 0 ? 'text-emerald-500' : 'text-text-muted'}`}>
+                        {movement.net > 0 ? '+' : ''}{formatCurrency(Math.round(movement.net)).replace(/\.00$/, '')}
+                     </div>
+                   )}
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                  {movement?.income > 0 && (
-                    <div className="flex items-center gap-1 text-emerald-500">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                      <span className="text-[9px] font-bold truncate">+{formatCurrency(movement.income)} Income</span>
-                    </div>
-                  )}
-                  {movement?.expense > 0 && (
-                    <div className="flex items-center gap-1 text-rose-500">
-                      <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                      <span className="text-[9px] font-bold truncate">-{formatCurrency(movement.expense)} Expense</span>
-                    </div>
-                  )}
-                  {subTotal > 0 && (
-                    <div className="flex items-center gap-1 text-indigo-500">
-                      <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
-                      <span className="text-[9px] font-bold truncate">-{formatCurrency(subTotal)} Sub</span>
-                    </div>
-                  )}
+                {/* Transaction Chips */}
+                <div className="flex flex-col gap-1.5 overflow-hidden">
+                   {displayItems.map((item, i) => {
+                     const isSub = 'nextDue' in item;
+                     return (
+                        <div 
+                          key={i} 
+                          className={`
+                            px-2 py-1.5 rounded-xl border flex items-center gap-2 transition-all group-hover:translate-x-0.5
+                            ${getChipStyle(item, isSub ? 'subscription' : 'transaction')}
+                          `}
+                        >
+                           <span className="text-xs">{getEmoji(item, isSub ? 'subscription' : 'transaction')}</span>
+                           <div className="flex-1 min-w-0 flex flex-col">
+                              <span className="text-[10px] font-bold truncate leading-tight capitalize">
+                                {isSub ? item.name : cleanMerchantName(item.merchant || item.category)}
+                              </span>
+                              {!isSub && item.amount > 0 && <span className="text-[8px] opacity-80 font-black">+{formatCurrency(item.amount)}</span>}
+                           </div>
+                        </div>
+                     );
+                   })}
+                   
+                   {remainingCount > 0 && (
+                      <div className="px-2 py-1 text-[9px] font-black text-text-muted uppercase tracking-widest text-center mt-1">
+                        + {remainingCount} more
+                      </div>
+                   )}
                 </div>
               </div>
             );
@@ -196,98 +264,98 @@ export const CalendarView: React.FC = () => {
         </div>
       </div>
 
-      {/* Detailed Day Modal */}
-      {selectedDayDetail && detailData && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-card border border-border-main w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+      {/* Modern Detail Modal */}
+      {showModal && detailData && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-card border border-border-main w-full max-w-xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
             {/* Modal Header */}
-            <div className="p-8 border-b border-border-main flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
-                  <CalendarCheck size={28} />
-                </div>
-                <div className="flex flex-col">
+            <div className="p-8 pb-4 flex items-center justify-between">
+              <div className="flex flex-col">
                   <h3 className="text-2xl font-black text-text-main tracking-tight">
-                    {new Date(selectedDayDetail).toLocaleDateString('default', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                    {(() => {
+                      const d = parseDateKey(selectedDate);
+                      return d.toLocaleDateString('default', { weekday: 'long', month: 'long', day: 'numeric' });
+                    })()}
                   </h3>
-                  <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Daily Cashflow Details</span>
-                </div>
+                  <span className="text-xs font-bold text-text-muted uppercase tracking-widest mt-1">Daily Summary</span>
               </div>
-              <button onClick={() => setSelectedDayDetail(null)} className="p-3 hover:bg-border-main rounded-2xl transition-all">
+              <button onClick={() => setShowModal(false)} className="p-3 hover:bg-border-main rounded-2xl transition-all">
                 <X size={24} className="text-text-muted" />
               </button>
             </div>
 
-            {/* Modal Content */}
-            <div className="p-8 max-h-[60vh] overflow-y-auto scrollbar-hide">
-              {/* Daily Stats Grid */}
-              <div className="grid grid-cols-3 gap-4 mb-8">
-                <div className="bg-emerald-500/5 border border-emerald-500/10 p-5 rounded-2xl flex flex-col gap-1">
-                  <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Total Income</span>
-                  <span className="text-lg font-black text-text-main">+{formatCurrency(detailData.incomeTotal)}</span>
-                </div>
-                <div className="bg-rose-500/5 border border-rose-500/10 p-5 rounded-2xl flex flex-col gap-1">
-                  <span className="text-[9px] font-black text-rose-600 uppercase tracking-widest">Total Expenses</span>
-                  <span className="text-lg font-black text-text-main">-{formatCurrency(detailData.expenseTotal + detailData.subTotal)}</span>
-                </div>
-                <div className={`${detailData.netTotal >= 0 ? 'bg-primary/5 border-primary/10' : 'bg-rose-500/5 border-rose-500/10'} border p-5 rounded-2xl flex flex-col gap-1`}>
-                  <span className={`text-[9px] font-black uppercase tracking-widest ${detailData.netTotal >= 0 ? 'text-primary' : 'text-rose-600'}`}>Net Total</span>
-                  <span className="text-lg font-black text-text-main">{detailData.netTotal >= 0 ? '+' : ''}{formatCurrency(detailData.netTotal)}</span>
-                </div>
-              </div>
-
-              {/* Transactions List */}
-              <div className="space-y-6">
-                {detailData.transactions.length === 0 && detailData.subscriptions.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-center gap-4 opacity-40">
-                    <Activity size={48} />
-                    <p className="text-sm font-bold text-text-muted uppercase tracking-widest">No financial activity for this day</p>
+            <div className="p-8 pt-4">
+               {/* Totals */}
+               <div className="grid grid-cols-2 gap-4 mb-8">
+                  <div className="p-6 rounded-3xl bg-emerald-500/10 border border-emerald-500/20 flex flex-col gap-1">
+                     <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Income</span>
+                     <span className="text-2xl font-black text-emerald-600">+{formatCurrency(detailData.incomeTotal)}</span>
                   </div>
-                ) : (
-                  <>
-                    {detailData.transactions.map(tx => {
-                      const meta = CATEGORY_METADATA[tx.category] || { icon: "📦", color: "#607D8B" };
-                      const isIncome = tx.amount > 0;
-                      return (
-                        <div key={tx.id} className="flex items-center justify-between group hover:bg-border-main/20 p-3 rounded-2xl transition-all">
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-xl bg-border-main flex items-center justify-center text-xl">
-                              {meta.icon}
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-sm font-black text-text-main">{tx.merchant}</span>
-                              <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">{tx.category}</span>
-                            </div>
+                  <div className="p-6 rounded-3xl bg-rose-500/10 border border-rose-500/20 flex flex-col gap-1">
+                     <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Spending</span>
+                     <span className="text-2xl font-black text-rose-600">-{formatCurrency(detailData.expenseTotal + detailData.subTotal)}</span>
+                  </div>
+               </div>
+
+               {/* Items List */}
+               <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2 scrollbar-hide">
+                  {[...detailData.transactions, ...detailData.subscriptions].length === 0 ? (
+                    <div className="py-10 text-center opacity-40 flex flex-col items-center gap-3">
+                       <CalendarIcon size={40} className="text-text-muted/30" />
+                       <span className="text-xs font-black uppercase tracking-widest">No activity</span>
+                    </div>
+                  ) : (
+                    <>
+                      {detailData.transactions.map(tx => {
+                        const isInc = tx.amount > 0;
+                        return (
+                          <div key={tx.id} className="flex items-center justify-between p-4 rounded-2xl bg-bg border border-border-main group">
+                             <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-card border border-border-main flex items-center justify-center text-lg shadow-sm">
+                                   {getEmoji(tx, 'transaction')}
+                                </div>
+                                <div className="flex flex-col">
+                                   <span className="text-sm font-black text-text-main capitalize">{cleanMerchantName(tx.merchant || tx.category)}</span>
+                                   <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">{tx.category}</span>
+                                </div>
+                             </div>
+                             <span className={`text-sm font-black ${isInc ? 'text-emerald-500' : 'text-text-main'}`}>
+                                {isInc ? '+' : '-'}{formatCurrency(Math.abs(tx.amount))}
+                             </span>
                           </div>
-                          <div className="flex flex-col items-end">
-                            <span className={`text-sm font-black ${isIncome ? 'text-emerald-500' : 'text-rose-500'}`}>
-                              {isIncome ? '+' : '-'}{formatCurrency(Math.abs(tx.amount))}
-                            </span>
-                          </div>
+                        );
+                      })}
+                      {detailData.subscriptions.map(sub => (
+                        <div key={sub.id} className="flex items-center justify-between p-4 rounded-2xl bg-acc-blue/5 border border-acc-blue/10 group">
+                           <div className="flex items-center gap-4">
+                              <div className="w-10 h-10 rounded-xl bg-card border border-border-main flex items-center justify-center text-lg shadow-sm">
+                                 📱
+                              </div>
+                              <div className="flex flex-col">
+                                 <span className="text-sm font-black text-text-main">{sub.name}</span>
+                                 <span className="text-[10px] font-bold text-acc-blue uppercase tracking-widest">Subscription</span>
+                              </div>
+                           </div>
+                           <span className="text-sm font-black text-text-main">
+                              -{formatCurrency(sub.amount)}
+                           </span>
                         </div>
-                      );
-                    })}
-                    {detailData.subscriptions.map(sub => (
-                      <div key={sub.id} className="flex items-center justify-between group hover:bg-border-main/20 p-3 rounded-2xl transition-all">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-xl bg-indigo-500/10 flex items-center justify-center text-xl">
-                            📱
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-sm font-black text-text-main">{sub.name}</span>
-                            <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">Subscription</span>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end">
-                          <span className="text-sm font-black text-rose-500">
-                            -{formatCurrency(sub.amount)}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </>
-                )}
-              </div>
+                      ))}
+                    </>
+                  )}
+               </div>
+
+               <div className={`mt-8 p-6 rounded-3xl flex items-center justify-between ${detailData.netTotal >= 0 ? 'bg-primary/10' : 'bg-border-main/40'}`}>
+                  <div className="flex items-center gap-3">
+                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${detailData.netTotal >= 0 ? 'bg-primary text-white' : 'bg-text-muted/30 text-text-main'}`}>
+                        {detailData.netTotal >= 0 ? <ArrowUp size={20} /> : <ArrowDown size={20} />}
+                     </div>
+                     <span className="text-sm font-black text-text-main">Daily Net Balance</span>
+                  </div>
+                  <span className={`text-xl font-black ${detailData.netTotal >= 0 ? 'text-primary' : 'text-text-main'}`}>
+                     {detailData.netTotal >= 0 ? '+' : ''}{formatCurrency(detailData.netTotal)}
+                  </span>
+               </div>
             </div>
           </div>
         </div>

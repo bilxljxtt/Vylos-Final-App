@@ -77,6 +77,16 @@ export function TransactionModal({ txForm, setTxForm, setShowAddTx, handleAddTra
               />
            </div>
 
+           <div>
+              <label className="block text-[10px] font-black uppercase tracking-widest text-text-muted mb-2 px-1 opacity-50">Notes (Optional)</label>
+              <textarea 
+                className="w-full bg-border-main/50 border border-border-main focus:border-primary/50 focus:bg-bg rounded-2xl px-6 py-4 text-sm font-bold text-text-main outline-none transition-all placeholder:text-text-muted/30 min-h-[80px] resize-none" 
+                value={txForm.notes} 
+                onChange={e => setTxForm((f: any) => ({ ...f, notes: e.target.value }))} 
+                placeholder="Add details about this purchase..."
+              />
+           </div>
+
            <div className="flex gap-4 pt-4">
              <button type="button" className="flex-1 py-5 text-sm font-black text-text-muted hover:text-text-main transition-colors" onClick={() => setShowAddTx(false)}>Cancel</button>
              <button type="button" className="flex-1 py-5 bg-primary hover:bg-emerald-400 text-white text-sm font-black rounded-2xl shadow-2xl shadow-primary/30 transition-all active:scale-95" onClick={handleAddTransaction}>Save</button>

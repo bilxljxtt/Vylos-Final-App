@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Send, Smile, Frown, Meh, Sparkles } from "lucide-react";
+import { X, Send, Smile, Frown, Meh, Sparkles, MessageCircle, Bug, Lightbulb, AlertCircle } from "lucide-react";
+import { createClient } from "@/utils/supabase/client";
+import { useAppStore } from "@/lib/AppContext";
 
 interface FeedbackModalProps {
   isOpen: boolean;
@@ -10,9 +12,19 @@ interface FeedbackModalProps {
 }
 
 export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, showToast }) => {
+  const { sessionUser } = useAppStore();
   const [sentiment, setSentiment] = useState<"happy" | "neutral" | "sad" | null>(null);
+  const [category, setCategory] = useState("General Feedback");
   const [comment, setComment] = useState("");
   const [loading, setLoading] = useState(false);
+  const supabase = createClient();
+
+  const categories = [
+    { id: "General Feedback", label: "General", icon: <MessageCircle size={14} /> },
+    { id: "Bug", label: "Bug", icon: <Bug size={14} /> },
+    { id: "Feature Request", label: "Feature", icon: <Lightbulb size={14} /> },
+    { id: "Complaint", label: "Complaint", icon: <AlertCircle size={14} /> },
+  ];
 
   if (!isOpen) return null;
 
@@ -21,16 +33,33 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, s
       showToast("Please select how you're feeling first!", "info");
       return;
     }
+    if (!comment.trim()) {
+      showToast("Please enter a short message.", "info");
+      return;
+    }
     
     setLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    showToast("Thank you for your feedback! We're building Vylos for you.", "success");
-    setLoading(false);
-    onClose();
-    setSentiment(null);
-    setComment("");
+    try {
+      const { error } = await supabase.from('feedback').insert([{
+        user_id: sessionUser?.id,
+        rating: sentiment === "happy" ? 5 : sentiment === "neutral" ? 3 : 1,
+        category,
+        message: comment,
+        status: 'new'
+      }]);
+
+      if (error) throw error;
+      
+      showToast("Thank you for your feedback! We're building Vylos for you.", "success");
+      onClose();
+      setSentiment(null);
+      setComment("");
+      setCategory("General Feedback");
+    } catch (err: any) {
+      showToast(`Failed to save feedback: ${err.message}`, "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -83,6 +112,22 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, s
               </div>
               <span className="text-[10px] font-black uppercase tracking-widest text-primary">Loving It</span>
             </button>
+          </div>
+          <div className="flex flex-wrap justify-center gap-3 mb-8">
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setCategory(cat.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
+                  category === cat.id 
+                    ? "bg-primary/10 border-primary/20 text-primary" 
+                    : "bg-transparent border-border-main text-text-muted hover:border-border-strong"
+                }`}
+              >
+                {cat.icon}
+                {cat.label}
+              </button>
+            ))}
           </div>
 
           <textarea 

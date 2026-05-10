@@ -67,8 +67,9 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
       showToast("Contribution saved!", "success");
       setShowContribution(null);
       setContributionAmount("");
-    } catch (error) {
-      showToast("Failed to save contribution.", "error");
+    } catch (error: any) {
+      console.error("Contribution save failed:", error);
+      showToast(`Failed to save contribution: ${error.message || 'Unknown error'}`, "error");
     } finally {
       setIsSubmitting(false);
     }

@@ -30,6 +30,7 @@ import { Plus,
 import { CATEGORY_METADATA, TransactionCategory } from "@/lib/store";
 import { useAppStore } from "@/lib/AppContext";
 import { ViewContainer } from "../ui/ViewContainer";
+import { getTransactionDateKey, cleanMerchantName } from "@/lib/utils";
 
 
 interface TransactionsViewProps {
@@ -75,7 +76,12 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
     return matchesSearch && matchesCat && matchesType;
   });
 
-  const totalIncome = transactions.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+  const isBudgetRecord = (title: string) => {
+    const t = title.toLowerCase();
+    return t.includes("budget top-up") || t.includes("budget allocation") || t.includes("top-up:") || t.includes("allocation:");
+  };
+
+  const totalIncome = transactions.filter(t => t.amount > 0 && !isBudgetRecord(t.merchant)).reduce((s, t) => s + t.amount, 0);
   const totalExpense = Math.abs(transactions.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0));
   const netCashFlow = totalIncome - totalExpense;
 
@@ -99,7 +105,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
   const handleExport = () => {
     const headers = ["Date", "Merchant", "Category", "Amount"];
     const rows = filteredTxs.map(tx => [
-      tx.date,
+      getTransactionDateKey(tx),
       `"${tx.merchant.replace(/"/g, '""')}"`,
       tx.category,
       tx.amount
@@ -273,14 +279,18 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
                             return (
                                 <tr key={tx.id} className="group hover:bg-border-main/20 transition-colors">
                                     <td className="pl-8 pr-4 py-5 text-[11px] font-bold text-text-muted">
-                                        {new Date(tx.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                        {(() => {
+                                          const dateStr = getTransactionDateKey(tx);
+                                          const [y, m, d] = dateStr.split('-').map(Number);
+                                          return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+                                        })()}
                                     </td>
                                     <td className="px-4 py-5">
                                         <div className="flex items-center gap-3">
                                             <div className="w-9 h-9 rounded-full bg-border-main/50 flex items-center justify-center text-text-main shadow-sm border border-border-main/50">
                                                 {MERCHANT_ICONS[tx.merchant.split(' ')[0]] || <Building2 size={16} />}
                                             </div>
-                                            <span className="text-xs font-black text-text-main tracking-tight">{tx.merchant}</span>
+                                            <span className="text-xs font-black text-text-main tracking-tight">{cleanMerchantName(tx.merchant)}</span>
                                         </div>
                                     </td>
                                     <td className="px-4 py-5">

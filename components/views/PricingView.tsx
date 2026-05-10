@@ -130,7 +130,7 @@ export const PricingView: React.FC = () => {
             We offer enterprise-grade solutions for large organizations and financial institutions.
           </p>
         </div>
-        <button className="px-10 py-4 bg-white text-text-main border border-border-main rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-sm hover:bg-border-main transition-all active:scale-95">
+        <button className="px-10 py-4 bg-card text-text-main border border-border-main rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-sm hover:bg-border-main transition-all active:scale-95">
           Contact Enterprise
         </button>
       </div>

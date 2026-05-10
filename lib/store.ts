@@ -42,11 +42,16 @@ export const CATEGORY_METADATA: Record<TransactionCategory, { icon: string; colo
 
 export interface Transaction {
   id: string;
-  date: string; // ISO string (User-selected date)
+  date: string; // Legacy NOT NULL column (ISO date)
+  transaction_date?: string; // New modernized date column
   merchant: string;
   category: TransactionCategory;
   amount: number; // negative = expense, positive = income
+  notes?: string;
+  recurring?: boolean;
+  payment_status?: string;
   createdAt?: string; // System fallback
+  updatedAt?: string;
 }
 
 export interface Subscription {
@@ -113,6 +118,16 @@ export interface NotificationPrefs {
   securityAlerts: boolean;
 }
 
+export interface Notification {
+  id: string;
+  user_id?: string;
+  title: string;
+  message: string;
+  type: 'info' | 'warning' | 'success';
+  read: boolean;
+  created_at: string;
+}
+
 export interface Reminder {
   id: string;
   title: string;
@@ -135,6 +150,7 @@ export interface AppState {
   budgets: Record<string, BudgetCategory>;
   userProfile: UserProfile;
   notifications: NotificationPrefs;
+  notificationList: Notification[];
   unreadNotificationCount: number;
   selectedMonth: string; // ISO format "YYYY-MM-DD"
 }
@@ -175,6 +191,7 @@ export const initialState: AppState = {
   reminders: [],
   merchantRules: [],
   unreadNotificationCount: 0,
+  notificationList: [],
   selectedMonth: getMonthStart(),
   budgets: {
     "Groceries": { limit: 3000, type: "limit" },

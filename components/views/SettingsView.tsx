@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { User, FileText, Moon, Sun, Save } from "lucide-react";
+import { User, FileText, Moon, Sun, Save, CreditCard, Zap, CheckCircle2 } from "lucide-react";
 import { ViewContainer } from "../ui/ViewContainer";
 import { ToastType } from "../Toast";
 
@@ -11,9 +11,10 @@ interface SettingsViewProps {
   showToast: (msg: string, type?: ToastType) => void;
   dark: boolean;
   setDark: (dark: boolean) => void;
+  setPage: (page: string) => void;
 }
 
-export const SettingsView: React.FC<SettingsViewProps> = ({ state, updateProfile, showToast, dark, setDark }) => {
+export const SettingsView: React.FC<SettingsViewProps> = ({ state, updateProfile, showToast, dark, setDark, setPage }) => {
   const [activeSection, setActiveSection] = useState("profile");
   const [name, setName] = useState(state.userProfile.name || "");
   const [currency, setCurrency] = useState(state.userProfile.currency || "USD");
@@ -22,6 +23,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ state, updateProfile
 
   const sections = [
     { id: "profile", label: "Profile", sub: "Manage your personal information", icon: <User size={18} /> },
+    { id: "subscription", label: "Subscription", sub: "Billing & Plan Management", icon: <CreditCard size={18} /> },
     { id: "legal", label: "Legal", sub: "Terms and Conditions", icon: <FileText size={18} /> },
   ];
 
@@ -181,6 +183,53 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ state, updateProfile
                     <Save size={18} />
                     {loading ? "Saving..." : "Save Profile"}
                   </button>
+                </div>
+              </div>
+            </div>
+          ) : activeSection === "subscription" ? (
+            <div className="bg-card border border-border-main rounded-[2.5rem] p-8 shadow-sm">
+              <div className="flex items-center justify-between mb-8 pb-6 border-b border-border-main/30">
+                <div className="flex flex-col">
+                  <h2 className="text-xl font-black text-text-main tracking-tight">Subscription & Billing</h2>
+                  <p className="text-sm font-medium text-text-muted opacity-80 mt-1">Manage your plan and billing preferences.</p>
+                </div>
+              </div>
+
+              <div className="bg-bg-mint border border-primary/20 rounded-[2rem] p-8 mb-8 flex flex-col md:flex-row items-center justify-between gap-6">
+                <div className="flex items-center gap-6">
+                  <div className="w-16 h-16 rounded-2xl bg-primary/20 flex items-center justify-center text-primary">
+                    <Zap size={32} fill="currentColor" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Current Plan</span>
+                    <h3 className="text-2xl font-black text-text-main capitalize">
+                      {state.userProfile.subscriptionPlan || "Starter"} Plan
+                    </h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <CheckCircle2 size={14} className="text-emerald-500" />
+                      <span className="text-xs font-bold text-text-muted capitalize">Status: {state.userProfile.subscriptionStatus || "Active"}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <button 
+                  onClick={() => setPage("pricing")}
+                  className="px-8 py-4 bg-primary hover:bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-primary/20 transition-all active:scale-95"
+                >
+                  Change Plan
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="p-6 rounded-[2rem] border border-border-main bg-card/50">
+                   <h4 className="text-sm font-black text-text-main mb-2">Billing Method</h4>
+                   <p className="text-xs font-medium text-text-muted mb-4">No payment method on file. Free trial active.</p>
+                   <button className="text-xs font-black text-primary hover:underline uppercase tracking-widest">Update Payment</button>
+                </div>
+                <div className="p-6 rounded-[2rem] border border-border-main bg-card/50">
+                   <h4 className="text-sm font-black text-text-main mb-2">Next Invoice</h4>
+                   <p className="text-xs font-medium text-text-muted mb-4">You are currently on a free plan.</p>
+                   <button className="text-xs font-black text-primary hover:underline uppercase tracking-widest">View Billing History</button>
                 </div>
               </div>
             </div>

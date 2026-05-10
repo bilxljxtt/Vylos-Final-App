@@ -5,7 +5,7 @@ import { Chart, registerables } from 'chart.js';
 import { useAppStore } from "@/lib/AppContext";
 import { TransactionCategory, getMonthStart } from "@/lib/store";
 import { VylosEngine } from "@/lib/vylosEngine";
-import { sanitizeString } from "@/lib/utils";
+import { sanitizeString, getTransactionDateKey } from "@/lib/utils";
 import { ExtractedTransaction } from "@/lib/services/import/ParserService";
 import { ImportPreviewTransaction, ImportService } from "@/lib/services/import/ImportService";
 import { normalizeTransactionCategory } from "@/lib/services/CategorizationEngine";
@@ -26,6 +26,7 @@ import { CalendarView } from "@/components/views/CalendarView";
 import { PricingView } from "@/components/views/PricingView";
 import { OnboardingView } from "@/components/views/OnboardingView";
 import { LandingPage } from "@/components/ui/LandingPage";
+import { LegalView } from "@/components/views/LegalView";
 import { TransactionModal, GoalModal } from "@/components/ui/Modals";
 import { HealthDetailModal } from "@/components/modals/HealthDetailModal";
 import { AddReminderModal } from "@/components/modals/AddReminderModal";
@@ -74,7 +75,7 @@ export default function App() {
   }, [page]);
   const [showAddTx, setShowAddTx] = useState(false);
   const [showAddGoal, setShowAddGoal] = useState(false);
-  const [txForm, setTxForm] = useState({desc:"",amount:"",cat: "Groceries" as TransactionCategory,date:new Date().toISOString().slice(0,10),type:"expense"});
+  const [txForm, setTxForm] = useState({desc:"",amount:"",cat: "Groceries" as TransactionCategory,date:new Date().toISOString().slice(0,10),type:"expense",notes:""});
   const [goalForm, setGoalForm] = useState({
     name: "",
     target: "",
@@ -114,10 +115,15 @@ export default function App() {
   const budgetSummary = BudgetService.getBudgetSummary(state, currentMonthStr);
   const previousSummary = BudgetService.getBudgetSummary(state, previousMonthStr);
 
+  const isBudgetRecord = (title: string) => {
+    const t = title.toLowerCase();
+    return t.includes("budget top-up") || t.includes("budget allocation") || t.includes("top-up:") || t.includes("allocation:");
+  };
+
   const income = state.transactions
     .filter(t => {
-      const d = new Date(t.date).getTime();
-      return d >= currentMonthStart && d <= currentMonthEnd && t.amount > 0;
+      const dateKey = getTransactionDateKey(t);
+      return dateKey.startsWith(currentMonthStr.slice(0, 7)) && t.amount > 0 && !isBudgetRecord(t.merchant);
     })
     .reduce((acc, t) => acc + t.amount, 0);
   
@@ -126,14 +132,14 @@ export default function App() {
 
   const prevIncome = state.transactions
     .filter(t => {
-      const d = new Date(t.date).getTime();
-      return d >= prevMonthStart && d <= prevMonthEnd && t.amount > 0;
+      const dateKey = getTransactionDateKey(t);
+      return dateKey.startsWith(previousMonthStr.slice(0, 7)) && t.amount > 0 && !isBudgetRecord(t.merchant);
     })
     .reduce((acc, t) => acc + t.amount, 0);
 
   const prevExpense = previousSummary.totalSpent;
 
-  const netWorth = state.transactions.reduce((s, t) => s + t.amount, 0);
+  const netWorth = state.transactions.filter(t => !isBudgetRecord(t.merchant)).reduce((s, t) => s + t.amount, 0);
   const savingsRate = income > 0 ? Math.round(((income - expense) / income) * 100) : (expense === 0 ? 100 : 0);
   const prevNetWorth = netWorth - (income - expense);
   
@@ -232,8 +238,8 @@ export default function App() {
         const monthStart = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
         const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999).getTime();
         const monthTxs = state.transactions.filter(t => {
-            const ts = new Date(t.date).getTime();
-            return ts >= monthStart && ts <= monthEnd;
+            const dateKey = getTransactionDateKey(t);
+            return dateKey.startsWith(d.toISOString().slice(0, 7));
         });
 
         // Create a mock state for this month
@@ -300,7 +306,7 @@ export default function App() {
       if(donutRef.current) {
         if(donutInst.current) donutInst.current.destroy();
         const catData = budgetSummary.categories
-          .map(c => [c.category, c.available] as [string, number])
+          .map(c => [c.category, c.spent] as [string, number])
           .filter(([, v]) => v > 0);
         donutInst.current = new Chart(donutRef.current, {
           type: 'doughnut',
@@ -332,17 +338,34 @@ export default function App() {
   // Actions
   async function handleAddTransaction() {
     if(!txForm.desc||!txForm.amount) return;
-    const amt = txForm.type==="expense" ? -Math.abs(parseFloat(txForm.amount)) : Math.abs(parseFloat(txForm.amount));
-    await addTransaction({
-      date: txForm.date,
-      merchant: txForm.desc,
-      category: txForm.cat,
-      amount: amt
-    });
+    const finalAmount = txForm.type==="expense" ? -Math.abs(parseFloat(txForm.amount)) : Math.abs(parseFloat(txForm.amount));
+      await addTransaction({
+        merchant: txForm.desc,
+        amount: finalAmount,
+        category: txForm.cat,
+        date: txForm.date,
+        transaction_date: txForm.date,
+        notes: txForm.notes
+      });
     setShowAddTx(false);
-    setTxForm({desc:"",amount:"",cat:"Groceries",date:new Date().toISOString().slice(0,10),type:"expense"});
+    // RESET with default cat
+    setTxForm({desc:"",amount:"",cat:"Groceries",date:new Date().toISOString().slice(0,10),type:"expense",notes:""});
     showToast("Transaction added!");
   }
+
+  function handleQuickAddTransaction(cat: TransactionCategory) {
+    setTxForm(prev => ({ ...prev, cat }));
+    setShowAddTx(true);
+  }
+
+  function handleQuickFundCategory(cat: TransactionCategory) {
+    // We can handle this by passing a prop or updating a state that FundCategoryModal consumes
+    // For now let's just use a ref-like state if needed, or update the modal prop
+    setQuickFundCat(cat);
+    setShowFundCategory(true);
+  }
+
+  const [quickFundCat, setQuickFundCat] = useState<TransactionCategory>("Shopping");
 
   async function handleDeleteTx(id: string) {
     await deleteTransaction(id);
@@ -475,10 +498,10 @@ export default function App() {
 
   const filteredTransactions = state.transactions
     .filter(t => {
-      const d = new Date(t.date || t.createdAt || new Date()).getTime();
-      return d >= currentMonthStart && d <= currentMonthEnd;
+      const dateKey = getTransactionDateKey(t);
+      return dateKey.startsWith(currentMonthStr.slice(0, 7));
     })
-    .sort((a, b) => new Date(b.date || b.createdAt || 0).getTime() - new Date(a.date || a.createdAt || 0).getTime());
+    .sort((a, b) => getTransactionDateKey(b).localeCompare(getTransactionDateKey(a)));
 
   return (
     <div className="flex min-h-screen bg-bg text-text-main transition-colors duration-500 overflow-hidden">
@@ -495,6 +518,7 @@ export default function App() {
 
       <main className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         <TopHeader 
+          page={page}
           title={
             page === "dashboard" ? "Dashboard" :
             page === "calendar" ? "Financial Calendar" :
@@ -506,6 +530,8 @@ export default function App() {
             page === "pricing" ? "Upgrade" :
             page === "settings" ? "Settings" :
             page === "import" ? "Import" :
+            page === "privacy" ? "Privacy Policy" :
+            page === "terms" ? "Terms of Use" :
             page.charAt(0).toUpperCase() + page.slice(1)
           } 
           setPage={setPage} 
@@ -534,6 +560,7 @@ export default function App() {
               engineOutput={engineOutput}
               userName={state.userProfile.name}
               setShowNewBudget={setShowNewBudget}
+              onQuickAddTx={handleQuickAddTransaction}
             />
           )}
           {page === "transactions" && (
@@ -560,6 +587,8 @@ export default function App() {
               setShowNewBudget={setShowNewBudget} 
               setShowFundCategory={setShowFundCategory}
               handleDeleteCategory={handleDeleteCategory}
+              onQuickAddTx={handleQuickAddTransaction}
+              onQuickFundCat={handleQuickFundCategory}
             />
           )}
           {page === "goals" && (
@@ -614,7 +643,9 @@ export default function App() {
               }}
             />
           )}
-          {page === "settings" && <SettingsView state={state} updateProfile={updateProfile} showToast={showToast} dark={dark} setDark={setDark} />}
+          {page === "settings" && <SettingsView state={state} updateProfile={updateProfile} showToast={showToast} dark={dark} setDark={setDark} setPage={setPage} />}
+          {page === "privacy" && <LegalView type="privacy" onBack={() => setPage("dashboard")} />}
+          {page === "terms" && <LegalView type="terms" onBack={() => setPage("dashboard")} />}
         </div>
       </main>
 
@@ -647,6 +678,7 @@ export default function App() {
         isOpen={showFundCategory}
         onClose={() => setShowFundCategory(false)}
         showToast={showToast}
+        initialCategory={quickFundCat}
       />
       <FeedbackModal 
         isOpen={showFeedback}

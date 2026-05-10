@@ -23,7 +23,8 @@ import {
   formatMoney,
   Reminder,
   getMonthStart,
-  TransactionCategory
+  TransactionCategory,
+  Notification
 } from "./store";
 import { CategorizationEngine, MerchantRule } from "./services/CategorizationEngine";
 
@@ -53,6 +54,9 @@ type Action =
   | { type: "SET_SELECTED_MONTH"; payload: string }
   | { type: "UPDATE_MERCHANT_RULES"; payload: MerchantRule[] }
   | { type: "ADD_MERCHANT_RULE"; payload: MerchantRule }
+  | { type: "SET_NOTIFICATIONS"; payload: Notification[] }
+  | { type: "DELETE_NOTIFICATION"; payload: string }
+  | { type: "MARK_ALL_READ" }
   | { type: "RESET" };
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────
@@ -163,6 +167,16 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, merchantRules: action.payload };
     case "ADD_MERCHANT_RULE":
       return { ...state, merchantRules: [...state.merchantRules, action.payload] };
+    case "SET_NOTIFICATIONS":
+      return { ...state, notificationList: action.payload };
+    case "DELETE_NOTIFICATION":
+      return { ...state, notificationList: state.notificationList.filter(n => n.id !== action.payload) };
+    case "MARK_ALL_READ":
+      return { 
+        ...state, 
+        notificationList: state.notificationList.map(n => ({ ...n, read: true })),
+        unreadNotificationCount: 0
+      };
     case "RESET":
       if (typeof window !== 'undefined') {
         localStorage.removeItem('vylos-last-page');
@@ -190,6 +204,8 @@ interface AppContextValue {
   updateBudgets: (updates: Record<string, number>) => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
   updateNotifications: (updates: Partial<NotificationPrefs>) => void;
+  deleteNotification: (id: string) => Promise<void>;
+  markAllNotificationsAsRead: () => Promise<void>;
   addReminder: (rem: Omit<Reminder, "id">) => Promise<void>;
   deleteReminder: (id: string) => Promise<void>;
   addMerchantRule: (rule: Omit<MerchantRule, "id">) => Promise<void>;
@@ -227,12 +243,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         supabase.from('goals').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
         supabase.from('goal_contributions').select('*').eq('user_id', user.id),
         supabase.from('budgets').select('*').eq('user_id', user.id),
-        supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('read', false),
+        supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
         supabase.from('reminders').select('*').eq('user_id', user.id).order('date', { ascending: true }),
         supabase.from('merchant_rules').select('*').eq('user_id', user.id)
       ]);
 
-      const [profRes, txsRes, subsRes, gpsRes, contribsRes, budgetsRes, unreadRes, remRes, rulesRes] = results;
+      const [profRes, txsRes, subsRes, gpsRes, contribsRes, budgetsRes, notifyRes, remRes, rulesRes] = results;
       const prof = profRes.data;
       const txs = txsRes.data;
       const subs = subsRes.data;
@@ -252,7 +268,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       dispatch({
         type: "HYDRATE_STATE",
         payload: {
-          transactions: txs ? txs.map((t: any) => ({ id: t.id, merchant: t.title, amount: parseFloat(t.amount), date: t.date, category: t.category, createdAt: t.created_at })) : [],
+          transactions: txs ? txs.map((t: any) => ({ 
+            id: t.id, 
+            merchant: t.title, 
+            amount: parseFloat(t.amount), 
+            date: t.date, 
+            transaction_date: t.transaction_date,
+            category: t.category, 
+            notes: t.notes,
+            recurring: t.recurring,
+            payment_status: t.payment_status,
+            createdAt: t.created_at,
+            updatedAt: t.updated_at
+          })) : [],
           subscriptions: subs ? subs.map((s: any) => ({ id: s.id, name: s.name, amount: parseFloat(s.amount), category: s.category, frequency: s.frequency, nextDue: s.next_due })) : [],
           goals: gps ? gps.map((g: any) => ({ 
             id: g.id, 
@@ -292,7 +320,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             budgetAlertEnabled: prof.budget_alert_enabled !== false, // default true
           } : initialState.userProfile,
           notifications: prof?.notifications ? (prof.notifications as any) : initialState.notifications,
-          unreadNotificationCount: unreadRes?.count || 0,
+          notificationList: notifyRes?.data || [],
+          unreadNotificationCount: (notifyRes?.data || []).filter((n: any) => !n.read).length,
           selectedMonth: getMonthStart()
         }
       });
@@ -324,7 +353,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         txChannel = supabase.channel('public:transactions')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${user.id}` }, async () => {
             const { data: txs } = await supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false });
-            if (txs) dispatch({ type: "UPDATE_TRANSACTIONS", payload: txs.map((t: any) => ({ id: t.id, merchant: t.title, amount: parseFloat(t.amount), date: t.date, category: t.category })) });
+            if (txs) dispatch({ type: "UPDATE_TRANSACTIONS", payload: txs.map((t: any) => ({ 
+              id: t.id, 
+              merchant: t.title, 
+              amount: parseFloat(t.amount), 
+              date: t.date, 
+              transaction_date: t.transaction_date,
+              category: t.category,
+              notes: t.notes,
+              recurring: t.recurring,
+              payment_status: t.payment_status,
+              createdAt: t.created_at,
+              updatedAt: t.updated_at
+            })) });
             setLastSynced(new Date());
           }).subscribe();
 
@@ -355,7 +396,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addTransaction = useCallback(
     async (tx: Omit<Transaction, "id">) => {
       if (!sessionUser) return;
-      const pgTx = { title: tx.merchant, amount: tx.amount, date: tx.date, category: tx.category, type: tx.amount < 0 ? "expense" : "income", user_id: sessionUser.id };
+      const effectiveDate = tx.transaction_date || tx.date || new Date().toISOString().split('T')[0];
+      const pgTx = { 
+        title: tx.merchant, 
+        amount: tx.amount, 
+        date: effectiveDate, // legacy NOT NULL
+        transaction_date: effectiveDate, // new
+        category: tx.category, 
+        type: tx.amount < 0 ? "expense" : "income", 
+        user_id: sessionUser.id,
+        notes: tx.notes || "",
+        recurring: tx.recurring || false,
+        payment_status: tx.payment_status || "completed"
+      };
       const { data, error } = await supabase.from('transactions').insert([pgTx]).select().single();
       if (error) throw new Error(error.message);
       if (data) {
@@ -371,8 +424,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const pgUpdates: any = {};
       if (updates.merchant) pgUpdates.title = updates.merchant;
       if (updates.amount !== undefined) pgUpdates.amount = updates.amount;
-      if (updates.date) pgUpdates.date = updates.date;
+      if (updates.date) {
+        pgUpdates.date = updates.date;
+        pgUpdates.transaction_date = updates.date;
+      }
+      if (updates.transaction_date) pgUpdates.transaction_date = updates.transaction_date;
       if (updates.category) pgUpdates.category = updates.category;
+      if (updates.notes !== undefined) pgUpdates.notes = updates.notes;
+      if (updates.recurring !== undefined) pgUpdates.recurring = updates.recurring;
+      if (updates.payment_status) pgUpdates.payment_status = updates.payment_status;
       const { error } = await supabase.from('transactions').update(pgUpdates).eq('id', id);
       if (error) throw new Error(error.message);
       dispatch({ type: "UPDATE_TRANSACTION", payload: { id, updates } });
@@ -402,11 +462,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const deleteSubscription = useCallback(
     async (id: string) => {
-      const { error } = await supabase.from('subscriptions').delete().eq('id', id);
+      if (!sessionUser) return;
+      const { error } = await supabase.from('subscriptions').delete().eq('id', id).eq('user_id', sessionUser.id);
       if (error) throw new Error(error.message);
       dispatch({ type: "DELETE_SUBSCRIPTION", payload: id });
     },
-    [supabase]
+    [sessionUser, supabase]
   );
 
   const addGoal = useCallback(
@@ -435,6 +496,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const updateGoal = useCallback(
     async (id: string, updates: Partial<Goal>) => {
+      if (!sessionUser) return;
       const pgUpdates: any = {};
       if (updates.title) pgUpdates.title = updates.title;
       if (updates.targetAmount !== undefined) pgUpdates.target_amount = updates.targetAmount;
@@ -446,20 +508,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (updates.icon) pgUpdates.icon = updates.icon;
       if (updates.color) pgUpdates.color = updates.color;
 
-      const { error } = await supabase.from('goals').update(pgUpdates).eq('id', id);
+      const { error } = await supabase.from('goals').update(pgUpdates).eq('id', id).eq('user_id', sessionUser.id);
       if (error) throw new Error(error.message);
       dispatch({ type: "UPDATE_GOAL", payload: { id, updates } });
     },
-    [supabase]
+    [sessionUser, supabase]
   );
 
   const deleteGoal = useCallback(
     async (id: string) => {
-      const { error } = await supabase.from('goals').delete().eq('id', id);
+      if (!sessionUser) return;
+      const { error } = await supabase.from('goals').delete().eq('id', id).eq('user_id', sessionUser.id);
       if (error) throw new Error(error.message);
       dispatch({ type: "DELETE_GOAL", payload: id });
     },
-    [supabase]
+    [sessionUser, supabase]
   );
 
   const addGoalContribution = useCallback(
@@ -473,13 +536,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         notes: contribution.notes
       }]).select().single();
 
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error("Supabase Contribution Insert Error:", error);
+        throw new Error(error.message);
+      }
+      
       if (data) {
         // Update the goal's current amount in Supabase
         const currentGoal = state.goals.find(g => g.id === contribution.goalId);
         if (currentGoal) {
           const newAmount = currentGoal.currentAmount + contribution.amount;
-          await supabase.from('goals').update({ current_amount: newAmount }).eq('id', contribution.goalId);
+          const { error: updateError } = await supabase
+            .from('goals')
+            .update({ current_amount: newAmount })
+            .eq('id', contribution.goalId)
+            .eq('user_id', sessionUser.id);
+            
+          if (updateError) {
+            console.error("Supabase Goal Sync Error:", updateError);
+            throw new Error(updateError.message);
+          }
         }
         dispatch({ type: "ADD_CONTRIBUTION", payload: { ...contribution, id: data.id } });
       }
@@ -543,6 +619,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [sessionUser, state.notifications, supabase]
   );
 
+  const deleteNotification = useCallback(
+    async (id: string) => {
+      if (!sessionUser) return;
+      const { error } = await supabase.from('notifications').delete().eq('id', id).eq('user_id', sessionUser.id);
+      if (error) console.error("Delete notification error:", error);
+      dispatch({ type: "DELETE_NOTIFICATION", payload: id });
+    },
+    [sessionUser, supabase]
+  );
+
+  const markAllNotificationsAsRead = useCallback(
+    async () => {
+      if (!sessionUser) return;
+      const { error } = await supabase.from('notifications').update({ read: true }).eq('user_id', sessionUser.id).eq('read', false);
+      if (error) console.error("Mark all read error:", error);
+      dispatch({ type: "MARK_ALL_READ" });
+    },
+    [sessionUser, supabase]
+  );
+
   const addReminder = useCallback(
     async (rem: Omit<Reminder, "id">) => {
       if (!sessionUser) return;
@@ -556,11 +652,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const deleteReminder = useCallback(
     async (id: string) => {
-      const { error } = await supabase.from('reminders').delete().eq('id', id);
+      if (!sessionUser) return;
+      const { error } = await supabase.from('reminders').delete().eq('id', id).eq('user_id', sessionUser.id);
       if (error) throw new Error(error.message);
       dispatch({ type: "DELETE_REMINDER", payload: id });
     },
-    [supabase]
+    [sessionUser, supabase]
   );
 
   const addMerchantRule = useCallback(
@@ -602,6 +699,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         updateBudgets,
         updateProfile,
         updateNotifications,
+        deleteNotification,
+        markAllNotificationsAsRead,
         addReminder,
         deleteReminder,
         addMerchantRule,

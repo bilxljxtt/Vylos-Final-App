@@ -1,27 +1,17 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Bell, CheckCircle, AlertTriangle, Info, X } from "lucide-react";
+import { Bell, CheckCircle, AlertTriangle, Info, X, Trash2 } from "lucide-react";
 import { MonthSelector } from "./MonthSelector";
+import { useAppStore } from "@/lib/AppContext";
+import { formatRelativeTime } from "@/lib/utils";
 
-interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  time: string;
-  type: 'info' | 'warning' | 'success';
-  read: boolean;
-}
-
-const MOCK_NOTIFICATIONS: Notification[] = [
-  { id: '1', title: 'Budget Alert', message: 'You have reached 80% of your Groceries budget.', time: '2 hours ago', type: 'warning', read: false },
-  { id: '2', title: 'Goal Reached', message: 'Congratulations! You reached your Emergency Fund goal.', time: '5 hours ago', type: 'success', read: false },
-  { id: '3', title: 'New Insight', message: 'Vylos found a way for you to save R500 more this month.', time: '1 day ago', type: 'info', read: true },
-];
 
 export const TopHeader: React.FC<{ 
+  page: string;
   title: string; 
   setPage: (page: string) => void;
   userProfile?: any;
-}> = ({ title, setPage, userProfile }) => {
+}> = ({ page, title, setPage, userProfile }) => {
+  const { state, deleteNotification, markAllNotificationsAsRead } = useAppStore();
   const [showNotifications, setShowNotifications] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -43,7 +33,7 @@ export const TopHeader: React.FC<{
       </div>
       
       <div className="flex items-center gap-4 relative" ref={dropdownRef}>
-        <MonthSelector />
+        {page === "dashboard" && <MonthSelector />}
         
         <button 
           onClick={() => setShowNotifications(!showNotifications)}
@@ -52,7 +42,9 @@ export const TopHeader: React.FC<{
           `}
         >
           <Bell size={20} />
-          <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-bg" />
+          {state.unreadNotificationCount > 0 && (
+            <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-bg" />
+          )}
         </button>
 
         {showNotifications && (
@@ -67,36 +59,50 @@ export const TopHeader: React.FC<{
               </button>
             </div>
             
-            <div className="max-h-[400px] overflow-y-auto">
-              {MOCK_NOTIFICATIONS.length > 0 ? (
+            <div className="max-h-[400px] overflow-y-auto scrollbar-hide">
+              {state.notificationList.length > 0 ? (
                 <div className="flex flex-col">
-                  {MOCK_NOTIFICATIONS.map((n) => (
+                  {state.notificationList.map((n) => (
                     <div 
                       key={n.id} 
-                      className={`p-5 border-b border-border-main/50 flex gap-4 hover:bg-border-main/20 transition-colors cursor-pointer relative
+                      className={`p-5 border-b border-border-main/50 flex gap-4 hover:bg-border-main/20 transition-colors cursor-pointer relative group/item
                         ${!n.read ? 'bg-primary/5' : ''}
                       `}
                     >
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0
-                        ${n.type === 'success' ? 'bg-emerald-100 text-emerald-500' : 
-                          n.type === 'warning' ? 'bg-amber-100 text-amber-500' : 
-                          'bg-blue-100 text-blue-500'}
+                        ${n.type === 'success' ? 'bg-emerald-500/10 text-emerald-500' : 
+                          n.type === 'warning' ? 'bg-amber-500/10 text-amber-500' : 
+                          'bg-blue-500/10 text-blue-500'}
                       `}>
                         {n.type === 'success' ? <CheckCircle size={20} /> : 
                          n.type === 'warning' ? <AlertTriangle size={20} /> : 
                          <Info size={20} />}
                       </div>
-                      <div className="flex flex-col gap-1 min-w-0">
+                      <div className="flex flex-col gap-1 min-w-0 flex-1">
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-black text-text-main">{n.title}</span>
-                          <span className="text-[10px] font-bold text-text-muted">{n.time}</span>
+                          <span className="text-sm font-black text-text-main truncate pr-4">{n.title}</span>
+                          <span className="text-[9px] font-bold text-text-muted shrink-0">
+                            {n.created_at ? formatRelativeTime(new Date(n.created_at)) : "just now"}
+                          </span>
                         </div>
-                        <p className="text-xs font-medium text-text-muted leading-relaxed truncate-2-lines">
+                        <p className="text-xs font-medium text-text-muted leading-relaxed truncate-2-lines pr-6">
                           {n.message}
                         </p>
                       </div>
+                      
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteNotification(n.id);
+                        }}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-text-muted hover:text-rose-500 opacity-0 group-hover/item:opacity-100 transition-all bg-card rounded-lg border border-border-main shadow-sm"
+                        title="Delete notification"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+
                       {!n.read && (
-                        <div className="absolute top-5 right-5 w-1.5 h-1.5 bg-primary rounded-full" />
+                        <div className="absolute top-5 left-12 w-2 h-2 bg-primary rounded-full border-2 border-bg" />
                       )}
                     </div>
                   ))}
@@ -112,7 +118,11 @@ export const TopHeader: React.FC<{
             </div>
             
             <div className="p-4 bg-border-main/10 text-center">
-              <button className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline">
+              <button 
+                onClick={() => markAllNotificationsAsRead()}
+                className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline disabled:opacity-50"
+                disabled={state.unreadNotificationCount === 0}
+              >
                 Mark all as read
               </button>
             </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -14,7 +14,8 @@ import {
   Filter, 
   Edit3, 
   Trash2, 
-  Clock 
+  Clock,
+  CreditCard 
 } from "lucide-react";
 import { useAppStore } from "@/lib/AppContext";
 import { CATEGORY_METADATA, TransactionCategory } from "@/lib/store";
@@ -29,6 +30,8 @@ interface BudgetViewProps {
   setShowNewBudget: (show: boolean) => void;
   setShowFundCategory: (show: boolean) => void;
   handleDeleteCategory: (cat: string) => void;
+  onQuickAddTx: (cat: TransactionCategory) => void;
+  onQuickFundCat: (cat: TransactionCategory) => void;
 }
 
 export const BudgetView: React.FC<BudgetViewProps> = ({
@@ -38,23 +41,27 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
   savingsRate,
   setShowNewBudget,
   setShowFundCategory,
-  handleDeleteCategory
+  handleDeleteCategory,
+  onQuickAddTx,
+  onQuickFundCat
 }) => {
   const { state, formatCurrency, lastSynced } = useAppStore();
   const donutRef = useRef<HTMLCanvasElement | null>(null);
   const donutInst = useRef<any>(null);
 
-  const budgetSummary = BudgetService.getBudgetSummary(state, state.selectedMonth);
+  const budgetSummary = useMemo(() => BudgetService.getBudgetSummary(state, state.selectedMonth), [state, state.selectedMonth]);
   const { totalLimit, totalFunding, totalSpent: totalGrossExpenses, totalAvailable, totalSpentPercent: totalSpentPct } = budgetSummary;
+
+  // Prepare Donut Data (Spent funds per category)
+  const catData = useMemo(() => budgetSummary.categories
+    .map(c => [c.category, c.spent] as [string, number])
+    .filter(([, v]) => v > 0), [budgetSummary.categories]);
 
   useEffect(() => {
     if (!donutRef.current) return;
     if (donutInst.current) donutInst.current.destroy();
 
-    // Prepare Donut Data (Spent funds per category)
-    const catData = budgetSummary.categories
-      .map(c => [c.category, c.spent] as [string, number])
-      .filter(([, v]) => v > 0);
+    // Use calculated catData
 
     donutInst.current = new Chart(donutRef.current, {
       type: 'doughnut',
@@ -175,15 +182,24 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
 
             <div className="flex-1 flex items-center justify-center w-full">
                <div className="relative w-[220px] aspect-square flex-shrink-0 mx-auto">
-                  <canvas ref={donutRef}></canvas>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-2">
-                      <div className="text-2xl font-black text-text-main tracking-tight leading-none">
-                         {formatCurrency(totalGrossExpenses || 0)}
+                  {catData.length > 0 ? (
+                    <>
+                      <canvas ref={donutRef}></canvas>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-2">
+                          <div className="text-2xl font-black text-text-main tracking-tight leading-none">
+                             {formatCurrency(totalGrossExpenses || 0)}
+                          </div>
+                          <div className="text-[10px] font-bold text-text-muted mt-1.5 opacity-80 uppercase tracking-widest">
+                             Total Spent
+                          </div>
                       </div>
-                      <div className="text-[10px] font-bold text-text-muted mt-1.5 opacity-80 uppercase tracking-widest">
-                         Total Spent
-                      </div>
-                  </div>
+                    </>
+                  ) : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4">
+                      <Target size={40} className="text-text-muted/20 mb-3" />
+                      <p className="text-[10px] font-black text-text-muted uppercase tracking-widest opacity-40">No spending data for this month yet.</p>
+                    </div>
+                  )}
                </div>
             </div>
 
@@ -194,7 +210,7 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
                  budgetSummary.categories.map((c) => {
                     const meta = CATEGORY_METADATA[c.category as TransactionCategory] || { color: "#607D8B" };
                     return (
-                       <div key={c.category} className="flex items-center justify-between">
+                       <div key={c.category} className="flex items-center justify-between group">
                             <div className="flex items-center gap-3">
                               <div className="w-2 h-2 rounded-full shadow-sm" style={{ backgroundColor: meta.color }} />
                               <span className="text-[13px] font-bold text-text-main tracking-tight">{c.category}</span>
@@ -263,9 +279,10 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
                                     <div className="flex items-center gap-2">
                                       <span className="text-[14px] font-black text-text-main tracking-tight leading-none">{c.category}</span>
                                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button onClick={() => setShowFundCategory(true)} className="p-1 hover:text-primary transition-colors"><Plus size={12} strokeWidth={3} /></button>
-                                        <button onClick={() => setShowNewBudget(true)} className="p-1 hover:text-primary transition-colors"><Edit3 size={12} /></button>
-                                        <button onClick={() => handleDeleteCategory(c.category)} className="p-1 hover:text-red-500 transition-colors"><Trash2 size={12} /></button>
+                                        <button onClick={() => onQuickFundCat(c.category as TransactionCategory)} title="Add Funds" className="p-1 hover:text-primary transition-colors"><Plus size={12} strokeWidth={3} /></button>
+                                        <button onClick={() => onQuickAddTx(c.category as TransactionCategory)} title="Add Transaction" className="p-1 hover:text-primary transition-colors"><CreditCard size={12} /></button>
+                                        <button onClick={() => setShowNewBudget(true)} title="Edit Budget" className="p-1 hover:text-primary transition-colors"><Edit3 size={12} /></button>
+                                        <button onClick={() => handleDeleteCategory(c.category)} title="Remove Category" className="p-1 hover:text-red-500 transition-colors"><Trash2 size={12} /></button>
                                       </div>
                                     </div>
                                     <span className={`text-[12px] font-bold ${c.percent >= 100 ? 'text-red-500' : 'text-text-muted'}`}>{c.percent}%</span>

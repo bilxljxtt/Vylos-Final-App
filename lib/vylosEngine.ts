@@ -1,4 +1,5 @@
 import { AppState, Transaction, Goal, BudgetCategory } from "./store";
+import { getTransactionDateKey, toDateKey, createLocalDate } from "./utils";
 
 // ─── VYLOS INTELLIGENCE ENGINE — SPEC V2 (FORMULA-BASED SYSTEM) ───────────────
 
@@ -359,16 +360,23 @@ export class VylosEngine {
   }
 
   private static getDebtPayments(state: AppState) {
-    // Try to find "Debt Payments" category
-    return state.budgets["Debt Payments"]?.spent || 0;
+    // Derive debt payments from actual transactions in the current month
+    const now = new Date();
+    const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    
+    return state.transactions
+      .filter(t => {
+        const dateKey = getTransactionDateKey(t);
+        return dateKey.startsWith(currentMonthPrefix) && t.category === 'Debt Payments' && t.amount < 0;
+      })
+      .reduce((acc, t) => acc + Math.abs(t.amount), 0);
   }
 
   private static calculateConsistency(state: AppState) {
     const now = new Date();
     const last7Days = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date();
-      d.setDate(now.getDate() - i);
-      return d.toISOString().slice(0, 10);
+      const d = createLocalDate(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      return toDateKey(d);
     });
 
     const budget = this.computeBudget(state);
@@ -377,7 +385,10 @@ export class VylosEngine {
     let daysUnder = 0;
     last7Days.forEach(day => {
       const daySpend = state.transactions
-        .filter(t => t.date === day && t.amount < 0)
+        .filter(t => {
+          const actualDate = getTransactionDateKey(t);
+          return actualDate === day && t.amount < 0;
+        })
         .reduce((acc, t) => acc + Math.abs(t.amount), 0);
       if (daySpend <= dailyLimit) daysUnder++;
     });
@@ -387,19 +398,21 @@ export class VylosEngine {
 
   private static getCurrentMonthExpenses(state: AppState) {
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+    const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     
     // Primary income categories (should not be subtracted from expenses)
     const primaryIncome = ["Salary", "Business Income", "Other Income"];
     
     return state.transactions
-      .filter(t => t.date >= startOfMonth)
+      .filter(t => {
+        const actualDate = getTransactionDateKey(t);
+        return actualDate.startsWith(currentMonthPrefix);
+      })
       .reduce((acc, t) => {
         const isPrimary = primaryIncome.includes(t.category);
         if (t.amount < 0) {
           return acc + Math.abs(t.amount);
         } else if (t.amount > 0 && !isPrimary) {
-          // This is a top-up or refund in a budget category, subtract from expenses
           return acc - t.amount;
         }
         return acc;

@@ -1,11 +1,9 @@
-import { StatCard, 
-  CircularHealthScore, 
-  TransactionItem, 
-  InsightCard
-} from "../ui/DashboardUi";
+import { TransactionItem, InsightCard } from "../ui/DashboardUi";
+import { cleanMerchantName } from "@/lib/utils";
 import { 
   CATEGORY_METADATA, 
   TransactionCategory } from "@/lib/store";
+import React, { useState, useEffect } from "react";
 import { useAppStore } from "@/lib/AppContext";
 import { 
   TrendingUp, 
@@ -62,6 +60,7 @@ interface DashboardMainProps {
   engineOutput: any;
   userName?: string;
   setShowNewBudget: (show: boolean) => void;
+  onQuickAddTx?: (cat: TransactionCategory) => void;
 }
 
 export const DashboardMain: React.FC<DashboardMainProps> = ({
@@ -83,9 +82,39 @@ export const DashboardMain: React.FC<DashboardMainProps> = ({
   healthScore,
   engineOutput,
   userName,
-  setShowNewBudget
+  setShowNewBudget,
+  onQuickAddTx
 }) => {
   const { formatCurrency, lastSynced } = useAppStore();
+  const [greeting, setGreeting] = useState("Good morning");
+
+  useEffect(() => {
+    const updateGreeting = () => {
+      try {
+        const formatter = new Intl.DateTimeFormat('en-US', {
+          timeZone: 'Africa/Johannesburg',
+          hour: 'numeric',
+          hour12: false
+        });
+        const saHour = parseInt(formatter.format(new Date()));
+        
+        if (saHour >= 5 && saHour < 12) setGreeting("Good morning");
+        else if (saHour >= 12 && saHour < 17) setGreeting("Good afternoon");
+        else setGreeting("Good evening");
+      } catch (e) {
+        // Fallback to local time if Intl fails
+        const localHour = new Date().getHours();
+        if (localHour >= 5 && localHour < 12) setGreeting("Good morning");
+        else if (localHour >= 12 && localHour < 17) setGreeting("Good afternoon");
+        else setGreeting("Good evening");
+      }
+    };
+
+    updateGreeting();
+    const interval = setInterval(updateGreeting, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   const recentTxs = [...transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
   
   const hasIncome = income > 0;
@@ -98,7 +127,7 @@ export const DashboardMain: React.FC<DashboardMainProps> = ({
       {/* Header */}
       <div className="flex flex-col gap-1">
         <h2 className="text-3xl font-black text-text-main tracking-tight">
-          Good morning, {userName?.split(' ')[0] || 'Bilal'}! 👋
+          {greeting}, {userName?.split(' ')[0] || 'User'}! 👋
         </h2>
         <p className="text-sm font-bold text-text-muted">Here's your financial overview for today.</p>
       </div>
@@ -195,7 +224,7 @@ export const DashboardMain: React.FC<DashboardMainProps> = ({
             { id: 4, label: "Set Goal", title: "Set a Goal", sub: "Choose something to save for.", done: hasGoals, icon: Flag, color: "text-amber-500", page: "goals" }
           ].map(item => (
             <div key={item.id} className="relative bg-card border border-border-main rounded-3xl p-8 flex flex-col items-center text-center gap-4 transition-all hover:border-primary/30 group shadow-sm">
-                <div className={`absolute top-4 left-4 w-6 h-6 rounded-full ${item.done ? 'bg-primary' : 'bg-[#00A86B]'} flex items-center justify-center text-[10px] font-black text-white`}>
+                <div className={`absolute top-4 left-4 w-6 h-6 rounded-full ${item.done ? 'bg-primary' : 'bg-primary/20'} flex items-center justify-center text-[10px] font-black text-white`}>
                     {item.id}
                 </div>
                 <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${item.color} group-hover:scale-110 transition-transform`}>
@@ -210,7 +239,7 @@ export const DashboardMain: React.FC<DashboardMainProps> = ({
                     if (item.id === 1) setShowNewBudget(true);
                     else setPage(item.page);
                   }}
-                  className={`mt-2 w-full py-2.5 rounded-xl border border-border-main text-text-main text-[10px] font-black uppercase tracking-widest hover:bg-border-main transition-all ${item.done ? 'bg-emerald-50' : ''}`}
+                  className={`mt-2 w-full py-2.5 rounded-xl border border-border-main text-text-main text-[10px] font-black uppercase tracking-widest hover:bg-border-main transition-all ${item.done ? 'bg-primary/10' : ''}`}
                 >
                   {item.label}
                 </button>
@@ -222,7 +251,7 @@ export const DashboardMain: React.FC<DashboardMainProps> = ({
       {/* 3. AT A GLANCE */}
       <section className="flex flex-col gap-6">
         <h3 className="text-lg font-black text-text-main">At a glance</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {/* Spend card */}
             <div className="bg-card border border-border-main rounded-3xl p-10 flex items-center gap-8 shadow-sm">
                 <div className="w-20 h-20 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 shrink-0">
@@ -251,6 +280,22 @@ export const DashboardMain: React.FC<DashboardMainProps> = ({
                     <span className="text-[11px] font-black text-text-muted uppercase tracking-widest">You can survive for</span>
                     <span className="text-4xl font-black text-purple-500 tracking-tight">{hasIncome && engineOutput.burnRateMonths > 0 ? `${engineOutput.burnRateMonths} months` : "0.0 months"}</span>
                     <p className="text-[11px] font-medium text-text-muted mt-1 leading-relaxed">Add savings and expenses to see your runway.</p>
+                </div>
+            </div>
+            {/* Bills Card */}
+            <div className="bg-card border border-border-main rounded-3xl p-10 flex items-center gap-8 shadow-sm group cursor-pointer hover:border-primary/50 transition-all" onClick={() => onQuickAddTx?.("Bills" as any)}>
+                <div className="w-20 h-20 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 shrink-0 group-hover:scale-110 transition-transform">
+                    <CreditCard size={40} />
+                </div>
+                <div className="flex flex-col gap-1">
+                    <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-black text-text-muted uppercase tracking-widest">Monthly Bills</span>
+                        <div className="p-2 bg-primary/10 rounded-lg text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Plus size={16} strokeWidth={3} />
+                        </div>
+                    </div>
+                    <span className="text-4xl font-black text-blue-500 tracking-tight">{formatCurrency(spendByCat["Bills"] || 0)}</span>
+                    <p className="text-[11px] font-medium text-text-muted mt-1 leading-relaxed">Click to quickly add a bill.</p>
                 </div>
             </div>
         </div>
@@ -304,8 +349,11 @@ export const DashboardMain: React.FC<DashboardMainProps> = ({
                     {recentTxs.map((tx: any) => (
                         <TransactionItem 
                             key={tx.id}
-                            title={tx.merchant}
-                            date={new Date(tx.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                            title={cleanMerchantName(tx.merchant)}
+                            date={(() => {
+                              const [y, m, d] = tx.date.split('-').map(Number);
+                              return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                            })()}
                             amount={tx.amount}
                             icon={CATEGORY_METADATA[tx.category as TransactionCategory]?.icon}
                             color={CATEGORY_METADATA[tx.category as TransactionCategory]?.color}
@@ -475,4 +523,3 @@ export const DashboardMain: React.FC<DashboardMainProps> = ({
     </ViewContainer>
   );
 };
-;

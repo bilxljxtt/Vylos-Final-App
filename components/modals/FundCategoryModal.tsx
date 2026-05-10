@@ -9,13 +9,21 @@ interface FundCategoryModalProps {
   isOpen: boolean;
   onClose: () => void;
   showToast?: (message: string, type?: any) => void;
+  initialCategory?: TransactionCategory;
 }
 
-export function FundCategoryModal({ isOpen, onClose, showToast }: FundCategoryModalProps) {
-  const { addTransaction, formatCurrency } = useAppStore();
+export function FundCategoryModal({ isOpen, onClose, showToast, initialCategory }: FundCategoryModalProps) {
+  const { state, updateBudgetLimit, formatCurrency } = useAppStore();
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<TransactionCategory>("Shopping");
   const [loading, setLoading] = useState(false);
+
+  // Sync category when modal opens or initialCategory changes
+  React.useEffect(() => {
+    if (isOpen && initialCategory) {
+      setCategory(initialCategory);
+    }
+  }, [isOpen, initialCategory]);
 
   if (!isOpen) return null;
 
@@ -25,17 +33,18 @@ export function FundCategoryModal({ isOpen, onClose, showToast }: FundCategoryMo
 
     setLoading(true);
     try {
-      await addTransaction({
-        date: new Date().toISOString().slice(0, 10),
-        merchant: `Budget Top-up: ${category}`,
-        category: category,
-        amount: Math.abs(parseFloat(amount)), // Positive amount = Income/Top-up
-      });
-      showToast?.(`Successfully added ${formatCurrency(parseFloat(amount))} to ${category}`, "success");
+      // Instead of adding a "fake" transaction, we update the budget limit directly
+      const currentLimit = state.budgets[category]?.limit || 0;
+      const newAmount = parseFloat(amount);
+      
+      await updateBudgetLimit(category, currentLimit + newAmount);
+      
+      showToast?.(`Successfully allocated ${formatCurrency(newAmount)} to ${category}`, "success");
       onClose();
       setAmount("");
     } catch (err) {
       console.error(err);
+      showToast?.("Failed to update budget limit", "error");
     } finally {
       setLoading(false);
     }

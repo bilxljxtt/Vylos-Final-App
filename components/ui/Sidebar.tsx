@@ -37,7 +37,6 @@ const NAV_ITEMS = [
   { id: "transactions", label: "Transactions", icon: CreditCard },
   { id: "ai", label: "Vylos Advisor", icon: MessageSquare },
   { id: "analytics", label: "Progress", icon: BarChart3 },
-  { id: "pricing", label: "Upgrade", icon: Zap },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
