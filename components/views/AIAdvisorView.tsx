@@ -178,7 +178,11 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
             
             <div className="flex flex-col gap-5">
               {insights.map((insight, idx) => (
-                <div key={idx} className="flex items-start gap-5 p-5 bg-white/5 border border-white/10 rounded-[1.5rem] shadow-sm group hover:bg-white/10 transition-all">
+                <div 
+                  key={idx} 
+                  onClick={() => insight.page && setPage(insight.page)}
+                  className="flex items-start gap-5 p-5 bg-white/5 border border-white/10 rounded-[1.5rem] shadow-sm group hover:bg-white/10 transition-all cursor-pointer hover:border-primary/40 active:scale-[0.98]"
+                >
                   <div className={`w-11 h-11 rounded-[1.25rem] ${insight.type === 'warning' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-primary/10 text-primary border-primary/20'} border flex items-center justify-center shrink-0 mt-0.5`}>
                     {insight.type === 'warning' ? <TrendingDown size={22} /> : <Lightbulb size={22} />}
                   </div>
@@ -219,7 +223,7 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
             </p>
 
             <button 
-              onClick={() => setPage("progress")}
+              onClick={() => setPage("analytics")}
               className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-white hover:text-white/70 transition-all relative z-10"
             >
               Intelligence Report <ArrowRight size={16} />

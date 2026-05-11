@@ -26,7 +26,7 @@ export function LandingPage() {
           <div className={`flex items-center justify-between transition-all duration-500 ${scrolled ? 'bg-white/10 backdrop-blur-2xl border border-white/20 rounded-full px-8 py-3 shadow-2xl' : ''}`}>
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center overflow-hidden shadow-2xl">
-                <img src="/logo-icon.png" alt="Vylos Logo" className="w-full h-full object-cover p-1.5 bg-white" />
+                <img src="/vylos-logo-final.png" alt="Vylos Logo" className="w-full h-full object-cover p-1.5 bg-white" />
               </div>
               <span className="text-2xl font-black tracking-tighter text-white leading-none">Vylos</span>
             </div>
@@ -281,7 +281,7 @@ export function LandingPage() {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
             <div className="flex items-center gap-4">
                 <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center overflow-hidden border border-white/20">
-                    <img src="/logo-icon.png" alt="Logo" className="w-full h-full object-cover p-1.5 bg-white" />
+                    <img src="/vylos-logo-final.png" alt="Logo" className="w-full h-full object-cover p-1.5 bg-white" />
                 </div>
                 <span className="text-xl font-black tracking-tighter text-white">Vylos</span>
             </div>

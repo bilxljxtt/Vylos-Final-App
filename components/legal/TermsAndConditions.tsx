@@ -7,7 +7,7 @@ export function TermsAndConditions() {
     <div className="space-y-8 text-text-main leading-relaxed">
       <div className="flex flex-col items-center text-center gap-4 mb-12">
         <div className="w-20 h-20 rounded-full border border-primary/20 flex items-center justify-center overflow-hidden mb-2">
-          <img src="/logo.png" alt="Vylos Logo" className="w-full h-full object-cover" />
+          <img src="/vylos-logo-final.png" alt="Vylos Logo" className="w-full h-full object-cover" />
         </div>
         <h1 className="text-4xl font-black tracking-tighter">Vylos</h1>
         <p className="text-sm font-bold text-primary uppercase tracking-widest">Track. Understand. Improve. Grow.</p>

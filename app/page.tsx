@@ -498,7 +498,7 @@ export default function App() {
     <div className="vylos-bg-premium h-screen w-full flex flex-col items-center justify-center">
       <div className="relative">
         <div className="w-24 h-24 rounded-3xl bg-white/10 backdrop-blur-3xl border border-white/20 flex items-center justify-center animate-pulse shadow-2xl">
-          <img src="/logo-icon.png" alt="Vylos" className="w-12 h-12 object-contain bg-white rounded-lg p-1" />
+          <img src="/vylos-logo-final.png" alt="Vylos" className="w-12 h-12 object-contain bg-white rounded-lg p-1" />
         </div>
         <div className="absolute -inset-4 bg-blue-400/20 rounded-[40px] blur-2xl animate-pulse -z-10" />
       </div>

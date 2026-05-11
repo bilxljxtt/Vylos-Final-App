@@ -36,24 +36,24 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
   const donutInst = useRef<any>(null);
 
   const fullFilteredTxs = useMemo(() => {
-    return transactions.filter(t => {
+    return transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).filter(t => {
       const matchesSearch = t.merchant.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCat = filterCat === "All" || t.category === filterCat;
       return matchesSearch && matchesCat;
     });
   }, [transactions, searchTerm, filterCat]);
 
-  const filteredTxs = fullFilteredTxs.slice(0, 20); // Show recent 20 for the mockup layout
+  const filteredTxs = fullFilteredTxs;
 
   const stats = useMemo(() => VylosCalculations.getMonthStats(state, state.selectedMonth), [state]);
   const spendByCatMap = useMemo(() => VylosCalculations.getSpendingByCategory(state, state.selectedMonth), [state]);
-  
+  const allocation = useMemo(() => VylosCalculations.getAllocationPercentages(state, state.selectedMonth), [state]);
+
   const spendingSummary = {
     total: stats.expense,
-    trend: "+8.8%", // We can calculate this properly if needed
-    needs: { pct: 50, amt: stats.expense * 0.5, color: "#10B981" },
-    wants: { pct: 30, amt: stats.expense * 0.3, color: "#3B82F6" },
-    savings: { pct: 20, amt: stats.expense * 0.2, color: "#8B5CF6" }
+    needs: { pct: allocation.needs, amt: stats.expense * (allocation.needs / 100), color: "#2563EB" },
+    wants: { pct: allocation.wants, amt: stats.expense * (allocation.wants / 100), color: "#06B6D4" },
+    savings: { pct: Math.max(0, 100 - (allocation.needs + allocation.wants)), amt: stats.income - stats.expense, color: "#8B5CF6" }
   };
 
   const recurringPayments = state.reminders
@@ -116,9 +116,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
           <h2 className="text-[28px] font-black text-slate-900 dark:text-white tracking-tight leading-tight mb-1">Transactions</h2>
-          <button className="flex items-center gap-1 text-[13px] font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors">
-            All accounts <ChevronDown size={14} />
-          </button>
+          <p className="text-[13px] font-medium text-slate-500 dark:text-slate-400 mt-1">Manage and track your financial activity across the Vylos ecosystem.</p>
         </div>
 
         <button 
@@ -144,12 +142,14 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
         </div>
         
         <div className="flex items-center gap-3 w-full lg:w-auto overflow-x-auto no-scrollbar">
-          <button className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl text-[13px] font-bold text-slate-700 dark:text-slate-300 hover:border-blue-500 shadow-sm transition-all whitespace-nowrap">
-            All Accounts <ChevronDown size={16} className="text-slate-400" />
-          </button>
-          <button className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl text-[13px] font-bold text-slate-700 dark:text-slate-300 hover:border-blue-500 shadow-sm transition-all whitespace-nowrap">
-            All Categories <ChevronDown size={16} className="text-slate-400" />
-          </button>
+          <div className="w-48">
+            <V2Select 
+              value={filterCat} 
+              onChange={setFilterCat} 
+              options={["All", ...Object.keys(CATEGORY_METADATA)]} 
+              label="All Categories"
+            />
+          </div>
           <button className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl text-[13px] font-bold text-slate-700 dark:text-slate-300 hover:border-blue-500 shadow-sm transition-all whitespace-nowrap">
             <Calendar size={16} className="text-slate-400" /> Date Range <ChevronDown size={16} className="text-slate-400" />
           </button>
@@ -183,8 +183,12 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
         <div className="lg:col-span-8 flex flex-col gap-6">
           <div className="vylos-glass-readable p-6 md:p-8">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-[15px] font-black text-slate-900 dark:text-white">Recent Transactions</h3>
-              <button className="text-[11px] font-black text-blue-600 hover:underline uppercase tracking-widest">View all</button>
+              <h3 className="text-[15px] font-black text-slate-900 dark:text-white">Financial Activity</h3>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 dark:bg-white/5 px-2 py-1 rounded-md">
+                  {fullFilteredTxs.length} Records Found
+                </span>
+              </div>
             </div>
             
             <div className="w-full overflow-x-auto no-scrollbar">
@@ -247,11 +251,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
               </table>
             </div>
 
-            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-white/5 flex justify-center">
-              <button className="text-[12px] font-black text-blue-600 hover:text-blue-700 transition-colors">
-                View all transactions
-              </button>
-            </div>
+
           </div>
         </div>
 

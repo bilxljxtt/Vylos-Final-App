@@ -212,6 +212,21 @@ export const BudgetView: React.FC<BudgetViewProps> = ({ setShowNewBudget }) => {
         {/* Left Column (Span 8) */}
         <div className="lg:col-span-8 flex flex-col gap-6">
           
+          {/* Realistic Warning Banner */}
+          {budgetSummary.isUnrealistic && (
+            <div className="vylos-glass-readable p-6 border-amber-500/20 bg-amber-500/5 flex items-start gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0 border border-amber-500/20 shadow-lg shadow-amber-500/5">
+                <Divide size={24} className="rotate-45" />
+              </div>
+              <div className="flex-1">
+                <h4 className="text-[13px] font-black text-amber-600 uppercase tracking-widest mb-1">Over-Allocation Warning</h4>
+                <p className="text-[12px] font-medium text-slate-600 dark:text-slate-300 leading-relaxed">
+                  Your total budget allocation (<span className="font-bold text-slate-900 dark:text-white">{formatCurrency(budgetSummary.totalAllocated)}</span>) exceeds your monthly income (<span className="font-bold text-slate-900 dark:text-white">{formatCurrency(budgetSummary.monthlyIncome)}</span>). This setup may lead to debt accumulation. Consider reducing your limits.
+                </p>
+              </div>
+            </div>
+          )}
+          
           {/* Total Budget Card */}
           <div className="vylos-glass-readable p-8">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">

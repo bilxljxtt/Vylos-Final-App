@@ -38,7 +38,7 @@ export class VylosEngine {
 
   /**
    * SYSTEM 1: HEALTH SCORE ENGINE
-   * H = (0.2 * Q) + (0.3 * D) + (0.3 * C) + (0.3 * G)
+   * H = (0.2 * Q) + (0.2 * D) + (0.3 * C) + (0.3 * G)
    */
   static computeHealthScore(state: AppState) {
     const income = state.userProfile.monthlyIncome || 0;
@@ -47,20 +47,20 @@ export class VylosEngine {
     // Q (Liquidity): savings / (3 * monthly survival cost)
     const totalSavings = state.goals.reduce((acc, g) => acc + g.currentAmount, 0);
     const Q = survivalCost > 0 ? Math.min(1, totalSavings / (3 * survivalCost)) : 0;
-
+ 
     // D (Debt Ratio): 1 - min(1, debt payments / net income)
     const debtPayments = this.getDebtPayments(state);
     const D = income > 0 ? 1 - Math.min(1, debtPayments / income) : 0;
-
+ 
     // C (Consistency): days under budget / 7
     const C = this.calculateConsistency(state);
-
+ 
     // G (Goal Velocity): savings rate / required savings rate
     const currentSavingsRate = income > 0 ? (income - this.getCurrentMonthExpenses(state)) / income : 0;
     const requiredSavingsRate = this.calculateRequiredSavingsRate(state);
     const G = requiredSavingsRate > 0 ? Math.min(1, currentSavingsRate / requiredSavingsRate) : (currentSavingsRate > 0 ? 1 : 0);
-
-    const healthScore = Math.round((0.2 * Q + 0.3 * D + 0.3 * C + 0.3 * G) * 100);
+ 
+    const healthScore = Math.round((0.2 * Q + 0.2 * D + 0.3 * C + 0.3 * G) * 100);
     
     let category = "At Risk";
     if (healthScore >= 80) category = "Excellent";

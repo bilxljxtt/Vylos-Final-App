@@ -233,11 +233,7 @@ export const initialState: AppState = {
   notificationList: [],
   selectedMonth: getMonthStart(),
   aiUsage: { messages_used: 0, billing_month: new Date().toISOString().slice(0, 7) },
-  budgets: {
-    "Groceries": { limit: 3000, type: "limit" },
-    "Bills": { limit: 3500, type: "limit" },
-    "Rent / Housing": { limit: 8000, type: "limit" },
-  },
+  budgets: {},
   userProfile: {
     id: "",
     name: "",
@@ -253,7 +249,7 @@ export const initialState: AppState = {
     riskTolerance: 65,
     budgetAlertSent: false,
     budgetAlertEnabled: true,
-    currency: "ZAR",
+    currency: "R",
     termsAccepted: false,
     termsAcceptedAt: "",
     termsVersion: "v1.0",
@@ -373,36 +369,37 @@ export function computeGoalFeasibility(state: AppState, goal: Goal): GoalFeasibi
 
 export function getCurrencySymbol(countryStr?: string): string {
   if (!countryStr) return "R";
-  if (countryStr.includes("ZAR") || countryStr.includes("South Africa")) return "R";
-  if (countryStr.includes("USD") || countryStr.includes("USA") || countryStr.includes("United States")) return "$";
-  if (countryStr.includes("GBP") || countryStr.includes("United Kingdom") || countryStr.includes("Britain")) return "£";
-  if (countryStr.includes("EUR") || countryStr.includes("Germany") || countryStr.includes("France") || countryStr.includes("Europe")) return "€";
-  if (countryStr.includes("Kenya")) return "KSh ";
-  if (countryStr.includes("Nigeria")) return "₦";
-  if (countryStr.includes("India")) return "₹";
-  if (countryStr.includes("Japan")) return "¥";
-  if (countryStr.includes("China")) return "¥";
-  if (countryStr.includes("Brazil")) return "R$";
-  if (countryStr.includes("Mexico") || countryStr.includes("Australia") || countryStr.includes("Canada") || countryStr.includes("New Zealand")) return "$";
+  const c = countryStr.toLowerCase();
+  if (c.includes("zar") || c.includes("south africa") || c.includes("rand")) return "R";
+  if (c.includes("usd") || c.includes("usa") || c.includes("united states")) return "$";
+  if (c.includes("gbp") || c.includes("united kingdom") || c.includes("britain")) return "£";
+  if (c.includes("eur") || c.includes("germany") || c.includes("france") || c.includes("europe")) return "€";
+  if (c.includes("kenya")) return "KSh ";
+  if (c.includes("nigeria")) return "₦";
+  if (c.includes("india")) return "₹";
+  if (c.includes("japan") || c.includes("china")) return "¥";
+  if (c.includes("brazil")) return "R$";
+  if (c.includes("mexico") || c.includes("australia") || c.includes("canada") || c.includes("new zealand")) return "$";
   return "R";
 }
 
-export function formatMoney(val: number, currency: string = "ZAR"): string {
+export function formatMoney(val: number, currency: string = "R"): string {
   // Map internal currency codes to their proper symbols/locales
-  const isZar = currency === "ZAR" || currency.includes("Rand");
-  const currencyCode = isZar ? "ZAR" : (currency.length === 3 ? currency : "ZAR");
-  const locale = "en-US"; // Always use en-US to get comma separators
+  // For Vylos, we prioritize "R" (South African Rand)
+  const isZar = currency === "R" || currency === "ZAR" || currency.toLowerCase().includes("rand");
+  const currencyCode = isZar ? "ZAR" : (currency.length === 3 ? currency.toUpperCase() : "ZAR");
+  const locale = "en-US"; // Standard comma-separated format
 
   const formatter = new Intl.NumberFormat(locale, {
     style: "currency",
     currency: currencyCode,
     minimumFractionDigits: 0,
-    maximumFractionDigits: (val % 1 !== 0) ? 2 : 0
+    maximumFractionDigits: (Math.abs(val) < 100 && val % 1 !== 0) ? 2 : 0
   });
   
   let formatted = formatter.format(val);
   
-  // Custom cleanup for ZAR to match "R1,234" style
+  // Custom cleanup for ZAR to match "R1,234" style without extra spaces
   if (isZar) {
     formatted = formatted.replace("ZAR", "R").replace(/\s/g, "");
   }

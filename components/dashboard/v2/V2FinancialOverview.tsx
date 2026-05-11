@@ -167,10 +167,10 @@ export const V2FinancialOverview: React.FC<V2FinancialOverviewProps> = ({
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  {allocation.needs + allocation.lifestyle > 0 ? (allocation.needs >= allocation.lifestyle ? "Needs" : "Life") : "No Data"}
+                  {allocation.needs + allocation.wants > 0 ? (allocation.needs >= allocation.wants ? "Needs" : "Wants") : "No Data"}
                 </span>
                 <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">
-                  {allocation.needs + allocation.lifestyle > 0 ? `${Math.max(allocation.needs, allocation.lifestyle)}%` : "0%"}
+                  {allocation.needs + allocation.wants > 0 ? `${Math.max(allocation.needs, allocation.wants)}%` : "0%"}
                 </span>
               </div>
             </div>
@@ -178,16 +178,16 @@ export const V2FinancialOverview: React.FC<V2FinancialOverviewProps> = ({
               <div className="flex items-center justify-between p-3 rounded-2xl bg-white/30 dark:bg-white/5 border border-white/20">
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.5)]" />
-                  <span className="text-[12px] font-black text-slate-600 dark:text-slate-400">Fixed Needs</span>
+                  <span className="text-[12px] font-black text-slate-600 dark:text-slate-400">Needs</span>
                 </div>
                 <span className="text-[12px] font-black text-slate-900 dark:text-white">{allocation.needs}%</span>
               </div>
               <div className="flex items-center justify-between p-3 rounded-2xl bg-white/30 dark:bg-white/5 border border-white/20">
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 rounded-full bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)]" />
-                  <span className="text-[12px] font-black text-slate-600 dark:text-slate-400">Lifestyle</span>
+                  <span className="text-[12px] font-black text-slate-600 dark:text-slate-400">Wants</span>
                 </div>
-                <span className="text-[12px] font-black text-slate-900 dark:text-white">{allocation.lifestyle}%</span>
+                <span className="text-[12px] font-black text-slate-900 dark:text-white">{allocation.wants}%</span>
               </div>
             </div>
           </div>

@@ -100,19 +100,19 @@ export class VylosCalculations {
     const spendByCat = this.getSpendingByCategory(state, monthStr);
     const total = stats.expense;
 
-    if (total === 0) return { needs: 0, lifestyle: 0 };
+    if (total === 0) return { needs: 0, wants: 0 };
 
-    // Standard categorisation for Fixed Needs in Vylos Ecosystem
+    // Standard categorisation for Needs in Vylos Ecosystem
     const needsCategories = ["Rent / Housing", "Bills", "Transport", "Health", "Education", "Groceries", "Insurance", "Utilities", "Debt Payments"];
     const needs = Object.entries(spendByCat)
         .filter(([cat]) => needsCategories.includes(cat))
         .reduce((sum, [, amt]) => sum + amt, 0);
     
-    const lifestyle = Math.max(0, total - needs);
+    const wants = Math.max(0, total - needs);
 
     return {
         needs: Math.round((needs / total) * 100),
-        lifestyle: Math.round((lifestyle / total) * 100)
+        wants: Math.round((wants / total) * 100)
     };
   }
 
@@ -237,40 +237,79 @@ export class VylosCalculations {
   static getRecentInsights(state: AppState) {
     const health = computeHealthScoreMetrics(state);
     const stats = this.getMonthStats(state, state.selectedMonth);
+    const engineOutput = VylosEngine.run(state);
     
     const insights = [];
     
+    // 1. Budget Insight
     if (health.stats.budgetUtilization > 100) {
       insights.push({
-        title: "Over Budget",
-        message: `You've exceeded your budget by ${health.stats.budgetUtilization - 100}%. Try to cut back on non-essentials.`,
-        type: "warning"
+        title: "Budget Exhausted",
+        message: `You've exceeded your total budget by ${formatMoney(stats.expense - health.stats.budgetUtilization * 0.01 * stats.expense)}. Consider reallocating from other categories.`,
+        type: "warning",
+        page: "budget"
       });
-    } else if (health.stats.budgetUtilization > 90) {
+    } else if (health.stats.budgetUtilization > 85) {
       insights.push({
         title: "Budget Alert",
-        message: "You've used 90% of your budget. Move funds if needed.",
-        type: "warning"
+        message: `You've used ${health.stats.budgetUtilization}% of your monthly budget. Only ${formatMoney(health.stats.runwayMonths * stats.expense)} remains.`,
+        type: "warning",
+        page: "budget"
       });
     }
-    
-    if (stats.savingsRate > 20) {
+
+    // 2. Savings/Goal Insight
+    if (stats.savingsRate > 25) {
       insights.push({
-        title: "Great Savings!",
-        message: `Your savings rate is ${stats.savingsRate}%, well above the average.`,
-        type: "success"
+        title: "High Performance",
+        message: `Your savings rate of ${stats.savingsRate}% is elite. You're accumulating wealth faster than 90% of users.`,
+        type: "success",
+        page: "goals"
       });
+    } else if (stats.savingsRate < 10 && stats.income > 0) {
+      insights.push({
+        title: "Savings Opportunity",
+        message: "Your current savings rate is below the recommended 20%. Try to automate a small transfer to your goals.",
+        type: "info",
+        page: "goals"
+      });
+    }
+
+    // 3. Runway Insight
+    if (engineOutput.burnRateMonths < 3 && stats.income > 0) {
+      insights.push({
+        title: "Liquidity Warning",
+        message: `Your current cash runway is ${engineOutput.burnRateMonths} months. We recommend building a 6-month emergency buffer.`,
+        type: "warning",
+        page: "goals"
+      });
+    }
+
+    // 4. Spending Trend Insight
+    const trend = this.getMonthlyTrend(state, 2);
+    if (trend.length === 2) {
+      const currentExp = trend[trend.length - 1].expense;
+      const prevExp = trend[trend.length - 2].expense;
+      if (currentExp > prevExp * 1.2) {
+        insights.push({
+          title: "Spending Spike",
+          message: `Your spending is up ${Math.round(((currentExp - prevExp) / prevExp) * 100)}% compared to last month. Analyze your largest transactions.`,
+          type: "warning",
+          page: "transactions"
+        });
+      }
     }
     
     if (insights.length === 0) {
       insights.push({
         title: "Steady Progress",
-        message: "Keep tracking your expenses to get personalized insights.",
-        type: "info"
+        message: "Your financial vitals are stable. Keep tracking your daily expenses to maintain your consistency streak.",
+        type: "info",
+        page: "dashboard"
       });
     }
     
-    return insights;
+    return insights.slice(0, 3);
   }
 }
 

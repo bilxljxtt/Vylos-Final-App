@@ -4,7 +4,7 @@ import React, { useState, useMemo } from "react";
 import { 
   Plus, Target, Shield, Car, Plane, Rocket,
   TrendingUp, Sparkles, ChevronRight, CheckCircle2, 
-  MoreHorizontal, DollarSign, Lightbulb, Calendar
+  MoreHorizontal, DollarSign, Lightbulb, Calendar, AlertCircle
 } from "lucide-react";
 import { useAppStore } from "@/lib/AppContext";
 import { Goal } from "@/lib/store";
@@ -36,9 +36,39 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
     return { totalSaved, totalTarget, overallProgress, completedGoals, activeGoals };
   }, [goals]);
 
-  // Use real goals or mock them to match the exact visual targets if real goals don't exist
-  // We'll map real goals, but provide strong fallbacks if empty to keep the design intact.
-  const displayGoals = goals;
+  const monthStats = useMemo(() => VylosCalculations.getMonthStats(state, state.selectedMonth), [state]);
+  const availableMonthly = monthStats.income - monthStats.expense; // Monthly Surplus
+
+  const displayGoals = useMemo(() => {
+    let filtered = [...goals];
+    if (activeFilter === "In Progress") filtered = filtered.filter(g => g.currentAmount < g.targetAmount);
+    if (activeFilter === "Completed") filtered = filtered.filter(g => g.currentAmount >= g.targetAmount);
+
+    return filtered.sort((a, b) => {
+      if (sortBy === "Progress") {
+        const pA = a.targetAmount > 0 ? a.currentAmount / a.targetAmount : 0;
+        const pB = b.targetAmount > 0 ? b.currentAmount / b.targetAmount : 0;
+        return pB - pA;
+      }
+      if (sortBy === "Target Date") return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+      if (sortBy === "Amount") return b.targetAmount - a.targetAmount;
+      return 0;
+    });
+  }, [goals, activeFilter, sortBy]);
+
+  const totalMonthlyNeeded = useMemo(() => {
+    return goals.reduce((acc, g) => {
+      if (g.currentAmount >= g.targetAmount) return acc;
+      const remaining = g.targetAmount - g.currentAmount;
+      const now = new Date();
+      const deadline = new Date(g.deadline);
+      let months = (deadline.getFullYear() - now.getFullYear()) * 12 + (deadline.getMonth() - now.getMonth());
+      if (months < 1) months = 1;
+      return acc + (remaining / months);
+    }, 0);
+  }, [goals]);
+
+  const isUnrealistic = totalMonthlyNeeded > availableMonthly && monthStats.income > 0;
 
 
   const getGoalStatus = (goal: any) => {
@@ -228,6 +258,21 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
         {/* Right Column (Span 4) */}
         <div className="lg:col-span-4 flex flex-col gap-6">
           
+          {/* Realistic Warning Banner */}
+          {isUnrealistic && (
+            <div className="vylos-glass-readable p-6 border-amber-500/20 bg-amber-500/5 flex items-start gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0 border border-amber-500/20 shadow-lg shadow-amber-500/5">
+                <AlertCircle size={24} />
+              </div>
+              <div className="flex-1">
+                <h4 className="text-[13px] font-black text-amber-600 uppercase tracking-widest mb-1">Realistic Projection Warning</h4>
+                <p className="text-[12px] font-medium text-slate-600 dark:text-slate-300 leading-relaxed">
+                  Your combined goals require <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(totalMonthlyNeeded)}</span> per month, but your current surplus is <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(availableMonthly)}</span>. Consider extending deadlines or reducing target amounts to maintain financial stability.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Goals Summary Card */}
           <div className="vylos-glass-readable p-6">
             <div className="flex items-center justify-between mb-6">

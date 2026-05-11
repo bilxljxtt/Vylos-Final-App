@@ -60,7 +60,7 @@ export const V2Header: React.FC<V2HeaderProps> = ({ firstName, avatarUrl, onPage
             <div className="absolute inset-0 rounded-full border border-white/5 pointer-events-none" />
             
             <img
-              src="/logo-icon.png"
+              src="/vylos-logo-final.png"
               alt="Vylos"
               className="select-none relative z-10 transform group-hover:scale-105 group-hover:rotate-3 transition-all duration-700 ease-out"
               style={{

@@ -90,7 +90,7 @@ export default function SignupPage() {
                   <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/20 to-white/5 backdrop-blur-2xl border border-white/20 shadow-2xl transition-all duration-500 group-hover:scale-110 group-hover:border-blue-400/40" />
                   <div className="absolute inset-2 rounded-full bg-gradient-to-tr from-blue-500/20 to-transparent blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
                   <div className="absolute inset-0 rounded-full border border-white/5 pointer-events-none" />
-                  <img src="/logo-icon.png" alt="Vylos Logo" className="select-none relative z-10 transform group-hover:scale-105 group-hover:rotate-3 transition-all duration-700 ease-out" style={{ width: "64px", height: "64px", objectFit: "contain", filter: "drop-shadow(0 8px 16px rgba(0,0,0,0.3))" }} draggable={false} />
+                  <img src="/vylos-logo-final.png" alt="Vylos Logo" className="select-none relative z-10 transform group-hover:scale-105 group-hover:rotate-3 transition-all duration-700 ease-out" style={{ width: "64px", height: "64px", objectFit: "contain", filter: "drop-shadow(0 8px 16px rgba(0,0,0,0.3))" }} draggable={false} />
                 </div>
                 
                 {/* Tagline */}
@@ -158,7 +158,7 @@ export default function SignupPage() {
                   <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-600/10 to-blue-400/5 backdrop-blur-2xl border border-blue-600/20 shadow-2xl transition-all duration-500 group-hover:scale-110 group-hover:border-blue-500/40 group-hover:shadow-blue-500/30" />
                   <div className="absolute inset-2 rounded-full bg-gradient-to-tr from-blue-500/20 to-transparent blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
                   <div className="absolute inset-0 rounded-full border border-white/5 pointer-events-none" />
-                  <img src="/logo-icon.png" alt="Logo" className="select-none relative z-10 transform group-hover:scale-105 group-hover:rotate-3 transition-all duration-700 ease-out" style={{ width: "80px", height: "80px", objectFit: "contain", filter: "drop-shadow(0 12px 24px rgba(0,0,0,0.3))" }} draggable={false} />
+                  <img src="/vylos-logo-final.png" alt="Logo" className="select-none relative z-10 transform group-hover:scale-105 group-hover:rotate-3 transition-all duration-700 ease-out" style={{ width: "80px", height: "80px", objectFit: "contain", filter: "drop-shadow(0 12px 24px rgba(0,0,0,0.3))" }} draggable={false} />
                 </div>
                 <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter leading-tight">Create account</h2>
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-2">

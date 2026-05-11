@@ -53,7 +53,7 @@ export function TermsAcceptanceView({ onAccept }: TermsAcceptanceViewProps) {
             {/* Branding Break */}
             <div className="flex flex-col items-center justify-center py-8 text-center">
                 <div className="w-24 h-24 rounded-[2rem] bg-white p-4 shadow-2xl mb-6 transform hover:scale-110 transition-transform duration-500 border-4 border-blue-500/20">
-                    <img src="/logo-icon.png" alt="Vylos" className="w-full h-full object-contain" />
+                    <img src="/vylos-logo-final.png" alt="Vylos" className="w-full h-full object-contain" />
                 </div>
                 <h3 className="text-5xl font-black text-white tracking-tighter mb-2">Vylos</h3>
                 <p className="text-[11px] font-black text-blue-400 uppercase tracking-[0.4em]">Track. Understand. Improve. Grow.</p>

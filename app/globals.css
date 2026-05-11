@@ -248,19 +248,18 @@ input, textarea, [contenteditable="true"], .selectable-text {
   }
 }
 
-/* Popup Glass — For dropdowns, floating menus, and notifications */
 @utility vylos-glass-popup {
-  background: rgba(235, 242, 255, 0.92);
-  backdrop-filter: blur(34px) saturate(170%);
-  -webkit-backdrop-filter: blur(34px) saturate(170%);
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.24);
+  background: rgba(248, 250, 252, 0.98);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.3);
   border-radius: 28px;
   z-index: 10002;
 
   @variant dark {
-    background: rgba(8, 15, 30, 0.94);
-    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(8, 12, 24, 0.98);
+    border: 1px solid rgba(255, 255, 255, 0.15);
   }
 }
 

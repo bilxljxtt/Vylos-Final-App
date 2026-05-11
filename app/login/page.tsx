@@ -52,7 +52,7 @@ export default function LoginPage() {
           <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/20 to-white/5 backdrop-blur-2xl border border-white/20 shadow-2xl transition-all duration-500 group-hover:scale-110 group-hover:border-blue-400/40" />
           <div className="absolute inset-1 rounded-full bg-gradient-to-tr from-blue-500/10 to-transparent blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
           <div className="absolute inset-0 rounded-full border border-white/5 pointer-events-none" />
-          <img src="/logo-icon.png" alt="Vylos Logo" className="select-none relative z-10 transform group-hover:scale-105 group-hover:rotate-3 transition-all duration-700 ease-out" style={{ width: "36px", height: "36px", objectFit: "contain", filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.2))" }} draggable={false} />
+          <img src="/vylos-logo-final.png" alt="Vylos Logo" className="select-none relative z-10 transform group-hover:scale-105 group-hover:rotate-3 transition-all duration-700 ease-out" style={{ width: "36px", height: "36px", objectFit: "contain", filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.2))" }} draggable={false} />
         </div>
         <div className="flex flex-col">
           <span className="text-3xl font-black tracking-tighter text-white leading-none">Vylos</span>
@@ -166,7 +166,7 @@ export default function LoginPage() {
               <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-600/10 to-blue-400/5 backdrop-blur-2xl border border-blue-600/20 shadow-2xl transition-all duration-500 group-hover:scale-110 group-hover:border-blue-500/40 group-hover:shadow-blue-500/20" />
               <div className="absolute inset-2 rounded-full bg-gradient-to-tr from-blue-500/10 to-transparent blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
               <div className="absolute inset-0 rounded-full border border-white/5 pointer-events-none" />
-              <img src="/logo-icon.png" alt="Logo" className="select-none relative z-10 transform group-hover:scale-105 group-hover:rotate-3 transition-all duration-700 ease-out" style={{ width: "52px", height: "52px", objectFit: "contain", filter: "drop-shadow(0 8px 16px rgba(0,0,0,0.2))" }} draggable={false} />
+              <img src="/vylos-logo-final.png" alt="Logo" className="select-none relative z-10 transform group-hover:scale-105 group-hover:rotate-3 transition-all duration-700 ease-out" style={{ width: "52px", height: "52px", objectFit: "contain", filter: "drop-shadow(0 8px 16px rgba(0,0,0,0.2))" }} draggable={false} />
             </div>
             <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">Welcome back</h2>
             <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-2 max-w-[280px]">

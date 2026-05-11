@@ -111,13 +111,18 @@ export class BudgetService {
     const billsCat = categories.find(c => c.name === "Bills");
     const billsTotal = billsCat ? billsCat.spent : 0;
 
+    const monthlyIncome = state.userProfile.monthlyIncome || 0;
+    const isUnrealistic = totalAllocated > monthlyIncome && monthlyIncome > 0;
+
     return {
       totalAllocated,
       totalSpent,
       totalRemaining,
       percentageUsed,
       categories,
-      billsTotal
+      billsTotal,
+      isUnrealistic,
+      monthlyIncome
     };
   }
 
