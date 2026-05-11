@@ -17,6 +17,8 @@ export interface BudgetSummary {
   percentageUsed: number;
   categories: CategorySummary[];
   billsTotal: number;
+  isUnrealistic: boolean;
+  monthlyIncome: number;
 }
 
 export class BudgetService {

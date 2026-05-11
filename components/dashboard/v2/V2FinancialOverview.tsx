@@ -156,10 +156,10 @@ export const V2FinancialOverview: React.FC<V2FinancialOverviewProps> = ({
             <div className="relative w-44 h-44 mx-auto">
               <svg className="w-full h-full transform -rotate-90 drop-shadow-2xl" viewBox="0 0 36 36">
                 <circle cx="18" cy="18" r="16" fill="none" stroke="currentColor" className="text-slate-100 dark:text-white/5" strokeWidth="4" />
-                {allocation.needs + allocation.lifestyle > 0 ? (
+                {allocation.needs + allocation.wants > 0 ? (
                   <>
                     <circle cx="18" cy="18" r="16" fill="none" stroke="#2563EB" strokeWidth="4" strokeDasharray={`${allocation.needs} 100`} strokeLinecap="round" />
-                    <circle cx="18" cy="18" r="16" fill="none" stroke="#06B6D4" strokeWidth="4" strokeDasharray={`${allocation.lifestyle} 100`} strokeDashoffset={`-${allocation.needs}`} strokeLinecap="round" />
+                    <circle cx="18" cy="18" r="16" fill="none" stroke="#06B6D4" strokeWidth="4" strokeDasharray={`${allocation.wants} 100`} strokeDashoffset={`-${allocation.needs}`} strokeLinecap="round" />
                   </>
                 ) : (
                   <circle cx="18" cy="18" r="16" fill="none" stroke="currentColor" className="text-slate-200 dark:text-white/10" strokeWidth="4" strokeDasharray="1 4" />

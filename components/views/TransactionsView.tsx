@@ -49,8 +49,17 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
   const spendByCatMap = useMemo(() => VylosCalculations.getSpendingByCategory(state, state.selectedMonth), [state]);
   const allocation = useMemo(() => VylosCalculations.getAllocationPercentages(state, state.selectedMonth), [state]);
 
+  const prevMonth = useMemo(() => {
+    const d = new Date(state.selectedMonth);
+    d.setMonth(d.getMonth() - 1);
+    return d.toISOString().slice(0, 10);
+  }, [state.selectedMonth]);
+  const prevStats = useMemo(() => VylosCalculations.getMonthStats(state, prevMonth), [state, prevMonth]);
+  const spendingTrend = prevStats.expense > 0 ? ((stats.expense - prevStats.expense) / prevStats.expense) * 100 : 0;
+
   const spendingSummary = {
     total: stats.expense,
+    trend: `${spendingTrend >= 0 ? '+' : ''}${spendingTrend.toFixed(1)}%`,
     needs: { pct: allocation.needs, amt: stats.expense * (allocation.needs / 100), color: "#2563EB" },
     wants: { pct: allocation.wants, amt: stats.expense * (allocation.wants / 100), color: "#06B6D4" },
     savings: { pct: Math.max(0, 100 - (allocation.needs + allocation.wants)), amt: stats.income - stats.expense, color: "#8B5CF6" }
@@ -146,8 +155,11 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
             <V2Select 
               value={filterCat} 
               onChange={setFilterCat} 
-              options={["All", ...Object.keys(CATEGORY_METADATA)]} 
-              label="All Categories"
+              options={[
+                { value: "All", label: "All Categories" },
+                ...Object.keys(CATEGORY_METADATA).map(cat => ({ value: cat, label: cat }))
+              ]} 
+              label="Category Filter"
             />
           </div>
           <button className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl text-[13px] font-bold text-slate-700 dark:text-slate-300 hover:border-blue-500 shadow-sm transition-all whitespace-nowrap">

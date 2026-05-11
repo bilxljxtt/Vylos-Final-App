@@ -10,6 +10,7 @@ import { useAppStore } from "@/lib/AppContext";
 import { Goal } from "@/lib/store";
 import { V2Select } from "../ui/V2Select";
 import { formatDate } from "@/lib/utils";
+import { VylosCalculations } from "@/lib/vylosCalculations";
 
 interface GoalsViewProps {
   goals: Goal[];
