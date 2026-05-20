@@ -32,26 +32,28 @@ export const V2FinancialOverview: React.FC<V2FinancialOverviewProps> = ({
     return res;
   }, []);
 
-  const currentLabel = months.find(m => m.iso === selectedMonth.slice(0, 7) + "-01")?.label || 
+  const currentLabel = useMemo(() => {
+    return months.find(m => m.iso === selectedMonth.slice(0, 7) + "-01")?.label || 
     new Date(selectedMonth).toLocaleString('default', { month: 'long', year: 'numeric' });
+  }, [months, selectedMonth]);
 
-  const stats = useMemo(() => VylosCalculations.getMonthStats(state, selectedMonth), [state, selectedMonth]);
+  const stats = useMemo(() => VylosCalculations.getMonthStats({ transactions: state.transactions, budgets: state.budgets, goals: state.goals } as any, selectedMonth), [state.transactions, state.budgets, state.goals, selectedMonth]);
   const prevMonth = useMemo(() => {
     const d = new Date(selectedMonth);
     d.setMonth(d.getMonth() - 1);
     return d.toISOString().slice(0, 10);
   }, [selectedMonth]);
-  const prevStats = useMemo(() => VylosCalculations.getMonthStats(state, prevMonth), [state, prevMonth]);
+  const prevStats = useMemo(() => VylosCalculations.getMonthStats({ transactions: state.transactions, budgets: state.budgets, goals: state.goals } as any, prevMonth), [state.transactions, state.budgets, state.goals, prevMonth]);
 
-  const growth = prevStats.netWorth > 0 ? ((stats.netWorth - prevStats.netWorth) / prevStats.netWorth) * 100 : 0;
+  const growth = useMemo(() => prevStats.netWorth > 0 ? ((stats.netWorth - prevStats.netWorth) / prevStats.netWorth) * 100 : 0, [stats.netWorth, prevStats.netWorth]);
   
   const cashFlowTrend = useMemo(() => {
-    const rawTrend = VylosCalculations.getCashFlowTrend(state, 6);
+    const rawTrend = VylosCalculations.getCashFlowTrend({ transactions: state.transactions, budgets: state.budgets, goals: state.goals } as any, 6);
     const maxVal = Math.max(...rawTrend.map(Math.abs), 100);
     return rawTrend.map(v => Math.max(10, Math.min(100, (v / maxVal) * 100)));
-  }, [state]);
+  }, [state.transactions, state.budgets, state.goals]);
 
-  const allocation = useMemo(() => VylosCalculations.getAllocationPercentages(state, selectedMonth), [state, selectedMonth]);
+  const allocation = useMemo(() => VylosCalculations.getAllocationPercentages({ transactions: state.transactions, budgets: state.budgets, goals: state.goals } as any, selectedMonth), [state.transactions, state.budgets, state.goals, selectedMonth]);
 
   return (
     <div className="vylos-glass-readable p-8 md:p-12 flex flex-col relative w-full h-full min-h-[500px] mb-12">
@@ -71,7 +73,7 @@ export const V2FinancialOverview: React.FC<V2FinancialOverviewProps> = ({
         </div>
         <V2Popover
           trigger={
-            <button className="vylos-glass-popup px-5 py-2.5 text-[10px] font-black uppercase tracking-widest flex items-center gap-3 transition-all hover:scale-105 active:scale-95">
+            <button className="vylos-glass-popup-visible px-5 py-2.5 text-[10px] font-black uppercase tracking-widest flex items-center gap-3 transition-all hover:scale-105 active:scale-95 border-white/30 bg-white/15 dark:bg-white/10 shadow-lg">
               {currentLabel} <ChevronDown size={14} className="text-primary" />
             </button>
           }

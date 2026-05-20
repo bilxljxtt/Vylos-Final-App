@@ -28,9 +28,6 @@ export const V2ShortcutDock: React.FC<V2ShortcutDockProps> = ({ onPageChange, cu
 
   return (
     <>
-      {/* Bottom background support overlay for contrast */}
-      <div className="fixed bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-slate-200/40 via-slate-100/10 to-transparent dark:from-slate-900/60 dark:via-slate-900/20 pointer-events-none z-[90] backdrop-blur-[2px]" />
-      
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex justify-center pointer-events-none w-full px-4">
         
         {/* Liquid Glass Pill Container */}

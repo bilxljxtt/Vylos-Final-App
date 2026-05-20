@@ -2,6 +2,11 @@ import { AppState, Transaction, BudgetCategory, formatMoney, computeHealthScoreM
 import { getTransactionDateKey } from "./utils";
 import { VylosEngine } from "./vylosEngine";
 
+export interface TransactionIndex {
+  monthMap: Record<string, Transaction[]>;
+  dateMap: Record<string, Transaction[]>;
+}
+
 export interface DashboardStats {
   income: number;
   expense: number;
@@ -20,93 +25,108 @@ export class VylosCalculations {
     return t.includes("budget top-up") || t.includes("budget allocation") || t.includes("top-up:") || t.includes("allocation:");
   }
 
-  static getMonthStats(state: AppState, monthStr: string): DashboardStats {
+  static createTransactionIndex(transactions: Transaction[]): TransactionIndex {
+    const monthMap: Record<string, Transaction[]> = {};
+    const dateMap: Record<string, Transaction[]> = {};
+
+    for (let i = 0; i < transactions.length; i++) {
+      const t = transactions[i];
+      const dateKey = getTransactionDateKey(t);
+      const monthKey = dateKey.slice(0, 7);
+
+      if (!monthMap[monthKey]) monthMap[monthKey] = [];
+      monthMap[monthKey].push(t);
+
+      if (!dateMap[dateKey]) dateMap[dateKey] = [];
+      dateMap[dateKey].push(t);
+    }
+
+    return { monthMap, dateMap };
+  }
+
+  static getMonthStats(state: AppState, monthStr: string, index?: TransactionIndex): DashboardStats {
     const currentMonthPrefix = monthStr.slice(0, 7);
     
-    // Income (Positive transactions excluding internal budget transfers)
-    const income = state.transactions
-      .filter(t => {
-        const dateKey = getTransactionDateKey(t);
-        return dateKey.startsWith(currentMonthPrefix) && t.amount > 0 && !this.isBudgetRecord(t.merchant);
-      })
-      .reduce((acc, t) => acc + t.amount, 0);
-
-    // Expense (Negative transactions excluding internal budget transfers)
-    const expense = state.transactions
-      .filter(t => {
-        const dateKey = getTransactionDateKey(t);
-        return dateKey.startsWith(currentMonthPrefix) && t.amount < 0 && !this.isBudgetRecord(t.merchant);
-      })
-      .reduce((acc, t) => acc + Math.abs(t.amount), 0);
-
-    // Net Worth (Total historical balance across all accounts/transactions)
-    const netWorth = state.transactions
-      .filter(t => !this.isBudgetRecord(t.merchant))
-      .reduce((acc, t) => acc + t.amount, 0);
-
-    // Savings Rate: % of income that isn't spent
-    const savingsRate = income > 0 ? Math.round(((income - expense) / income) * 100) : (expense === 0 && income === 0 ? 0 : 0);
-
-    // Total Saved (Sum of current amounts in all active goals)
-    const totalSaved = state.goals.reduce((acc, g) => acc + g.currentAmount, 0);
-
-    // Budget Utilization (Total expense vs total budget limits)
-    const totalBudget = Object.values(state.budgets).reduce((sum, b) => sum + (b?.limit || 0), 0);
-    const budgetUtilization = totalBudget > 0 ? Math.round((expense / totalBudget) * 100) : 0;
-
-    // Active Goals Count
-    const activeGoalsCount = state.goals.filter(g => g.status === 'On Track' || g.status === 'At Risk').length;
-
-    // Portfolio Total (Total of investment-related categories + savings goals)
+    let income = 0;
+    let expense = 0;
+    let netWorth = 0;
+    let investmentSpend = 0;
+    
     const investmentCategories = ["Savings", "Debt Payments"];
-    const portfolioTotal = state.transactions
-      .filter(t => !this.isBudgetRecord(t.merchant) && investmentCategories.includes(t.category))
-      .reduce((acc, t) => acc + Math.abs(t.amount), 0) + totalSaved;
+    const txs = index ? index.monthMap[currentMonthPrefix] || [] : state.transactions;
+    const allTxs = state.transactions;
 
-    // Cash Flow Index (Income - Expense for the month)
-    const cashFlowIndex = income - expense;
+    // Net worth needs full history, but stats need current month
+    // We'll use allTxs for netWorth and txs for monthly metrics
+    
+    // Net Worth Calculation (Optimized - needs to run once)
+    for (let i = 0; i < allTxs.length; i++) {
+      const t = allTxs[i];
+      if (!this.isBudgetRecord(t.merchant)) {
+        netWorth += t.amount;
+      }
+    }
 
+    for (let i = 0; i < txs.length; i++) {
+      const t = txs[i];
+      if (!this.isBudgetRecord(t.merchant)) {
+        if (investmentCategories.includes(t.category)) {
+          investmentSpend += Math.abs(t.amount);
+        }
+
+        if (t.amount > 0) {
+          income += t.amount;
+        } else {
+          expense += Math.abs(t.amount);
+        }
+      }
+    }
+
+    const totalSaved = state.goals.reduce((acc, g) => acc + g.currentAmount, 0);
+    const totalBudget = Object.values(state.budgets).reduce((sum, b) => sum + (b?.limit || 0), 0);
+    
     return {
       income,
       expense,
-      netWorth,
-      savingsRate: Math.max(0, savingsRate),
-      totalSaved,
-      budgetUtilization,
-      activeGoalsCount,
-      portfolioTotal,
-      cashFlowIndex
+      netWorth: Number.isFinite(netWorth) ? netWorth : 0,
+      savingsRate: income > 0 ? Math.max(0, Math.round(((income - expense) / income) * 100)) : 0,
+      totalSaved: Math.max(0, totalSaved),
+      budgetUtilization: totalBudget > 0 ? Math.round((expense / totalBudget) * 100) : 0,
+      activeGoalsCount: state.goals.filter(g => g.status === 'On Track' || g.status === 'At Risk').length,
+      portfolioTotal: Number.isFinite(investmentSpend + totalSaved) ? (investmentSpend + totalSaved) : 0,
+      cashFlowIndex: income - expense
     };
   }
 
-  static getSpendingByCategory(state: AppState, monthStr: string): Record<string, number> {
+  static getSpendingByCategory(state: AppState, monthStr: string, index?: TransactionIndex): Record<string, number> {
     const currentMonthPrefix = monthStr.slice(0, 7);
     const spendMap: Record<string, number> = {};
+    const txs = index ? index.monthMap[currentMonthPrefix] || [] : state.transactions;
 
-    state.transactions
-      .filter(t => {
-        const dateKey = getTransactionDateKey(t);
-        return dateKey.startsWith(currentMonthPrefix) && t.amount < 0 && !this.isBudgetRecord(t.merchant);
-      })
-      .forEach(t => {
+    for (let i = 0; i < txs.length; i++) {
+      const t = txs[i];
+      if (t.amount < 0 && !this.isBudgetRecord(t.merchant)) {
         spendMap[t.category] = (spendMap[t.category] || 0) + Math.abs(t.amount);
-      });
+      }
+    }
 
     return spendMap;
   }
 
   static getAllocationPercentages(state: AppState, monthStr: string) {
-    const stats = this.getMonthStats(state, monthStr);
     const spendByCat = this.getSpendingByCategory(state, monthStr);
-    const total = stats.expense;
+    const total = Object.values(spendByCat).reduce((a, b) => a + b, 0);
 
     if (total === 0) return { needs: 0, wants: 0 };
 
-    // Standard categorisation for Needs in Vylos Ecosystem
     const needsCategories = ["Rent / Housing", "Bills", "Transport", "Health", "Education", "Groceries", "Insurance", "Utilities", "Debt Payments"];
-    const needs = Object.entries(spendByCat)
-        .filter(([cat]) => needsCategories.includes(cat))
-        .reduce((sum, [, amt]) => sum + amt, 0);
+    let needs = 0;
+    
+    for (const [cat, amt] of Object.entries(spendByCat)) {
+      if (needsCategories.includes(cat)) {
+        needs += amt;
+      }
+    }
     
     const wants = Math.max(0, total - needs);
 
@@ -146,7 +166,7 @@ export class VylosCalculations {
     return results;
   }
   
-  static getPlannedVsActual(state: AppState, monthStr: string) {
+  static getPlannedVsActual(state: AppState, monthStr: string, index?: any) {
     const currentMonthPrefix = monthStr.slice(0, 7);
     const daysInMonth = new Date(parseInt(monthStr.slice(0, 4)), parseInt(monthStr.slice(5, 7)), 0).getDate();
     
@@ -167,12 +187,14 @@ export class VylosCalculations {
       labels.push(dateStr);
       plannedData.push(Math.round(dailyPlanned * i));
       
-      const dayTransactions = state.transactions.filter(t => {
-        const d = getTransactionDateKey(t);
-        return d === dateStr && t.amount < 0 && !this.isBudgetRecord(t.merchant);
-      });
+      const dayTransactions = index 
+        ? (index.dateMap[dateStr] || []).filter((t: any) => t.amount < 0 && !this.isBudgetRecord(t.merchant))
+        : state.transactions.filter((t: any) => {
+            const d = getTransactionDateKey(t);
+            return d === dateStr && t.amount < 0 && !this.isBudgetRecord(t.merchant);
+          });
       
-      const daySpend = dayTransactions.reduce((acc, t) => acc + Math.abs(t.amount), 0);
+      const daySpend = dayTransactions.reduce((acc: number, t: any) => acc + Math.abs(t.amount), 0);
       runningActual += daySpend;
       
       // If the day is in the future, don't push actual data
@@ -184,8 +206,13 @@ export class VylosCalculations {
   }
 
   static getRemindersSummary(state: AppState) {
-    const reminders = state.reminders || [];
-    const { getReminderDerivedStatus } = require("./utils");
+    const { getReminderDerivedStatus, generateReminderOccurrences } = require("./utils");
+    
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    
+    const reminders = generateReminderOccurrences(state.reminders || [], state.reminderCompletions || [], year, month);
     
     let dueTodayCount = 0;
     let dueTodayAmount = 0;
@@ -197,7 +224,7 @@ export class VylosCalculations {
     
     const currentMonthPrefix = new Date().toISOString().slice(0, 7);
 
-    reminders.forEach(r => {
+    reminders.forEach((r: any) => {
       const status = getReminderDerivedStatus(r);
       const amount = r.amount || 0;
 
@@ -230,86 +257,131 @@ export class VylosCalculations {
       overdueAmount,
       completedCount,
       totalScheduledCount: reminders.length,
-      totalScheduledAmount: reminders.reduce((sum, r) => sum + (r.amount || 0), 0)
+      totalScheduledAmount: reminders.reduce((sum: number, r: any) => sum + (r.amount || 0), 0)
     };
   }
 
   static getRecentInsights(state: AppState) {
-    const health = computeHealthScoreMetrics(state);
     const stats = this.getMonthStats(state, state.selectedMonth);
     const engineOutput = VylosEngine.run(state);
+    const now = new Date();
     
     const insights = [];
     
-    // 1. Budget Insight
-    if (health.stats.budgetUtilization > 100) {
+    // 1. Negative Cash Flow Insight
+    if (stats.cashFlowIndex < 0 && stats.income > 0) {
       insights.push({
-        title: "Budget Exhausted",
-        message: `You've exceeded your total budget by ${formatMoney(stats.expense - health.stats.budgetUtilization * 0.01 * stats.expense)}. Consider reallocating from other categories.`,
-        type: "warning",
-        page: "budget"
-      });
-    } else if (health.stats.budgetUtilization > 85) {
-      insights.push({
-        title: "Budget Alert",
-        message: `You've used ${health.stats.budgetUtilization}% of your monthly budget. Only ${formatMoney(health.stats.runwayMonths * stats.expense)} remains.`,
+        title: "Negative Cash Flow",
+        message: `Your expenses have exceeded your income by ${formatMoney(Math.abs(stats.cashFlowIndex))}. Review your budget to prevent going into debt.`,
         type: "warning",
         page: "budget"
       });
     }
 
-    // 2. Savings/Goal Insight
-    if (stats.savingsRate > 25) {
-      insights.push({
-        title: "High Performance",
-        message: `Your savings rate of ${stats.savingsRate}% is elite. You're accumulating wealth faster than 90% of users.`,
-        type: "success",
-        page: "goals"
-      });
-    } else if (stats.savingsRate < 10 && stats.income > 0) {
-      insights.push({
-        title: "Savings Opportunity",
-        message: "Your current savings rate is below the recommended 20%. Try to automate a small transfer to your goals.",
-        type: "info",
-        page: "goals"
-      });
-    }
-
-    // 3. Runway Insight
-    if (engineOutput.burnRateMonths < 3 && stats.income > 0) {
-      insights.push({
-        title: "Liquidity Warning",
-        message: `Your current cash runway is ${engineOutput.burnRateMonths} months. We recommend building a 6-month emergency buffer.`,
-        type: "warning",
-        page: "goals"
-      });
-    }
-
-    // 4. Spending Trend Insight
+    // 2. Spending Trend Insight
     const trend = this.getMonthlyTrend(state, 2);
     if (trend.length === 2) {
       const currentExp = trend[trend.length - 1].expense;
       const prevExp = trend[trend.length - 2].expense;
-      if (currentExp > prevExp * 1.2) {
+      if (prevExp > 0 && currentExp > prevExp * 1.1) {
         insights.push({
-          title: "Spending Spike",
-          message: `Your spending is up ${Math.round(((currentExp - prevExp) / prevExp) * 100)}% compared to last month. Analyze your largest transactions.`,
+          title: "Spending Spike Detected",
+          message: `Your spending is up ${Math.round(((currentExp - prevExp) / prevExp) * 100)}% compared to last month. Consider reviewing your recent transactions.`,
           type: "warning",
           page: "transactions"
         });
       }
     }
-    
+
+    // 3. Category Over-consumption Insight
+    const spendByCategory = this.getSpendingByCategory(state, state.selectedMonth);
+    const nonEssentialCategories = ["Dining Out", "Entertainment", "Shopping", "Personal Care"];
+    for (const [cat, amount] of Object.entries(spendByCategory)) {
+      if (stats.income > 0 && nonEssentialCategories.includes(cat)) {
+        const percent = (amount / stats.income) * 100;
+        if (percent > 20) {
+          insights.push({
+            title: "Category Consumption Alert",
+            message: `The '${cat}' category is consuming ${Math.round(percent)}% of your monthly income.`,
+            type: "warning",
+            page: "analytics"
+          });
+          break; // Only show one category warning
+        }
+      }
+    }
+
+    // 4. Unused Budget Remaining Insight
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const daysRemaining = daysInMonth - now.getDate();
+    if (daysRemaining <= 7 && daysRemaining > 0) {
+      const totalBudget = Object.values(state.budgets).reduce((sum, b) => sum + (b?.limit || 0), 0);
+      if (totalBudget > 0) {
+        const remainingBudget = totalBudget - stats.expense;
+        if (remainingBudget > (totalBudget * 0.2)) {
+          insights.push({
+            title: "Unused Budget Remaining",
+            message: `You have ${formatMoney(remainingBudget)} left in your budget with only ${daysRemaining} days remaining in the month. Great discipline!`,
+            type: "success",
+            page: "budget"
+          });
+        }
+      }
+    }
+
+    // 5. Goal Behind Schedule Insight
+    const activeGoals = state.goals.filter(g => g.currentAmount < g.targetAmount);
+    for (const goal of activeGoals) {
+      if (!goal.deadline) continue;
+      const deadlineDate = new Date(goal.deadline);
+      const monthsRemaining = (deadlineDate.getFullYear() - now.getFullYear()) * 12 + (deadlineDate.getMonth() - now.getMonth());
+      if (monthsRemaining > 0) {
+        const remainingAmount = goal.targetAmount - goal.currentAmount;
+        const requiredMonthly = remainingAmount / monthsRemaining;
+        const freeCashFlow = stats.income - stats.expense;
+        // If the required monthly is significantly more than they usually save or what they have free, it's at risk
+        if (requiredMonthly > freeCashFlow && freeCashFlow > 0) {
+           insights.push({
+             title: "Goal Behind Schedule",
+             message: `Your goal '${goal.title}' is at risk. You need ${formatMoney(requiredMonthly)}/month, but your current free cash flow is only ${formatMoney(freeCashFlow)}.`,
+             type: "warning",
+             page: "goals"
+           });
+           break; // Just one goal warning
+        }
+      }
+    }
+
+    // 6. Upcoming Bill Risk Insight
+    const remindersSummary = this.getRemindersSummary(state);
+    if (remindersSummary.upcomingCount > 0) {
+      const upcomingBills = remindersSummary.upcomingAmount;
+      const currentBalance = stats.income - stats.expense;
+      if (upcomingBills > currentBalance) {
+         insights.push({
+            title: "Upcoming Bill Risk",
+            message: `You have ${formatMoney(upcomingBills)} in upcoming bills, which exceeds your current available cash flow of ${formatMoney(currentBalance)}.`,
+            type: "critical",
+            page: "reminders"
+         });
+      }
+    }
+
     if (insights.length === 0) {
       insights.push({
-        title: "Steady Progress",
-        message: "Your financial vitals are stable. Keep tracking your daily expenses to maintain your consistency streak.",
+        title: "All Systems Nominal",
+        message: "Your financial vitals are stable. Keep tracking your daily expenses to maintain your consistency.",
         type: "info",
         page: "dashboard"
       });
     }
     
+    // Sort critical and warnings first
+    const severityMap: Record<string, number> = { critical: 0, warning: 1, info: 2, success: 3 };
+    insights.sort((a, b) => severityMap[a.type] - severityMap[b.type]);
+
     return insights.slice(0, 3);
   }
+
 }
 

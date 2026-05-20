@@ -19,10 +19,11 @@ interface BudgetControlWidgetProps {
     }>;
   };
   formatCurrency: (val: number) => string;
+  onViewAll?: () => void;
 }
 
 export const BudgetControlWidget: React.FC<BudgetControlWidgetProps> = ({ 
-  summary, formatCurrency 
+  summary, formatCurrency, onViewAll
 }) => {
   const topCategories = summary?.categories.slice(0, 3) || [];
   const totalLimit = summary?.totalAllocated || 0;
@@ -33,9 +34,19 @@ export const BudgetControlWidget: React.FC<BudgetControlWidgetProps> = ({
     <GlassCard p="p-8" className="flex flex-col">
       <div className="flex items-center justify-between mb-6">
         <h4 className="text-base font-black text-slate-900 dark:text-white tracking-tighter">Budget Control</h4>
-        <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest bg-blue-500/10 px-2 py-1 rounded-lg">
-          {new Date().toLocaleString('default', { month: 'short' }).toUpperCase()}
-        </span>
+        <div className="flex items-center gap-4">
+          {onViewAll && (
+            <button 
+              onClick={onViewAll}
+              className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest hover:underline"
+            >
+              View All
+            </button>
+          )}
+          <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest bg-blue-500/10 px-2 py-1 rounded-lg">
+            {new Date().toLocaleString('default', { month: 'short' }).toUpperCase()}
+          </span>
+        </div>
       </div>
       
       {totalLimit > 0 || expense > 0 ? (

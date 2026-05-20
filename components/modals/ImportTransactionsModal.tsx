@@ -70,53 +70,52 @@ export function ImportTransactionsModal({ isOpen, onClose }: ImportTransactionsM
     setError(null);
 
     const fileName = file.name.toLowerCase();
-    if (fileName.endsWith(".csv")) {
-      parseCSV(file);
-    } else if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
-      parseExcel(file);
-    } else if (fileName.endsWith(".pdf")) {
-      setError("PDF import is coming soon. Please use CSV or Excel for now.");
-      setLoading(false);
+    if (fileName.endsWith(".csv") || fileName.endsWith(".xlsx") || fileName.endsWith(".xls") || fileName.endsWith(".pdf") || fileName.endsWith(".docx") || fileName.endsWith(".doc")) {
+      handleParse(file);
     } else {
-      setError("Unsupported file format. Please upload a CSV or Excel file.");
+      setError("Unsupported file format. Please upload CSV, Excel, PDF, or Word files.");
       setLoading(false);
     }
   };
 
-  const parseCSV = (file: File) => {
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        processRawData(results.data);
-      },
-      error: (err) => {
-        setError(`Failed to parse CSV: ${err.message}`);
-        setLoading(false);
-      },
-    });
-  };
-
-  const parseExcel = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = e.target?.result;
-        const workbook = XLSX.read(data, { type: "binary" });
+  const handleParse = async (file: File) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const fileName = file.name.toLowerCase();
+      let data: any[] = [];
+      
+      if (fileName.endsWith(".csv")) {
+        data = await new Promise((resolve, reject) => {
+          Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: (results) => resolve(results.data),
+            error: (err) => reject(err)
+          });
+        });
+      } else if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(buffer, { type: "array" });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(sheet);
-        processRawData(json);
-      } catch (err: any) {
-        setError(`Failed to parse Excel: ${err.message}`);
+        data = XLSX.utils.sheet_to_json(sheet);
+      } else if (fileName.endsWith(".pdf") || fileName.endsWith(".docx") || fileName.endsWith(".doc")) {
+        // Simple mock/placeholder for PDF/Word text extraction until full parser is integrated
+        // In a real app, this would call a server-side extraction API
+        setError(`${fileName.split('.').pop()?.toUpperCase()} parsing is currently limited. For best results, convert to CSV or Excel. Attempting basic extraction...`);
+        // Fallback to empty for now or try to extract text if libraries were available
         setLoading(false);
+        return;
       }
-    };
-    reader.onerror = () => {
-      setError("Failed to read file.");
+      
+      processRawData(data);
+    } catch (err: any) {
+      setError(`Failed to parse file: ${err.message}`);
+    } finally {
       setLoading(false);
-    };
-    reader.readAsBinaryString(file);
+    }
   };
 
   const processRawData = (data: any[]) => {
@@ -130,20 +129,20 @@ export function ImportTransactionsModal({ isOpen, onClose }: ImportTransactionsM
     setHeaders(fileHeaders);
     setRawRows(data);
 
-    const DATE_HEADERS = ["date", "transaction date", "timestamp", "effective date", "transaction_date"];
-    const MERCHANT_HEADERS = ["description", "merchant", "title", "payee", "narrative", "merchant_name"];
-    const AMOUNT_HEADERS = ["amount", "value", "transaction amount", "transaction value", "balance movement", "total", "rand value", "zar amount", "movement"];
+    const DATE_HEADERS = ["date", "transaction date", "timestamp", "effective date", "transaction_date", "posting", "valuta"];
+    const MERCHANT_HEADERS = ["description", "merchant", "title", "payee", "narrative", "merchant_name", "beneficiary", "reference", "memo", "info"];
+    const AMOUNT_HEADERS = ["amount", "value", "transaction amount", "transaction value", "balance movement", "total", "rand value", "zar amount", "movement", "zar", "rand", "sum", "price"];
     const DEBIT_HEADERS = ["debit", "money out", "paid out", "withdrawal", "payment", "expenditure", "out", "spend", "expense", "debit amount"];
     const CREDIT_HEADERS = ["credit", "money in", "paid in", "deposit", "income", "in", "receipt", "credit amount"];
 
     // Auto-detection logic
     const detectedMapping = {
-      date: fileHeaders.find(h => DATE_HEADERS.includes(h.trim().toLowerCase())) || "",
-      merchant: fileHeaders.find(h => MERCHANT_HEADERS.includes(h.trim().toLowerCase())) || "",
-      amount: fileHeaders.find(h => AMOUNT_HEADERS.includes(h.trim().toLowerCase())) || "",
+      date: fileHeaders.find(h => DATE_HEADERS.includes(h.trim().toLowerCase())) || fileHeaders.find(h => h.toLowerCase().includes("date")) || "",
+      merchant: fileHeaders.find(h => MERCHANT_HEADERS.includes(h.trim().toLowerCase())) || fileHeaders.find(h => h.toLowerCase().includes("desc")) || "",
+      amount: fileHeaders.find(h => AMOUNT_HEADERS.includes(h.trim().toLowerCase())) || fileHeaders.find(h => h.toLowerCase().includes("amount")) || "",
       debit: fileHeaders.find(h => DEBIT_HEADERS.includes(h.trim().toLowerCase())) || "",
       credit: fileHeaders.find(h => CREDIT_HEADERS.includes(h.trim().toLowerCase())) || "",
-      category: fileHeaders.find(h => h.trim().toLowerCase() === "category") || "",
+      category: fileHeaders.find(h => h.trim().toLowerCase() === "category" || h.toLowerCase().includes("cat")) || "",
       account: fileHeaders.find(h => h.trim().toLowerCase() === "account") || ""
     };
 
@@ -380,9 +379,9 @@ export function ImportTransactionsModal({ isOpen, onClose }: ImportTransactionsM
                     if (file) {
                       setLoading(true);
                       const fileName = file.name.toLowerCase();
-                      if (fileName.endsWith(".csv")) parseCSV(file);
-                      else if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) parseExcel(file);
-                      else {
+                      if (fileName.endsWith(".csv") || fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
+                        handleParse(file);
+                      } else {
                         setError("Unsupported file format. Please use CSV or Excel.");
                         setLoading(false);
                       }

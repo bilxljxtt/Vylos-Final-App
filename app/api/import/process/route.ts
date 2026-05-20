@@ -10,9 +10,16 @@ import { createClient } from "@/utils/supabase/server";
 
 export async function POST(req: NextRequest) {
   try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const formData = await req.formData();
     const file = formData.get("file") as File;
-    const userId = formData.get("userId") as string;
+    const userId = user.id; // Discard client-supplied userId to protect against cross-user spoofing!
     
     if (!file) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
@@ -44,8 +51,6 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Add Smart Categorization & Confidence
-    const supabase = await createClient();
-    
     // Fetch user rules and recent transactions for duplicate detection
     const [{ data: userRules }, { data: recentTxs }] = await Promise.all([
       supabase.from("merchant_category_rules").select("*").eq("user_id", userId),
@@ -86,6 +91,6 @@ export async function POST(req: NextRequest) {
 
   } catch (err: any) {
     console.error("Import Error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: "An unexpected error occurred while parsing and processing the file." }, { status: 500 });
   }
 }

@@ -38,6 +38,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: aiMessage });
   } catch (error: any) {
     console.error("AI Chat API Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to generate AI chat response due to an unexpected server error." }, { status: 500 });
   }
 }

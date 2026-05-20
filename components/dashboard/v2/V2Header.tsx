@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { 
   Bell, BellDot, ChevronDown, User, Settings, LogOut, 
-  CheckCircle2, Info, Shield, Zap, Inbox, Trash2 
+  CheckCircle2, Info, Shield, Zap, Inbox, Trash2, MessageCircle 
 } from "lucide-react";
 import { V2Popover } from "@/components/ui/V2Popover";
 import { useAppStore } from "@/lib/AppContext";
@@ -14,9 +14,10 @@ interface V2HeaderProps {
   firstName: string;
   avatarUrl?: string;
   onPageChange: (page: string) => void;
+  onShowFeedback: () => void;
 }
 
-export const V2Header: React.FC<V2HeaderProps> = ({ firstName, avatarUrl, onPageChange }) => {
+export const V2Header: React.FC<V2HeaderProps> = ({ firstName, avatarUrl, onPageChange, onShowFeedback }) => {
   const { state, markAllNotificationsAsRead, deleteNotification } = useAppStore();
   const { toast } = useToast();
   const [showConfirm, setShowConfirm] = useState(false);
@@ -86,8 +87,18 @@ export const V2Header: React.FC<V2HeaderProps> = ({ firstName, avatarUrl, onPage
           </span>
         </div>
 
-        {/* Right: Notification Bar */}
-        <div className="flex items-center relative z-10">
+        {/* Right: Actions Bar */}
+        <div className="flex items-center gap-3 relative z-10">
+          {/* Feedback Button */}
+          <button 
+            onClick={onShowFeedback}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-all active:scale-95 border border-white/5 bg-white/5 group"
+            title="Send Feedback"
+          >
+            <MessageCircle size={16} className="group-hover:scale-110 transition-transform" />
+            <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">Feedback</span>
+          </button>
+
           {/* Notification Popover */}
           <V2Popover
             trigger={
@@ -104,7 +115,18 @@ export const V2Header: React.FC<V2HeaderProps> = ({ firstName, avatarUrl, onPage
           >
             <div className="w-[380px] overflow-hidden vylos-glass-popup border-white/20 shadow-2xl">
               <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5 relative">
-                <span className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-900 dark:text-white/60 opacity-80">Notifications</span>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-900 dark:text-white/60 opacity-80">Notifications</span>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onPageChange("activity");
+                    }}
+                    className="text-[9px] font-black uppercase tracking-widest text-primary hover:text-blue-500 transition-colors text-left"
+                  >
+                    View All Activity →
+                  </button>
+                </div>
                 
                 {unreadCount > 0 && (
                   <button 
@@ -185,17 +207,6 @@ export const V2Header: React.FC<V2HeaderProps> = ({ firstName, avatarUrl, onPage
                 )}
               </div>
               
-              <div className="p-2 border-t border-white/10 bg-white/5">
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onPageChange("activity");
-                  }}
-                  className="w-full py-3 text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-white/70 hover:bg-white/10 hover:text-primary rounded-xl transition-all"
-                >
-                  View Full History
-                </button>
-              </div>
             </div>
           </V2Popover>
         </div>

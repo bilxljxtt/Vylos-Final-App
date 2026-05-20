@@ -1,6 +1,6 @@
-import { AppState, Transaction, Goal, BudgetCategory, formatMoney } from "./store";
+import { AppState, Transaction, Goal, BudgetCategory, formatMoney, getMonthStart } from "./store";
 import { getTransactionDateKey, toDateKey, createLocalDate } from "./utils";
-import { VylosCalculations } from "./vylosCalculations";
+import { VylosCalculations, TransactionIndex } from "./vylosCalculations";
 
 // ─── VYLOS INTELLIGENCE ENGINE — SPEC V2 (FORMULA-BASED SYSTEM) ───────────────
 
@@ -38,46 +38,98 @@ export class VylosEngine {
 
   /**
    * SYSTEM 1: HEALTH SCORE ENGINE
-   * H = (0.2 * Q) + (0.2 * D) + (0.3 * C) + (0.3 * G)
+   * Unified with backend HealthScoreService point system.
    */
-  static computeHealthScore(state: AppState) {
+  static computeHealthScore(state: AppState, index?: TransactionIndex) {
     const income = state.userProfile.monthlyIncome || 0;
-    const survivalCost = this.estimateSurvivalCost(state);
+    const now = new Date();
+    const currentMonthPrefix = getMonthStart().slice(0, 7);
     
-    // Q (Liquidity): savings / (3 * monthly survival cost)
-    const totalSavings = state.goals.reduce((acc, g) => acc + g.currentAmount, 0);
-    const Q = survivalCost > 0 ? Math.min(1, totalSavings / (3 * survivalCost)) : 0;
- 
-    // D (Debt Ratio): 1 - min(1, debt payments / net income)
-    const debtPayments = this.getDebtPayments(state);
-    const D = income > 0 ? 1 - Math.min(1, debtPayments / income) : 0;
- 
-    // C (Consistency): days under budget / 7
-    const C = this.calculateConsistency(state);
- 
-    // G (Goal Velocity): savings rate / required savings rate
-    const currentSavingsRate = income > 0 ? (income - this.getCurrentMonthExpenses(state)) / income : 0;
-    const requiredSavingsRate = this.calculateRequiredSavingsRate(state);
-    const G = requiredSavingsRate > 0 ? Math.min(1, currentSavingsRate / requiredSavingsRate) : (currentSavingsRate > 0 ? 1 : 0);
- 
-    const healthScore = Math.round((0.2 * Q + 0.2 * D + 0.3 * C + 0.3 * G) * 100);
-    
-    let category = "At Risk";
-    if (healthScore >= 80) category = "Excellent";
-    else if (healthScore >= 60) category = "Good";
-    else if (healthScore >= 40) category = "Fair";
-    else category = "At Risk"; 
+    // 1. Monthly Expenses
+    const monthlyExpenses = this.getCurrentMonthExpenses(state, index);
 
-    return { score: healthScore, category, components: { Q, D, C, G } };
+    const ratio = income > 0 ? monthlyExpenses / income : (monthlyExpenses > 0 ? 2 : 0);
+
+    // --- 1. Income Stability (20 pts) ---
+    let Q = income > 0 ? 15 : 0;
+    const hasIncomeTxs = state.transactions.some(t => t.amount > 0 && ["Salary", "Business Income"].includes(t.category));
+    if (hasIncomeTxs) Q += 5;
+
+    // --- 2. Expense Control (25 pts) ---
+    let C = 0;
+    if (ratio < 0.3) C = 25;
+    else if (ratio < 0.5) C = 20;
+    else if (ratio < 0.7) C = 15;
+    else if (ratio < 0.9) C = 10;
+    else C = 5;
+    if (income === 0 && monthlyExpenses === 0) C = 0;
+
+    // --- 3. Savings Progress (20 pts) ---
+    let G = 0;
+    if (state.goals.length > 0) {
+      const avgProgress = state.goals.reduce((sum, g) => sum + (g.currentAmount / (g.targetAmount || 1)), 0) / state.goals.length;
+      G = Math.round(Math.min(1, avgProgress) * 20);
+    }
+
+    // --- 4. Budget Usage (20 pts) ---
+    let D = 0;
+    const budgets = Object.entries(state.budgets);
+    if (budgets.length > 0) {
+      const withinLimit = budgets.filter(([cat, b]) => {
+        const catSpend = (index ? (index.monthMap[currentMonthPrefix] || []) : state.transactions)
+          .filter(t => {
+            const dateKey = getTransactionDateKey(t);
+            return dateKey.startsWith(currentMonthPrefix) && t.category === cat && t.amount < 0;
+          })
+          .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+        return catSpend <= (b.limit || 0);
+      }).length;
+      D = Math.round((withinLimit / budgets.length) * 20);
+    }
+
+    // --- 5. Bills Risk (15 pts) ---
+    let billsRisk = 15;
+    const overdueCount = state.reminders.filter(r => r.status === 'overdue' || (r.status === 'pending' && new Date(r.due_date) < now)).length;
+    billsRisk -= Math.min(15, overdueCount * 5);
+
+    const part1 = Math.floor(billsRisk / 3);
+    const part2 = Math.floor((billsRisk + 1) / 3);
+    const part3 = billsRisk - part1 - part2;
+
+    const healthScore = Math.max(0, Math.min(100, Math.round(Q + C + G + D + billsRisk)));
+    
+    let category = "Poor";
+    const hasAnyData = state.transactions.length > 0 || budgets.length > 0 || state.goals.length > 0;
+    
+    if (!hasAnyData || state.transactions.length < 3) {
+      category = "Not enough data";
+      return { score: 0, category, components: { Q: 0, D: 0, C: 0, G: 0 } };
+    }
+    
+    if (healthScore >= 85) category = "Excellent";
+    else if (healthScore >= 70) category = "Good";
+    else if (healthScore >= 40) category = "Fair";
+    else category = "Poor"; 
+
+    return { 
+      score: healthScore, 
+      category, 
+      components: { 
+        Q: (Q + part1) / 25, 
+        D: (D + part2) / 25, 
+        C: C / 25, 
+        G: (G + part3) / 25 
+      } 
+    }; 
   }
 
   /**
    * SYSTEM 2: BUDGET ENGINE
    * Budget = (Income - Goal Contributions) * CostFactor * (1 + Inflation)
    */
-  static computeBudget(state: AppState) {
+  static computeBudget(state: AppState, index?: TransactionIndex) {
     const totalLimit = Object.values(state.budgets).reduce((sum, b) => sum + (b?.limit || 0), 0);
-    const totalSpent = this.getCurrentMonthExpenses(state);
+    const totalSpent = this.getCurrentMonthExpenses(state, index);
     
     // Calculate remaining days in month
     const now = new Date();
@@ -94,12 +146,12 @@ export class VylosEngine {
    * SYSTEM 3: GOAL FEASIBILITY ENGINE
    * F = ((Free Income * Time) - (Time * VolatilityBuffer)) / Goal Total
    */
-  static computeGoalFeasibility(state: AppState) {
+  static computeGoalFeasibility(state: AppState, index?: TransactionIndex) {
     if (state.goals.length === 0) return { score: 0, status: "No Goals", requiredMonthlyContribution: 0, recommendation: "Set a financial goal to start tracking." };
 
     const income = state.userProfile.monthlyIncome || 0;
     const survivalCost = this.estimateSurvivalCost(state);
-    const debtPayments = this.getDebtPayments(state);
+    const debtPayments = this.getDebtPayments(state, index);
     const existingGoalContribs = this.estimateMonthlyGoalContributions(state);
     
     const freeIncome = income - survivalCost - debtPayments - existingGoalContribs;
@@ -163,9 +215,9 @@ export class VylosEngine {
    * SYSTEM 6: LIFESTYLE CREEP ENGINE
    * Lc = ΔNonEssential / ΔIncome
    */
-  static computeLifestyleCreep(state: AppState) {
+  static computeLifestyleCreep(state: AppState, index?: TransactionIndex) {
     // Simplified: comparing current month to previous 6-month average (simulated)
-    const currentNonEssential = this.getNonEssentialSpending(state);
+    const currentNonEssential = this.getNonEssentialSpending(state, index);
     const income = state.userProfile.monthlyIncome || 1;
     
     // For demonstration, we compare to a baseline of 50% of income
@@ -202,13 +254,13 @@ export class VylosEngine {
     return { xp, tier };
   }
 
-  static computeWeeklyJudgement(state: AppState, currentScore: number) {
+  static computeWeeklyJudgement(state: AppState, currentScore: number, index?: TransactionIndex) {
     // Compare current month health with previous month health if available
     const now = new Date();
     const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const prevMonthPrefix = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
     
-    const prevMonthTxs = state.transactions.filter(t => getTransactionDateKey(t).startsWith(prevMonthPrefix));
+    const prevMonthTxs = index ? (index.monthMap[prevMonthPrefix] || []) : state.transactions.filter(t => getTransactionDateKey(t).startsWith(prevMonthPrefix));
     
     // If no previous data, assume current as baseline
     const lastMonthScore = prevMonthTxs.length > 0 ? this.computeHealthScore({...state, transactions: prevMonthTxs}).score : currentScore;
@@ -399,12 +451,14 @@ export class VylosEngine {
     return essentialSum > 0 ? essentialSum : (totalLimit * 0.7);
   }
 
-  private static getDebtPayments(state: AppState) {
+  private static getDebtPayments(state: AppState, index?: TransactionIndex) {
     // Derive debt payments from actual transactions in the current month
     const now = new Date();
     const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     
-    return state.transactions
+    const txs = index ? (index.monthMap[currentMonthPrefix] || []) : state.transactions;
+
+    return txs
       .filter(t => {
         const dateKey = getTransactionDateKey(t);
         return dateKey.startsWith(currentMonthPrefix) && t.category === 'Debt Payments' && t.amount < 0;
@@ -436,14 +490,16 @@ export class VylosEngine {
     return daysUnder / 7;
   }
 
-  private static getCurrentMonthExpenses(state: AppState) {
+  private static getCurrentMonthExpenses(state: AppState, index?: TransactionIndex) {
     const now = new Date();
     const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     
     // Primary income categories (should not be subtracted from expenses)
     const primaryIncome = ["Salary", "Business Income", "Other Income"];
     
-    return state.transactions
+    const txs = index ? (index.monthMap[currentMonthPrefix] || []) : state.transactions;
+
+    return txs
       .filter(t => {
         const actualDate = getTransactionDateKey(t);
         return actualDate.startsWith(currentMonthPrefix) && !VylosCalculations.isBudgetRecord(t.merchant);
@@ -484,12 +540,17 @@ export class VylosEngine {
     return Math.min(0.9, factor);
   }
 
-  private static getNonEssentialSpending(state: AppState) {
+  private static getNonEssentialSpending(state: AppState, index?: TransactionIndex) {
     const essentialCategories = [
       "Rent / Housing", "Bills", "Transport", "Health", "Education", "Groceries", "Insurance", "Utilities", "Debt Payments",
       "Salary", "Business Income", "Refund", "Other Income"
     ];
-    return state.transactions
+
+    const now = new Date();
+    const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const txs = index ? (index.monthMap[currentMonthPrefix] || []) : state.transactions;
+
+    return txs
       .filter(t => !essentialCategories.includes(t.category) && t.amount < 0 && !VylosCalculations.isBudgetRecord(t.merchant))
       .reduce((acc, t) => acc + Math.abs(t.amount), 0);
   }
@@ -497,13 +558,13 @@ export class VylosEngine {
   /**
    * Main entry point for the engine
    */
-  static run(state: AppState): EngineOutput {
-    const health = this.computeHealthScore(state);
-    const budget = this.computeBudget(state);
-    const feasibility = this.computeGoalFeasibility(state);
+  static run(state: AppState, index?: TransactionIndex): EngineOutput {
+    const health = this.computeHealthScore(state, index);
+    const budget = this.computeBudget(state, index);
+    const feasibility = this.computeGoalFeasibility(state, index);
     const burnRate = this.computeBurnRate(state);
     const gamification = this.computeGamification(state, health.score);
-    const weekly = this.computeWeeklyJudgement(state, health.score);
+    const weekly = this.computeWeeklyJudgement(state, health.score, index);
     
     const insights = this.generateUserInsights(state, {
       burnRateMonths: burnRate.months,

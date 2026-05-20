@@ -49,6 +49,28 @@ const SegmentedControl = ({
   </div>
 );
 
+const STANDARD_CATEGORIES = [
+  "Bills",
+  "Subscriptions",
+  "Rent / Housing",
+  "Transport",
+  "Health",
+  "Other"
+];
+
+const PRIORITY_OPTIONS = [
+  { label: "Low", value: "low" },
+  { label: "Medium", value: "medium" },
+  { label: "High", value: "high" }
+];
+
+const RECURRING_OPTIONS = [
+  { label: "Once-off", value: "none" },
+  { label: "Daily", value: "daily" },
+  { label: "Weekly", value: "weekly" },
+  { label: "Monthly", value: "monthly" }
+];
+
 export function RemindersModal({ isOpen, onClose, editingReminder }: RemindersModalProps) {
   const { addReminder, updateReminder } = useAppStore();
   const { toast } = useToast();
@@ -75,6 +97,9 @@ export function RemindersModal({ isOpen, onClose, editingReminder }: RemindersMo
   });
   
   const [loading, setLoading] = useState(false);
+  
+  // Override mode for recurring instances
+  const [overrideMode, setOverrideMode] = useState<"this" | "all">("this");
 
   useEffect(() => {
     if (editingReminder) {
@@ -112,12 +137,13 @@ export function RemindersModal({ isOpen, onClose, editingReminder }: RemindersMo
         customCategory: ""
       });
     }
-  }, [editingReminder, isOpen]);
+  }, [editingReminder?.id, isOpen]);
 
   if (!isOpen) return null;
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return; // Prevent duplicate submissions
     
     // Validation
     if (!formData.title.trim()) {
@@ -132,57 +158,70 @@ export function RemindersModal({ isOpen, onClose, editingReminder }: RemindersMo
     setLoading(true);
 
     try {
-      const finalCategory = formData.category;
-      
       const payload: any = {
         title: formData.title.trim(),
         description: formData.description.trim() || null,
-        category: finalCategory,
+        category: formData.category,
         due_date: formData.due_date,
-        due_time: formData.due_time || null, // Optional
+        due_time: formData.due_time || null,
         priority: formData.priority,
         recurring: formData.recurring,
         amount: formData.amount ? parseFloat(formData.amount) : null,
-        status: editingReminder ? editingReminder.status : "pending"
+        status: editingReminder ? editingReminder.status : "pending",
+        billing_day: formData.recurring === 'monthly' ? parseInt(formData.due_date.split('-')[2]) : null
       };
 
-      if (editingReminder) {
-        await updateReminder(editingReminder.id, payload);
-        toast("Task updated successfully", "success");
-      } else {
-        await addReminder(payload);
-        toast("New financial task established", "success");
-      }
+      const savePromise = (async () => {
+        if (editingReminder) {
+          if ((editingReminder as any).is_recurring_instance) {
+            if (overrideMode === "this") {
+              // Create a one-time override for this specific month
+              const overridePayload = {
+                ...payload,
+                recurring: 'none',
+                status: editingReminder.status || 'pending',
+                due_date: editingReminder.due_date // Use the instance's specific due date
+              };
+              await addReminder(overridePayload);
+              toast("Created override for this month", "success");
+            } else {
+              // "all" - Update the base definition
+              await updateReminder(editingReminder.id, payload);
+              toast("Task updated successfully", "success");
+            }
+          } else {
+            // Standard edit
+            await updateReminder(editingReminder.id, payload);
+            toast("Task updated successfully", "success");
+          }
+        } else {
+          await addReminder(payload);
+          toast("New financial task established", "success");
+        }
+      })();
+
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          const err = new Error("Request timed out. Please check your connection and try again.");
+          err.name = "AbortError";
+          reject(err);
+        }, 15000);
+      });
+
+      await Promise.race([savePromise, timeoutPromise]);
       onClose();
     } catch (err: any) {
       console.error("Reminder save error:", err);
-      toast(err.message || "Failed to save task", "error");
+      if (err.name === 'AbortError') {
+        toast("Request timed out. Please check your connection and try again.", "error");
+      } else {
+        toast(err.message || "Failed to save task. Please check your data and try again.", "error");
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const standardCategories = [
-    "Bills",
-    "Subscriptions",
-    "Rent / Housing",
-    "Transport",
-    "Health",
-    "Other"
-  ];
-
-  const priorityOptions = [
-    { label: "Low", value: "low" },
-    { label: "Medium", value: "medium" },
-    { label: "High", value: "high" }
-  ];
-
-  const recurringOptions = [
-    { label: "Once-off", value: "none" },
-    { label: "Daily", value: "daily" },
-    { label: "Weekly", value: "weekly" },
-    { label: "Monthly", value: "monthly" }
-  ];
 
   return (
     <Portal>
@@ -279,7 +318,7 @@ export function RemindersModal({ isOpen, onClose, editingReminder }: RemindersMo
                 <div className="space-y-4">
                   <label className="text-[11px] font-black text-text-main uppercase tracking-widest ml-1 opacity-80">Category <span className="text-red-500">*</span></label>
                   <div className="grid grid-cols-2 gap-3">
-                    {standardCategories.map(cat => (
+                    {STANDARD_CATEGORIES.map(cat => (
                       <button
                         key={cat}
                         type="button"
@@ -298,19 +337,19 @@ export function RemindersModal({ isOpen, onClose, editingReminder }: RemindersMo
                 </div>
 
                 <div className="space-y-10">
-                  <SegmentedControl 
-                    label="Priority Level"
-                    options={priorityOptions}
-                    value={formData.priority}
-                    onChange={(val) => setFormData({...formData, priority: val})}
-                  />
-                  
-                  <SegmentedControl 
-                    label="Recurrence Pattern"
-                    options={recurringOptions}
-                    value={formData.recurring}
-                    onChange={(val) => setFormData({...formData, recurring: val})}
-                  />
+                    <SegmentedControl 
+                      label="Priority Level"
+                      options={PRIORITY_OPTIONS}
+                      value={formData.priority}
+                      onChange={(val) => setFormData({...formData, priority: val})}
+                    />
+                    
+                    <SegmentedControl 
+                      label="Recurrence Pattern"
+                      options={RECURRING_OPTIONS}
+                      value={formData.recurring}
+                      onChange={(val) => setFormData({...formData, recurring: val})}
+                    />
                 </div>
 
                 <div className="space-y-3">
@@ -327,6 +366,31 @@ export function RemindersModal({ isOpen, onClose, editingReminder }: RemindersMo
                     />
                   </div>
                 </div>
+
+                {editingReminder && (editingReminder as any).is_recurring_instance && (
+                  <div className="space-y-3 pt-4 border-t border-white/5">
+                    <label className="text-[11px] font-black text-text-main uppercase tracking-widest ml-1 opacity-80">Edit Options</label>
+                    <div className="flex gap-4">
+                      <button 
+                        type="button"
+                        onClick={() => setOverrideMode("this")}
+                        className={`flex-1 p-4 rounded-2xl border-2 transition-all ${overrideMode === "this" ? "border-primary bg-primary/10 text-primary" : "border-white/5 bg-white/5 text-text-muted hover:border-white/20"}`}
+                      >
+                        <span className="block text-sm font-black mb-1">This Month Only</span>
+                        <span className="block text-[10px] uppercase tracking-widest opacity-70">Creates an override</span>
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => setOverrideMode("all")}
+                        className={`flex-1 p-4 rounded-2xl border-2 transition-all ${overrideMode === "all" ? "border-primary bg-primary/10 text-primary" : "border-white/5 bg-white/5 text-text-muted hover:border-white/20"}`}
+                      >
+                        <span className="block text-sm font-black mb-1">All Future Months</span>
+                        <span className="block text-[10px] uppercase tracking-widest opacity-70">Changes the base rule</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
               </div>
             </div>
           </div>

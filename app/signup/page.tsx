@@ -297,7 +297,7 @@ export default function SignupPage() {
                         <span className="absolute text-sm font-black text-white tracking-tighter">68%</span>
                     </div>
                     <div className="space-y-2">
-                        <div className="text-base font-black text-white">$3,366<span className="text-white/40 text-xs">.21</span></div>
+                        <div className="text-base font-black text-white">R3,366<span className="text-white/40 text-xs">.21</span></div>
                         <div className="text-[10px] font-black text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-lg uppercase tracking-widest">On Track</div>
                     </div>
                 </div>
@@ -316,7 +316,7 @@ export default function SignupPage() {
                 <div className="space-y-4">
                     <div className="flex justify-between items-center px-1">
                         <span className="text-sm font-black text-white">House Fund</span>
-                        <span className="text-xs font-black text-white/40">$12,400 <span className="text-white/20">/ $50k</span></span>
+                        <span className="text-xs font-black text-white/40">R12,400 <span className="text-white/20">/ R50k</span></span>
                     </div>
                     <div className="h-2.5 bg-white/5 rounded-full p-0.5 border border-white/5">
                         <div className="h-full bg-gradient-to-r from-blue-400 to-indigo-500 rounded-full shadow-[0_0_15px_rgba(96,165,250,0.3)]" style={{ width: '35%' }} />

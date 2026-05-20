@@ -50,6 +50,34 @@ export function parseDateKey(key: string): Date {
   return createLocalDate(y, m - 1, d);
 }
 
+export function parseLocalDate(dateString: string) {
+  const [year, month, day] = dateString.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+export function formatLocalDate(year: number, monthIndex: number, day: number) {
+  return `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+export function isSameMonth(dateString: string, viewedMonth: Date) {
+  const date = parseLocalDate(dateString);
+
+  return (
+    date.getFullYear() === viewedMonth.getFullYear() &&
+    date.getMonth() === viewedMonth.getMonth()
+  );
+}
+
+export function isSameDay(dateString: string, year: number, monthIndex: number, day: number) {
+  const date = parseLocalDate(dateString);
+
+  return (
+    date.getFullYear() === year &&
+    date.getMonth() === monthIndex &&
+    date.getDate() === day
+  );
+}
+
 export function getTransactionDateKey(t: { transaction_date?: string, date?: string, created_at?: string, createdAt?: string }): string {
   const raw = t.transaction_date || t.date || t.created_at || t.createdAt || "";
   if (!raw) return "";
@@ -201,6 +229,116 @@ export function getNextOccurrence(currentDueDate: string, pattern: "none" | "dai
   }
 
   return toDateKey(date);
+}
+
+/**
+ * Gets the number of days in a specific month
+ */
+export function getDaysInMonth(year: number, month: number): number {
+  return new Date(year, month, 0).getDate();
+}
+
+/**
+ * Gets the correct recurring date for a billing day in a specific month/year.
+ * Handles month-end logic (e.g. 31st becomes 30th or 28th).
+ */
+export function getRecurringBillDateForMonth(billingDay: number, year: number, month: number): string {
+  const daysInMonth = getDaysInMonth(year, month);
+  const actualDay = Math.min(billingDay, daysInMonth);
+  return `${year}-${String(month).padStart(2, "0")}-${String(actualDay).padStart(2, "0")}`;
+}
+
+/**
+ * Generates reminder occurrences for a specific month.
+ * Converts recurring definitions into specific instances.
+ */
+export function generateReminderOccurrences(
+  reminders: any[], 
+  completions: any[], 
+  year: number, 
+  month: number,
+  monthsCount: number = 1
+): any[] {
+  const occurrences: any[] = [];
+  
+  // 1. Group recurring reminders by concept (Title + Category)
+  const recurringGroups: Record<string, any[]> = {};
+  reminders.filter(r => r.recurring !== 'none').forEach(r => {
+    const key = `${r.title}-${r.category}`;
+    if (!recurringGroups[key]) recurringGroups[key] = [];
+    recurringGroups[key].push(r);
+  });
+
+  // 2. Prepare non-recurring reminders
+  const onceOffReminders = reminders.filter(r => r.recurring === 'none');
+
+  // 3. Generate for each month in range
+  for (let mOffset = 0; mOffset < monthsCount; mOffset++) {
+    const targetDate = new Date(year, month - 1 + mOffset, 1);
+    const targetYear = targetDate.getFullYear();
+    const targetMonth = targetDate.getMonth() + 1;
+    const targetMonthKey = `${targetYear}-${String(targetMonth).padStart(2, '0')}`;
+
+    // Add once-off reminders for this month
+    const overridesForMonth = new Set<string>();
+    onceOffReminders.forEach(r => {
+      const [ry, rm] = r.due_date.split('-').map(Number);
+      if (ry === targetYear && rm === targetMonth) {
+        occurrences.push({ ...r });
+        // Mark as override if there's a recurring group with the same concept
+        const key = `${r.title}-${r.category}`;
+        if (recurringGroups[key]) {
+          overridesForMonth.add(key);
+        }
+      }
+    });
+
+    // Generate recurring occurrences
+    Object.entries(recurringGroups).forEach(([key, group]) => {
+      // Find the best definition for this target month
+      // The best definition is the one with latest due_date that is <= target month
+      const bestDef = group
+        .filter(d => {
+          const [dy, dm] = d.due_date.split('-').map(Number);
+          return dy < targetYear || (dy === targetYear && dm <= targetMonth);
+        })
+        .sort((a, b) => b.due_date.localeCompare(a.due_date))[0];
+
+      if (!bestDef) return; // No definition starts before or in this month
+      
+      // If a one-time override exists for this month, skip generating the recurring instance
+      if (overridesForMonth.has(key)) return;
+
+      const billingDay = bestDef.billing_day || parseInt(bestDef.due_date.split('-')[2]);
+      const dateKey = getRecurringBillDateForMonth(billingDay, targetYear, targetMonth);
+      
+      // Check completion status for ANY reminder in this concept group for the target month
+      let isCompleted = completions.some(c => 
+        group.some(g => g.id === c.reminder_id) && 
+        c.year === targetYear && 
+        c.month === targetMonth
+      );
+
+      // Legacy fallback: check if any reminder in the group was originally for this month and is completed
+      if (!isCompleted) {
+        isCompleted = group.some(d => {
+          const [dy, dm] = d.due_date.split('-').map(Number);
+          return dy === targetYear && dm === targetMonth && d.status === 'completed';
+        });
+      }
+
+      occurrences.push({
+        ...bestDef,
+        due_date: dateKey,
+        status: isCompleted ? 'completed' : 'pending',
+        is_recurring_instance: true,
+        occurrence_month: targetMonth,
+        occurrence_year: targetYear
+      });
+    });
+  }
+
+  return occurrences;
 }
 
 /**

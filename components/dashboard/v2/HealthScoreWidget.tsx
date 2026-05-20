@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { ShieldCheck, ArrowUpRight, TrendingUp, Info } from "lucide-react";
+import { ShieldCheck, ArrowUpRight, TrendingUp, Info, RefreshCw } from "lucide-react";
 import { useAppStore } from "@/lib/AppContext";
 import { VylosEngine } from "@/lib/vylosEngine";
 
@@ -11,20 +11,25 @@ interface HealthScoreWidgetProps {
 
 export const HealthScoreWidget: React.FC<HealthScoreWidgetProps> = ({ onDetailClick }) => {
   const { state } = useAppStore();
+  const { backendHealthScore, isCalculatingHealthScore } = state;
+  
+  // Live reactive engine is the single source of truth to ensure consistency across views
   const engineOutput = VylosEngine.run(state);
+  
   const score = engineOutput.healthScore;
   const status = engineOutput.healthCategory;
+  const lastUpdated = backendHealthScore?.calculated_at;
 
   const getHealthColor = (s: number) => {
-    if (s >= 80) return "text-emerald-500";
-    if (s >= 60) return "text-blue-500";
+    if (s >= 85) return "text-emerald-500";
+    if (s >= 70) return "text-blue-500";
     if (s >= 40) return "text-amber-500";
     return "text-red-500";
   };
 
   const getHealthBg = (s: number) => {
-    if (s >= 80) return "bg-emerald-500/10";
-    if (s >= 60) return "bg-blue-500/10";
+    if (s >= 85) return "bg-emerald-500/10";
+    if (s >= 70) return "bg-blue-500/10";
     if (s >= 40) return "bg-amber-500/10";
     return "bg-red-500/10";
   };
@@ -43,16 +48,22 @@ export const HealthScoreWidget: React.FC<HealthScoreWidgetProps> = ({ onDetailCl
       <div className="flex items-center justify-between relative z-10">
         <div className="flex items-center gap-3">
           <div className={`p-3 rounded-2xl ${bgClass} ${colorClass} shadow-inner`}>
-            <ShieldCheck size={24} strokeWidth={2.5} />
+            {isCalculatingHealthScore ? (
+              <RefreshCw size={24} strokeWidth={2.5} className="animate-spin" />
+            ) : (
+              <ShieldCheck size={24} strokeWidth={2.5} />
+            )}
           </div>
           <div>
-            <h4 className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Financial Health</h4>
+            <div className="flex items-center gap-2">
+              <h4 className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Financial Health</h4>
+              {isCalculatingHealthScore && (
+                <span className="text-[9px] font-black text-blue-500 animate-pulse uppercase tracking-widest">Updating...</span>
+              )}
+            </div>
             <p className={`text-sm font-black uppercase tracking-widest mt-0.5 ${colorClass}`}>{status}</p>
           </div>
         </div>
-        <button className="p-2.5 rounded-xl bg-white/40 dark:bg-white/5 text-slate-400 group-hover:text-primary transition-colors">
-          <ArrowUpRight size={20} />
-        </button>
       </div>
 
       <div className="flex items-center gap-6 relative z-10">
@@ -68,8 +79,8 @@ export const HealthScoreWidget: React.FC<HealthScoreWidgetProps> = ({ onDetailCl
         <div className="flex-1 flex flex-col gap-2">
            <div className="h-2 w-full bg-slate-200/30 dark:bg-white/5 rounded-full overflow-hidden shadow-inner">
              <div 
-               className={`h-full transition-all duration-1000 ease-out rounded-full shadow-[0_0_10px_rgba(0,0,0,0.1)] ${score >= 60 ? 'bg-gradient-to-r from-blue-600 to-cyan-400' : 'bg-gradient-to-r from-amber-500 to-red-400'}`}
-               style={{ width: `${score}%` }}
+                className={`h-full transition-all duration-1000 ease-out rounded-full shadow-[0_0_10px_rgba(0,0,0,0.1)] ${score >= 70 ? 'bg-gradient-to-r from-blue-600 to-cyan-400' : 'bg-gradient-to-r from-amber-500 to-red-400'}`}
+                style={{ width: `${score}%` }}
              />
            </div>
            <div className="flex justify-between items-center px-1">
@@ -79,12 +90,21 @@ export const HealthScoreWidget: React.FC<HealthScoreWidgetProps> = ({ onDetailCl
         </div>
       </div>
 
-      <div className="pt-6 border-t border-white/10 flex items-start gap-3 opacity-80 group-hover:opacity-100 transition-opacity relative z-10">
-        <Info size={16} className="text-primary shrink-0 mt-0.5" />
-        <p className="text-[11px] font-bold text-slate-500 dark:text-slate-300 leading-relaxed">
-          Your score is calculated based on budget utilization, savings consistency, and goal progress. 
-          <span className="text-primary ml-1">View breakdown →</span>
-        </p>
+      <div className="pt-6 border-t border-white/10 flex flex-col gap-2 relative z-10">
+        <div className="flex items-start gap-3 opacity-80 group-hover:opacity-100 transition-opacity">
+          <Info size={16} className="text-primary shrink-0 mt-0.5" />
+          <p className="text-[11px] font-bold text-slate-500 dark:text-slate-300 leading-relaxed">
+            {isCalculatingHealthScore 
+              ? "We're currently recalculating your score based on your recent activity."
+              : "Your score is calculated based on budget utilization, savings consistency, and goal progress."
+            }
+          </p>
+        </div>
+        {lastUpdated && !isCalculatingHealthScore && (
+          <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-7">
+            Last updated: {new Date(lastUpdated).toLocaleDateString()} {new Date(lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </p>
+        )}
       </div>
     </div>
   );

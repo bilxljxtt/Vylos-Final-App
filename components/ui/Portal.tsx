@@ -19,6 +19,24 @@ export const Portal: React.FC<PortalProps> = ({ children }) => {
       el.id = "vylos-portal-root";
       document.body.appendChild(el);
     }
+
+    // Lock body scroll
+    const scrollLocks = parseInt(document.body.getAttribute('data-scroll-locks') || '0', 10);
+    document.body.setAttribute('data-scroll-locks', (scrollLocks + 1).toString());
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      // Unlock body scroll if last portal
+      const currentLocks = parseInt(document.body.getAttribute('data-scroll-locks') || '1', 10);
+      const newLocks = Math.max(0, currentLocks - 1);
+      
+      if (newLocks === 0) {
+        document.body.removeAttribute('data-scroll-locks');
+        document.body.style.overflow = '';
+      } else {
+        document.body.setAttribute('data-scroll-locks', newLocks.toString());
+      }
+    };
   }, []);
 
   if (!mounted) return null;

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AIService } from "@/lib/services/import/AIService";
 import { AdvisorEngine } from "@/lib/services/AdvisorEngine";
+import { LogicAdvisor } from "@/lib/services/LogicAdvisor";
 import { createClient } from "@/utils/supabase/server";
 import { Permissions } from "@/lib/permissions";
 
@@ -109,8 +110,15 @@ export async function POST(req: NextRequest) {
       - Do not give regulated financial advice.
     `;
 
-    // 7. Call AI
-    const reply = await AIService.getSimpleAIResponse(fullPrompt);
+    // 7. Call AI or Fallback
+    let reply = "";
+    try {
+      if (!process.env.GOOGLE_AI_API_KEY) throw new Error("No AI API Key");
+      reply = await AIService.getSimpleAIResponse(fullPrompt);
+    } catch (aiErr) {
+      console.log("Falling back to Logic Engine...");
+      reply = LogicAdvisor.getFallbackResponse(lastMessage, context);
+    }
 
     // 8. Increment Usage on Success
     await supabase.from('ai_usage').upsert({
@@ -123,6 +131,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ reply });
   } catch (err: any) {
     console.error("AI Advisor Route Error:", err);
-    return NextResponse.json({ reply: err.message || "Vylos Advisor is temporarily unavailable. Please try again later." });
+    return NextResponse.json({ reply: "Vylos Logic Engine: I'm currently unable to access your data to generate a response. Please try again." });
   }
 }

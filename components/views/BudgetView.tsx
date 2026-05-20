@@ -13,14 +13,23 @@ import { BudgetService } from "@/lib/services/BudgetService";
 import { VylosCalculations } from "@/lib/vylosCalculations";
 import Chart from "chart.js/auto";
 import { TransactionIcon } from "@/components/ui/TransactionIcon";
+import { generateReminderOccurrences } from "@/lib/utils";
 
 interface BudgetViewProps {
   setShowNewBudget: (show: boolean) => void;
   handleDeleteCategory: (cat: string) => void;
   onQuickAddTx?: (cat: TransactionCategory) => void;
+  setShowFundCategory?: (show: boolean) => void;
+  setShowHealthDetail?: (show: boolean) => void;
 }
 
-export const BudgetView: React.FC<BudgetViewProps> = ({ setShowNewBudget }) => {
+export const BudgetView: React.FC<BudgetViewProps> = ({ 
+  setShowNewBudget, 
+  handleDeleteCategory, 
+  onQuickAddTx, 
+  setShowFundCategory, 
+  setShowHealthDetail 
+}) => {
   const { state, setSelectedMonth, formatCurrency } = useAppStore();
   const donutRef = useRef<HTMLCanvasElement | null>(null);
   const lineRef = useRef<HTMLCanvasElement | null>(null);
@@ -28,7 +37,12 @@ export const BudgetView: React.FC<BudgetViewProps> = ({ setShowNewBudget }) => {
   const lineInst = useRef<any>(null);
 
   const selectedMonth = state.selectedMonth || getMonthStart();
-  const budgetSummary = useMemo(() => BudgetService.calculateBudgetSummary(state, selectedMonth), [state, selectedMonth]);
+  const budgetSummary = useMemo(() => BudgetService.calculateBudgetSummary({
+    transactions: state.transactions,
+    budgets: state.budgets,
+    subscriptions: state.subscriptions,
+    userProfile: { monthlyIncome: state.userProfile.monthlyIncome }
+  } as any, selectedMonth), [state.transactions, state.budgets, state.subscriptions, state.userProfile.monthlyIncome, selectedMonth]);
   const { totalAllocated, totalSpent, totalRemaining, percentageUsed, categories } = budgetSummary;
 
   const [year, month] = selectedMonth.split('-').map(Number);
@@ -101,8 +115,11 @@ export const BudgetView: React.FC<BudgetViewProps> = ({ setShowNewBudget }) => {
   }, [catData, formatCurrency]);
 
   const { labels, planned, actual } = useMemo(() => 
-    VylosCalculations.getPlannedVsActual(state, selectedMonth), 
-    [state, selectedMonth]
+    VylosCalculations.getPlannedVsActual({
+      transactions: state.transactions,
+      budgets: state.budgets
+    } as any, selectedMonth), 
+    [state.transactions, state.budgets, selectedMonth]
   );
 
   useEffect(() => {
@@ -171,13 +188,98 @@ export const BudgetView: React.FC<BudgetViewProps> = ({ setShowNewBudget }) => {
   const previousMonthDate = new Date(selectedMonth);
   previousMonthDate.setMonth(previousMonthDate.getMonth() - 1);
   const previousMonthStr = previousMonthDate.toISOString().slice(0, 10);
-  const prevSummary = useMemo(() => BudgetService.calculateBudgetSummary(state, previousMonthStr), [state, previousMonthStr]);
-  const budgetTrend = prevSummary.totalAllocated > 0 
+  const prevSummary = useMemo(() => BudgetService.calculateBudgetSummary({
+    transactions: state.transactions,
+    budgets: state.budgets,
+    subscriptions: state.subscriptions,
+    userProfile: { monthlyIncome: state.userProfile.monthlyIncome }
+  } as any, previousMonthStr), [state.transactions, state.budgets, state.subscriptions, state.userProfile.monthlyIncome, previousMonthStr]);
+  const budgetTrend = useMemo(() => prevSummary.totalAllocated > 0 
     ? ((totalAllocated - prevSummary.totalAllocated) / prevSummary.totalAllocated) * 100 
-    : 0;
+    : 0, [totalAllocated, prevSummary.totalAllocated]);
+
+  // 1. Budget Health Calculations
+  const overBudgetCategories = useMemo(() => {
+    return categories.filter(c => c.status === 'over');
+  }, [categories]);
+
+  const { healthStatus, healthColor, healthDesc, healthBullets } = useMemo(() => {
+    let status = "Good";
+    let color = "text-emerald-500 dark:text-emerald-400";
+    let desc = "You're on track to finish the month within budget.";
+    
+    if (overBudgetCategories.length > 0) {
+      status = overBudgetCategories.length > 2 ? "Critical" : "Needs Attention";
+      color = overBudgetCategories.length > 2 ? "text-red-500 dark:text-red-400 font-black" : "text-amber-500 dark:text-amber-400 font-black";
+      desc = `You have exceeded your allocated limit in ${overBudgetCategories.length} categories.`;
+    } else if (percentageUsed > 90) {
+      status = "Warning";
+      color = "text-amber-500 dark:text-amber-400 font-black";
+      desc = "You have used more than 90% of your planned budget. Spend cautiously.";
+    } else if (percentageUsed < 40 && totalSpent > 0) {
+      status = "Excellent";
+      color = "text-blue-500 dark:text-blue-400 font-black";
+      desc = "Your spending is extremely efficient. Great budget control!";
+    }
+
+    const bullets = [];
+    if (percentageUsed > 0) {
+      bullets.push(`You have spent ${Math.round(percentageUsed)}% of your planned budget.`);
+    } else {
+      bullets.push("No spending has been recorded for this month yet.");
+    }
+
+    if (overBudgetCategories.length > 0) {
+      bullets.push(`${overBudgetCategories.length} categories are over budget limit.`);
+    } else {
+      bullets.push("All categories are within their budget limits.");
+    }
+
+    if (totalRemaining > 0) {
+      bullets.push(`${formatCurrency(totalRemaining)} remaining budget to allocate/spend.`);
+    } else {
+      bullets.push("You have no remaining budget left.");
+    }
+
+    return { healthStatus: status, healthColor: color, healthDesc: desc, healthBullets: bullets };
+  }, [overBudgetCategories, percentageUsed, totalSpent, totalRemaining, formatCurrency]);
+
+  // 2. Vylos Real Insights Calculations
+  // Pace check
+  const spendingPace = useMemo(() => {
+    const today = new Date();
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const currentDay = today.getFullYear() === year && today.getMonth() === month - 1 ? today.getDate() : daysInMonth;
+    
+    const dailyLimit = totalAllocated / daysInMonth;
+    const dailySpent = totalSpent / currentDay;
+    const diff = dailyLimit - dailySpent;
+
+    return {
+      dailyLimit,
+      dailySpent,
+      diff,
+      isUnder: diff >= 0
+    };
+  }, [totalAllocated, totalSpent, year, month]);
+
+  // Real Month Reminders and Bills Total
+  const activeBillsTotal = useMemo(() => {
+    const monthReminders = generateReminderOccurrences(state.reminders || [], state.reminderCompletions || [], year, month);
+    return monthReminders
+      .filter((r: any) => r.category === 'Bills' && r.status !== 'completed')
+      .reduce((acc: number, r: any) => acc + (r.amount || 0), 0);
+  }, [state.reminders, state.reminderCompletions, year, month]);
+
+  // Real Category Recommendation
+  const highestSpendingCat = useMemo(() => {
+    if (!categories || categories.length === 0) return null;
+    const sorted = [...categories].sort((a, b) => b.spent - a.spent);
+    return sorted[0].spent > 0 ? sorted[0] : null;
+  }, [categories]);
 
   return (
-    <div className="flex flex-col gap-6 w-full pb-20">
+    <div className="flex flex-col gap-6 w-full">
       
       {/* ─── Header Section ─── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -198,10 +300,17 @@ export const BudgetView: React.FC<BudgetViewProps> = ({ setShowNewBudget }) => {
           </div>
           <button 
             onClick={() => setShowNewBudget(true)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-white/5 border border-slate-200/60 dark:border-white/10 hover:border-blue-500 text-blue-600 rounded-2xl text-[13px] font-bold shadow-sm transition-all"
+            className="flex items-center gap-2 px-5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-2xl text-[13px] font-bold shadow-md shadow-blue-500/25 transition-all"
           >
             <Plus size={16} strokeWidth={3} />
             New Budget
+          </button>
+          <button 
+            onClick={() => setShowNewBudget(true)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-white/5 border border-slate-200/60 dark:border-white/10 hover:border-blue-500 text-slate-700 dark:text-slate-200 rounded-2xl text-[13px] font-bold shadow-sm transition-all"
+          >
+            <Sparkles size={16} />
+            Edit Limits
           </button>
         </div>
       </div>
@@ -229,10 +338,19 @@ export const BudgetView: React.FC<BudgetViewProps> = ({ setShowNewBudget }) => {
           
           {/* Total Budget Card */}
           <div className="vylos-glass-readable p-8">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
               
-              <div className="flex flex-col gap-2">
-                <span className="text-[13px] font-black text-slate-900 dark:text-white">Total Budget</span>
+              <div className="flex flex-col gap-2 min-w-[180px]">
+                <div className="flex items-center gap-2">
+                  <span className="text-[13px] font-black text-slate-900 dark:text-white">Total Budget</span>
+                  <button 
+                    onClick={() => setShowNewBudget(true)}
+                    className="p-1 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg text-blue-500 transition-colors"
+                    title="Edit Budget limits"
+                  >
+                    <Sparkles size={14} />
+                  </button>
+                </div>
                 <div className="text-[40px] font-black text-slate-900 dark:text-white tracking-tighter leading-none">
                   {formatCurrency(totalAllocated)}
                 </div>
@@ -245,36 +363,36 @@ export const BudgetView: React.FC<BudgetViewProps> = ({ setShowNewBudget }) => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-8">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-6 sm:gap-10 flex-1 w-full lg:justify-end">
                 {/* Circle Progress */}
-                <div className="relative w-24 h-24 flex items-center justify-center shrink-0">
+                <div className="relative w-20 h-20 flex items-center justify-center shrink-0">
                   <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                     <circle cx="50" cy="50" r="40" className="stroke-slate-100 dark:stroke-slate-800" strokeWidth="8" fill="none" />
-                    <circle cx="50" cy="50" r="40" className="stroke-blue-500 transition-all duration-1000" strokeWidth="8" fill="none" strokeDasharray={`${Math.min(100, percentageUsed) * 2.51} 251`} strokeLinecap="round" />
+                    <circle cx="50" cy="50" r="40" className={`transition-all duration-1000 ${overBudgetCategories.length > 0 ? 'stroke-red-500' : 'stroke-blue-500'}`} strokeWidth="8" fill="none" strokeDasharray={`${Math.min(100, percentageUsed) * 2.51} 251`} strokeLinecap="round" />
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-xl font-black text-slate-900 dark:text-white leading-none">{Math.round(percentageUsed)}%</span>
-                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">Used</span>
+                    <span className="text-lg font-black text-slate-900 dark:text-white leading-none">{Math.round(percentageUsed)}%</span>
+                    <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Used</span>
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-4 min-w-[200px]">
-                  <div className="flex justify-between items-end">
+                <div className="flex flex-col gap-3.5 flex-1 min-w-[240px] max-w-[340px] w-full">
+                  <div className="grid grid-cols-2 gap-8 w-full">
                     <div className="flex flex-col">
                       <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Spent</span>
                       <span className="text-xl font-black text-slate-900 dark:text-white leading-none mt-1">{formatCurrency(totalSpent)}</span>
                     </div>
                     <div className="flex flex-col text-right">
                       <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Remaining</span>
-                      <span className="text-xl font-black text-emerald-600 leading-none mt-1">{formatCurrency(Math.max(0, totalRemaining))}</span>
+                      <span className={`text-xl font-black leading-none mt-1 ${overBudgetCategories.length > 0 ? 'text-red-500 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{formatCurrency(Math.max(0, totalRemaining))}</span>
                     </div>
                   </div>
                   
-                  <div className="flex flex-col gap-1.5">
-                    <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-blue-500 rounded-full" style={{ width: `${Math.min(100, percentageUsed)}%` }} />
+                  <div className="flex flex-col gap-1.5 w-full">
+                    <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden w-full">
+                      <div className={`h-full rounded-full ${overBudgetCategories.length > 0 ? 'bg-red-500' : 'bg-blue-500'}`} style={{ width: `${Math.min(100, percentageUsed)}%` }} />
                     </div>
-                    <div className="flex justify-between items-center text-[10px] font-bold text-slate-400">
+                    <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 w-full">
                       <span>{Math.round(percentageUsed)}% of budget used</span>
                       <span>{daysLeft} days left</span>
                     </div>
@@ -286,8 +404,17 @@ export const BudgetView: React.FC<BudgetViewProps> = ({ setShowNewBudget }) => {
           </div>
 
           {/* Budget by Category Table */}
-          <div className="vylos-glass-readable p-8">
-            <h3 className="text-[15px] font-black text-slate-900 dark:text-white mb-6">Budget by Category</h3>
+          <div id="budget-by-category-table" className="vylos-glass-readable p-8 scroll-mt-24">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-[15px] font-black text-slate-900 dark:text-white">Budget by Category</h3>
+              <button 
+                onClick={() => setShowNewBudget(true)}
+                className="flex items-center gap-1 text-[10px] font-black text-blue-600 hover:text-blue-700 uppercase tracking-widest"
+              >
+                <Sparkles size={12} />
+                Edit Limits
+              </button>
+            </div>
             
             <div className="w-full overflow-x-auto no-scrollbar">
               <table className="w-full min-w-[500px]">
@@ -315,14 +442,14 @@ export const BudgetView: React.FC<BudgetViewProps> = ({ setShowNewBudget }) => {
                         <td className="text-right py-4 text-[13px] font-bold text-slate-500">{formatCurrency(cat.allocated)}</td>
                         <td className="text-right py-4 text-[13px] font-bold text-slate-900 dark:text-white">{formatCurrency(cat.spent)}</td>
                         <td className={`text-right py-4 text-[13px] font-bold ${isOver ? 'text-red-500' : 'text-slate-500'}`}>
-                          {isOver ? formatCurrency(cat.spent - cat.allocated) : formatCurrency(cat.remaining)}
+                          {isOver ? `-${formatCurrency(cat.spent - cat.allocated)} (Over)` : formatCurrency(cat.remaining)}
                         </td>
                         <td className="text-right py-4 align-middle">
                           <div className="flex items-center gap-3 justify-end">
                             <div className="w-20 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                              <div className={`h-full rounded-full ${isOver ? 'bg-red-500' : 'bg-emerald-500'}`} style={{ width: `${pct}%` }} />
+                              <div className={`h-full rounded-full ${isOver ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} style={{ width: `${pct}%` }} />
                             </div>
-                            <span className="text-[11px] font-bold text-slate-400 w-8 text-right">{Math.round(cat.percentageUsed)}%</span>
+                            <span className={`text-[11px] font-bold w-8 text-right ${isOver ? 'text-red-500 font-black' : 'text-slate-400'}`}>{Math.round(cat.percentageUsed)}%</span>
                           </div>
                         </td>
                       </tr>
@@ -332,7 +459,10 @@ export const BudgetView: React.FC<BudgetViewProps> = ({ setShowNewBudget }) => {
               </table>
             </div>
 
-            <button className="mt-4 text-[11px] font-black text-blue-600 hover:text-blue-700 transition-colors">
+            <button 
+              onClick={() => document.getElementById('budget-by-category-table')?.scrollIntoView({ behavior: 'smooth' })}
+              className="mt-4 text-[11px] font-black text-blue-600 hover:text-blue-700 transition-colors"
+            >
               View all categories
             </button>
           </div>
@@ -348,27 +478,24 @@ export const BudgetView: React.FC<BudgetViewProps> = ({ setShowNewBudget }) => {
               <HeartPulse size={16} className="text-emerald-500" />
               <h3 className="text-[13px] font-black text-slate-900 dark:text-white">Budget Health</h3>
             </div>
-            <div className="text-2xl font-black text-emerald-500 tracking-tight leading-none mb-2">Good</div>
+            <div className={`text-2xl font-black tracking-tight leading-none mb-2 ${healthColor}`}>{healthStatus}</div>
             <p className="text-[13px] font-medium text-slate-500 leading-relaxed mb-6">
-              You're on track to finish the month within budget.
+              {healthDesc}
             </p>
 
             <div className="flex flex-col gap-4 mb-6">
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5"><HeartPulse size={14} className="text-emerald-500" /></div>
-                <span className="text-[12px] font-medium text-slate-700 dark:text-slate-300">You're spending 18% less than planned</span>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5"><HeartPulse size={14} className="text-emerald-500" /></div>
-                <span className="text-[12px] font-medium text-slate-700 dark:text-slate-300">No categories are over budget</span>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5"><HeartPulse size={14} className="text-emerald-500" /></div>
-                <span className="text-[12px] font-medium text-slate-700 dark:text-slate-300">Great job staying on track!</span>
-              </div>
+              {healthBullets.map((bullet, idx) => (
+                <div key={idx} className="flex items-start gap-3">
+                  <div className="mt-0.5"><HeartPulse size={14} className="text-emerald-500" /></div>
+                  <span className="text-[12px] font-medium text-slate-700 dark:text-slate-300">{bullet}</span>
+                </div>
+              ))}
             </div>
 
-            <button className="text-[12px] font-bold text-blue-600 hover:text-blue-700 transition-colors flex items-center gap-1">
+            <button 
+              onClick={() => setShowHealthDetail?.(true)}
+              className="text-[12px] font-bold text-blue-600 hover:text-blue-700 transition-colors flex items-center gap-1"
+            >
               View full analysis <ChevronRight size={14} />
             </button>
           </div>
@@ -383,8 +510,11 @@ export const BudgetView: React.FC<BudgetViewProps> = ({ setShowNewBudget }) => {
             </div>
 
             <div className="flex flex-col gap-4">
-              <div className="flex gap-4 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors group">
-                <div className="w-10 h-10 rounded-[14px] bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
+              <div 
+                onClick={() => setShowHealthDetail?.(true)}
+                className="flex gap-4 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors group"
+              >
+                <div className={`w-10 h-10 rounded-[14px] text-white flex items-center justify-center shrink-0 ${spendingPace.isUnder ? 'bg-emerald-500 shadow-lg shadow-emerald-500/10' : 'bg-amber-500 shadow-lg shadow-amber-500/10'}`}>
                   <TrendingDown size={20} />
                 </div>
                 <div className="flex flex-col flex-1 min-w-0 justify-center">
@@ -392,13 +522,24 @@ export const BudgetView: React.FC<BudgetViewProps> = ({ setShowNewBudget }) => {
                     <span className="text-[13px] font-black text-slate-900 dark:text-white">Spending Pace</span>
                     <ChevronRight size={14} className="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
-                  <span className="text-[11px] font-medium text-slate-500 mt-0.5 leading-tight">You're spending $142 less per day than your monthly plan.</span>
+                  <span className="text-[11px] font-medium text-slate-500 mt-0.5 leading-tight">
+                    {spendingPace.isUnder 
+                      ? `You're spending ${formatCurrency(spendingPace.dailySpent)}/day. Under your dynamic daily limit by ${formatCurrency(spendingPace.diff)}.` 
+                      : `You're spending ${formatCurrency(spendingPace.dailySpent)}/day. Exceeding your daily limit by ${formatCurrency(Math.abs(spendingPace.diff))}.`
+                    }
+                  </span>
                   <span className="text-[10px] font-bold text-blue-600 mt-1">View details →</span>
                 </div>
               </div>
 
-              <div className="flex gap-4 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors group">
-                <div className="w-10 h-10 rounded-[14px] bg-blue-50 dark:bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0">
+              <div 
+                onClick={() => {
+                  const btn = document.querySelector('[data-view-tab="calendar"]');
+                  if (btn) (btn as HTMLButtonElement).click();
+                }}
+                className="flex gap-4 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors group"
+              >
+                <div className="w-10 h-10 rounded-[14px] bg-blue-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/10">
                   <Calendar size={20} />
                 </div>
                 <div className="flex flex-col flex-1 min-w-0 justify-center">
@@ -406,13 +547,21 @@ export const BudgetView: React.FC<BudgetViewProps> = ({ setShowNewBudget }) => {
                     <span className="text-[13px] font-black text-slate-900 dark:text-white">Upcoming Bills</span>
                     <ChevronRight size={14} className="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
-                  <span className="text-[11px] font-medium text-slate-500 mt-0.5 leading-tight">You have $1,245 in bills coming up this month.</span>
+                  <span className="text-[11px] font-medium text-slate-500 mt-0.5 leading-tight">
+                    {activeBillsTotal > 0 
+                      ? `You have ${formatCurrency(activeBillsTotal)} in unpaid bills remaining for this month.` 
+                      : "All of your monthly bills have been fully paid off. Excellent work!"
+                    }
+                  </span>
                   <span className="text-[10px] font-bold text-blue-600 mt-1">View calendar →</span>
                 </div>
               </div>
 
-              <div className="flex gap-4 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors group">
-                <div className="w-10 h-10 rounded-[14px] bg-purple-50 dark:bg-purple-500/10 text-purple-600 flex items-center justify-center shrink-0">
+              <div 
+                onClick={() => setShowNewBudget(true)}
+                className="flex gap-4 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors group"
+              >
+                <div className="w-10 h-10 rounded-[14px] bg-purple-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-purple-500/10">
                   <Shield size={20} />
                 </div>
                 <div className="flex flex-col flex-1 min-w-0 justify-center">
@@ -420,7 +569,12 @@ export const BudgetView: React.FC<BudgetViewProps> = ({ setShowNewBudget }) => {
                     <span className="text-[13px] font-black text-slate-900 dark:text-white">Save More</span>
                     <ChevronRight size={14} className="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
-                  <span className="text-[11px] font-medium text-slate-500 mt-0.5 leading-tight">You could save $210 this month by reducing Entertainment.</span>
+                  <span className="text-[11px] font-medium text-slate-500 mt-0.5 leading-tight">
+                    {highestSpendingCat 
+                      ? `Your top spending category is ${highestSpendingCat.name} (${formatCurrency(highestSpendingCat.spent)}). Try optimizing this category.` 
+                      : "Create budget limits to monitor category expenses and see tailored suggestions."
+                    }
+                  </span>
                   <span className="text-[10px] font-bold text-blue-600 mt-1">See recommendations →</span>
                 </div>
               </div>
@@ -472,7 +626,10 @@ export const BudgetView: React.FC<BudgetViewProps> = ({ setShowNewBudget }) => {
               })}
             </div>
           </div>
-          <button className="mt-4 text-[11px] font-black text-blue-600 hover:text-blue-700 transition-colors text-left w-fit">
+          <button 
+            onClick={() => document.getElementById('budget-by-category-table')?.scrollIntoView({ behavior: 'smooth' })}
+            className="mt-4 text-[11px] font-black text-blue-600 hover:text-blue-700 transition-colors text-left w-fit"
+          >
             View full breakdown
           </button>
         </div>
@@ -482,7 +639,10 @@ export const BudgetView: React.FC<BudgetViewProps> = ({ setShowNewBudget }) => {
           <h3 className="text-[15px] font-black text-slate-900 dark:text-white mb-4">Budget Actions</h3>
           
           <div className="flex flex-col gap-3 flex-1">
-            <div className="flex gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors border border-slate-100 dark:border-white/5">
+            <div 
+              onClick={() => setShowFundCategory?.(true)}
+              className="flex gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors border border-slate-100 dark:border-white/5"
+            >
               <div className="w-8 h-8 rounded-[10px] bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
                 <Divide size={16} />
               </div>
@@ -492,7 +652,10 @@ export const BudgetView: React.FC<BudgetViewProps> = ({ setShowNewBudget }) => {
               </div>
             </div>
 
-            <div className="flex gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors border border-slate-100 dark:border-white/5">
+            <div 
+              onClick={() => setShowNewBudget(true)}
+              className="flex gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors border border-slate-100 dark:border-white/5"
+            >
               <div className="w-8 h-8 rounded-[10px] bg-blue-50 dark:bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0">
                 <MoreHorizontal size={16} />
               </div>
@@ -516,7 +679,10 @@ export const BudgetView: React.FC<BudgetViewProps> = ({ setShowNewBudget }) => {
             </div>
           </div>
 
-          <button className="mt-2 text-[12px] font-black text-blue-600 hover:text-blue-700 transition-colors flex items-center gap-1">
+          <button 
+            onClick={() => setShowNewBudget(true)}
+            className="mt-2 text-[12px] font-black text-blue-600 hover:text-blue-700 transition-colors flex items-center gap-1"
+          >
             View all actions <ChevronRight size={14} />
           </button>
         </div>

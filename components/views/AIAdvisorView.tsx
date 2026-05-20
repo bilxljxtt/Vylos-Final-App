@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { 
   Sparkles, Send, Bot, User, Plus, 
   TrendingDown, Lightbulb, CheckCircle2, 
@@ -59,8 +59,8 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
     "Investment tips"
   ];
 
-  const health = computeHealthScoreMetrics(state);
-  const insights = VylosCalculations.getRecentInsights(state);
+  const health = useMemo(() => computeHealthScoreMetrics(state), [state]);
+  const insights = useMemo(() => VylosCalculations.getRecentInsights(state), [state]);
 
   // Visual Mockup specific messages if none exist (for design demonstration)
   const displayMessages = aiMessages.length > 0 ? aiMessages : [
@@ -70,6 +70,38 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
   if (!hasAccess) {
     return null;
   }
+
+  const renderMessageContent = (content: string) => {
+    // Regex to match [Button Text|pageName]
+    const linkRegex = /\[([^\|]+)\|([^\]]+)\]/g;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = linkRegex.exec(content)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(<span key={lastIndex}>{content.substring(lastIndex, match.index)}</span>);
+      }
+      const label = match[1];
+      const targetPage = match[2];
+      parts.push(
+        <button 
+          key={match.index}
+          onClick={() => setPage(targetPage)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 mx-1 mt-2 mb-1 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/40 text-[12px] font-black uppercase tracking-widest text-white rounded-lg transition-all active:scale-95"
+        >
+          {label} <ArrowRight size={14} />
+        </button>
+      );
+      lastIndex = linkRegex.lastIndex;
+    }
+    
+    if (lastIndex < content.length) {
+      parts.push(<span key={lastIndex}>{content.substring(lastIndex)}</span>);
+    }
+
+    return parts.length > 0 ? parts : content;
+  };
 
   return (
     <div className="flex flex-col gap-6 w-full h-full max-h-full">
@@ -106,8 +138,8 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
                   <div className={`p-5 rounded-[1.75rem] text-[14px] font-bold leading-relaxed shadow-xl
                     ${isUser 
                       ? 'bg-primary text-white rounded-tr-sm' 
-                      : 'bg-white/5 border border-white/10 text-slate-900 dark:text-white/80 rounded-tl-sm'}`}>
-                    {msg.content}
+                      : 'bg-white/5 border border-white/10 text-slate-900 dark:text-white/80 rounded-tl-sm whitespace-pre-wrap'}`}>
+                    {renderMessageContent(msg.content)}
                   </div>
                 </div>
               )
@@ -203,7 +235,7 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
             
             <div className="flex items-center gap-3 mb-8 relative z-10">
               <Activity size={18} className="text-white/80" />
-              <h3 className="text-[12px] font-black tracking-[0.2em] uppercase text-white/80">Platform Health</h3>
+              <h3 className="text-[12px] font-black tracking-[0.2em] uppercase text-white/80">Financial Health</h3>
             </div>
 
             <div className="flex items-end gap-3 mb-3 relative z-10">

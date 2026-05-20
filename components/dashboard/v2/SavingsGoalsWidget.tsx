@@ -8,23 +8,35 @@ interface SavingsGoalsWidgetProps {
   goals: any[];
   formatCurrency: (val: number) => string;
   onAddGoal: () => void;
+  onViewAll?: () => void;
 }
 
 export const SavingsGoalsWidget: React.FC<SavingsGoalsWidgetProps> = ({ 
-  goals, formatCurrency, onAddGoal 
+  goals, formatCurrency, onAddGoal, onViewAll
 }) => {
-  const displayGoals = goals.slice(0, 2);
+  const activeGoals = goals.filter(g => g.status !== 'Completed');
+  const displayGoals = activeGoals.length > 0 ? activeGoals : goals; // Fallback to all if somehow everything is completed or empty
 
   return (
     <GlassCard p="p-8" className="flex flex-col">
       <div className="flex items-center justify-between mb-8">
         <h4 className="text-base font-black text-slate-900 dark:text-white tracking-tighter">Savings Goals</h4>
-        <button 
-          onClick={onAddGoal}
-          className="bg-blue-600 text-white w-8 h-8 rounded-xl flex items-center justify-center shadow-lg hover:scale-110 transition-all"
-        >
-          <Plus size={18} strokeWidth={3} />
-        </button>
+        <div className="flex items-center gap-4">
+          {onViewAll && (
+            <button 
+              onClick={onViewAll}
+              className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest hover:underline"
+            >
+              View All
+            </button>
+          )}
+          <button 
+            onClick={onAddGoal}
+            className="bg-blue-600 text-white w-8 h-8 rounded-xl flex items-center justify-center shadow-lg hover:scale-110 transition-all"
+          >
+            <Plus size={18} strokeWidth={3} />
+          </button>
+        </div>
       </div>
       <div className="flex flex-col gap-8 flex-1">
         {goals.length > 0 ? displayGoals.map((goal, i) => {

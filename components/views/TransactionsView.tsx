@@ -3,9 +3,10 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { 
   Search, Download, MoreHorizontal, ChevronDown, 
-  TrendingUp, TrendingDown, FileText, Globe, Music, Zap, Building2, Car, Coffee, Briefcase, ShoppingBag, Calendar, Plus, Upload
+  TrendingUp, TrendingDown, FileText, Globe, Music, Zap, Building2, Car, Coffee, Briefcase, ShoppingBag, Calendar, Plus, Upload, Loader2
 } from "lucide-react";
 import { useAppStore } from "@/lib/AppContext";
+import { createClient } from "@/utils/supabase/client";
 import { cleanMerchantName, formatDate } from "@/lib/utils";
 import { V2Select } from "../ui/V2Select";
 import { VylosCalculations } from "@/lib/vylosCalculations";
@@ -14,6 +15,7 @@ import Chart from "chart.js/auto";
 import { TransactionIcon } from "@/components/ui/TransactionIcon";
 import { ImportTransactionsModal } from "@/components/modals/ImportTransactionsModal";
 import { ExportTransactionsModal } from "@/components/modals/ExportTransactionsModal";
+import { ScanReceiptModal } from "@/components/modals/ScanReceiptModal";
 
 interface TransactionsViewProps {
   transactions: any[];
@@ -22,32 +24,91 @@ interface TransactionsViewProps {
   setShowAddTx: (show: boolean) => void;
   deleteTx: (id: string) => void;
   setPage: (page: string) => void;
+  setShowExportModal?: (show: boolean) => void;
   trends?: { incomeTrend: number; expenseTrend: number; netWorthTrend: number; };
 }
 
 export const TransactionsView: React.FC<TransactionsViewProps> = ({ 
-  transactions, filterCat, setFilterCat, setShowAddTx, deleteTx, setPage
+  transactions, filterCat, setFilterCat, setShowAddTx, deleteTx, setPage, setShowExportModal
 }) => {
   const { formatCurrency, state } = useAppStore();
+  const [visibleCount, setVisibleCount] = useState(50);
   const [searchTerm, setSearchTerm] = useState("");
-  const [showImportModal, setShowImportModal] = useState(false);
-  const [showExportModal, setShowExportModal] = useState(false);
+  const [dateRange, setDateRange] = useState({ start: "", end: "" });
+  const [showExportModal, setShowExportModalLocal] = useState(false);
+  const [showScanReceiptModal, setShowScanReceiptModal] = useState(false);
+  const [selectedTransactionId, setSelectedTransactionId] = useState<string | undefined>(undefined);
+
+  // Receipts State & Fetcher
+  const [receipts, setReceipts] = useState<any[]>([]);
+  const [loadingReceipts, setLoadingReceipts] = useState(false);
+
+  const fetchReceipts = async () => {
+    setLoadingReceipts(true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("receipts")
+        .select("*")
+        .order("created_at", { ascending: false });
+      
+      if (!error && data) {
+        setReceipts(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch receipts:", err);
+    } finally {
+      setLoadingReceipts(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchReceipts();
+  }, []);
+
+  const handleViewReceipt = async (filePath: string) => {
+    try {
+      const res = await fetch("/api/receipt-upload/signed-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filePath })
+      });
+      const data = await res.json();
+      
+      if (res.ok && data.success && data.signedUrl) {
+        window.open(data.signedUrl, "_blank");
+      } else {
+        alert(data.error || "Failed to generate secure URL.");
+      }
+    } catch (err) {
+      console.error("Error viewing receipt:", err);
+    }
+  };
   const donutRef = useRef<HTMLCanvasElement | null>(null);
   const donutInst = useRef<any>(null);
 
   const fullFilteredTxs = useMemo(() => {
-    return transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).filter(t => {
+    const start = performance.now();
+    const res = transactions.filter(t => {
       const matchesSearch = t.merchant.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCat = filterCat === "All" || t.category === filterCat;
-      return matchesSearch && matchesCat;
-    });
-  }, [transactions, searchTerm, filterCat]);
+      
+      let matchesDate = true;
+      if (dateRange.start) matchesDate = matchesDate && t.date >= dateRange.start;
+      if (dateRange.end) matchesDate = matchesDate && t.date <= dateRange.end;
 
-  const filteredTxs = fullFilteredTxs;
+      return matchesSearch && matchesCat && matchesDate;
+    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const end = performance.now();
+    if (end - start > 10) console.log(`[Perf] Transaction filtering took ${(end - start).toFixed(2)}ms`);
+    return res;
+  }, [transactions, searchTerm, filterCat, dateRange]);
 
-  const stats = useMemo(() => VylosCalculations.getMonthStats(state, state.selectedMonth), [state]);
-  const spendByCatMap = useMemo(() => VylosCalculations.getSpendingByCategory(state, state.selectedMonth), [state]);
-  const allocation = useMemo(() => VylosCalculations.getAllocationPercentages(state, state.selectedMonth), [state]);
+  const filteredTxs = useMemo(() => fullFilteredTxs.slice(0, visibleCount), [fullFilteredTxs, visibleCount]);
+
+  const stats = useMemo(() => VylosCalculations.getMonthStats({ transactions: state.transactions, budgets: state.budgets, goals: state.goals } as any, state.selectedMonth), [state.transactions, state.budgets, state.goals, state.selectedMonth]);
+  const spendByCatMap = useMemo(() => VylosCalculations.getSpendingByCategory({ transactions: state.transactions } as any, state.selectedMonth), [state.transactions, state.selectedMonth]);
+  const allocation = useMemo(() => VylosCalculations.getAllocationPercentages({ transactions: state.transactions } as any, state.selectedMonth), [state.transactions, state.selectedMonth]);
 
   const prevMonth = useMemo(() => {
     const d = new Date(state.selectedMonth);
@@ -57,15 +118,15 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
   const prevStats = useMemo(() => VylosCalculations.getMonthStats(state, prevMonth), [state, prevMonth]);
   const spendingTrend = prevStats.expense > 0 ? ((stats.expense - prevStats.expense) / prevStats.expense) * 100 : 0;
 
-  const spendingSummary = {
+  const spendingSummary = useMemo(() => ({
     total: stats.expense,
     trend: `${spendingTrend >= 0 ? '+' : ''}${spendingTrend.toFixed(1)}%`,
     needs: { pct: allocation.needs, amt: stats.expense * (allocation.needs / 100), color: "#2563EB" },
     wants: { pct: allocation.wants, amt: stats.expense * (allocation.wants / 100), color: "#06B6D4" },
     savings: { pct: Math.max(0, 100 - (allocation.needs + allocation.wants)), amt: stats.income - stats.expense, color: "#8B5CF6" }
-  };
+  }), [stats.expense, stats.income, allocation, spendingTrend]);
 
-  const recurringPayments = state.reminders
+  const recurringPayments = useMemo(() => state.reminders
     .filter(r => r.recurring !== 'none' && r.status !== 'completed')
     .slice(0, 3)
     .map(r => ({
@@ -74,9 +135,9 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
       amt: r.amount || 0,
       due: `Due ${r.due_date}`,
       iconBg: "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-white"
-    }));
+    })), [state.reminders]);
 
-  const spendingByCategory = Object.entries(spendByCatMap)
+  const spendingByCategory = useMemo(() => Object.entries(spendByCatMap)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
     .map(([name, amt]) => ({
@@ -84,7 +145,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
       amt,
       pct: stats.expense > 0 ? Math.round((amt / stats.expense) * 100) : 0,
       color: CATEGORY_METADATA[name as TransactionCategory]?.color || "#94A3B8"
-    }));
+    })), [spendByCatMap, stats.expense]);
 
   useEffect(() => {
     if (!donutRef.current) return;
@@ -162,27 +223,50 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
               label="Category Filter"
             />
           </div>
-          <button className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl text-[13px] font-bold text-slate-700 dark:text-slate-300 hover:border-blue-500 shadow-sm transition-all whitespace-nowrap">
-            <Calendar size={16} className="text-slate-400" /> Date Range <ChevronDown size={16} className="text-slate-400" />
-          </button>
+          <div className="flex items-center gap-2 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-1 shadow-sm">
+            <Calendar size={16} className="text-slate-400" />
+            <input 
+              type="date" 
+              value={dateRange.start}
+              onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+              className="bg-transparent text-[11px] font-bold text-slate-700 dark:text-slate-300 focus:outline-none"
+            />
+            <span className="text-slate-400 text-[11px]">-</span>
+            <input 
+              type="date" 
+              value={dateRange.end}
+              onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+              className="bg-transparent text-[11px] font-bold text-slate-700 dark:text-slate-300 focus:outline-none"
+            />
+          </div>
           
           <div className="flex items-center gap-2 ml-auto">
             <button 
-              onClick={() => setShowImportModal(true)}
-              className="w-11 h-11 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl flex items-center justify-center text-blue-600 hover:border-blue-500 shadow-sm transition-all shrink-0"
+              onClick={() => {
+                setSelectedTransactionId(undefined);
+                setShowScanReceiptModal(true);
+              }}
+              className="px-4 h-11 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl flex items-center gap-2 text-blue-600 hover:border-blue-500 shadow-sm transition-all shrink-0"
+              title="Upload Receipt"
+            >
+              <Upload size={18} />
+              <span className="text-[11px] font-black uppercase tracking-widest">Upload Receipt</span>
+            </button>
+            <button 
+              onClick={() => setPage("import")}
+              className="px-4 h-11 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl flex items-center gap-2 text-blue-600 hover:border-blue-500 shadow-sm transition-all shrink-0"
               title="Import Transactions"
             >
               <Upload size={18} />
+              <span className="text-[11px] font-black uppercase tracking-widest">Import</span>
             </button>
             <button 
-              onClick={() => setShowExportModal(true)}
-              className="w-11 h-11 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl flex items-center justify-center text-blue-600 hover:border-blue-500 shadow-sm transition-all shrink-0"
+              onClick={() => setShowExportModalLocal(true)}
+              className="px-4 h-11 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl flex items-center gap-2 text-blue-600 hover:border-blue-500 shadow-sm transition-all shrink-0"
               title="Export Transactions"
             >
               <Download size={18} />
-            </button>
-            <button className="w-11 h-11 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:border-blue-500 shadow-sm transition-all shrink-0">
-              <MoreHorizontal size={18} />
+              <span className="text-[11px] font-black uppercase tracking-widest">Export</span>
             </button>
           </div>
         </div>
@@ -211,6 +295,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
                     <th className="text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest pb-4">Category</th>
                     <th className="text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest pb-4">Date</th>
                     <th className="text-right text-[11px] font-bold text-slate-400 uppercase tracking-widest pb-4">Amount</th>
+                    <th className="text-right text-[11px] font-bold text-slate-400 uppercase tracking-widest pb-4 pr-4">Receipt</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -256,12 +341,53 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
                             <span className="text-[10px] font-bold text-slate-400 mt-0.5">{isIncome ? 'Inflow' : 'Outflow'}</span>
                           </div>
                         </td>
+                        <td className="py-4 text-right pr-4">
+                          {(() => {
+                            const matched = receipts.find(r => r.transaction_id === tx.id);
+                            if (matched) {
+                              return (
+                                <button
+                                  onClick={() => handleViewReceipt(matched.file_path)}
+                                  className="p-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-xl transition-all shadow-sm shrink-0 inline-flex items-center justify-center gap-1.5 group/btn"
+                                  title="View Linked Receipt"
+                                >
+                                  <FileText size={14} className="group-hover/btn:scale-110 transition-transform" />
+                                  <span className="text-[9px] font-black uppercase tracking-widest hidden sm:inline">View</span>
+                                </button>
+                              );
+                            }
+                            return (
+                              <button
+                                onClick={() => {
+                                  setSelectedTransactionId(tx.id);
+                                  setShowScanReceiptModal(true);
+                                }}
+                                className="p-2 bg-white/5 border border-slate-200 dark:border-white/10 hover:border-blue-500/50 hover:bg-blue-500/5 text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 rounded-xl transition-all inline-flex items-center justify-center gap-1.5 group/btn"
+                                title="Attach Receipt"
+                              >
+                                <Plus size={14} className="group-hover/btn:scale-110 transition-transform" />
+                                <span className="text-[9px] font-black uppercase tracking-widest hidden sm:inline">Link</span>
+                              </button>
+                            );
+                          })()}
+                        </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
             </div>
+
+            {fullFilteredTxs.length > visibleCount && (
+              <div className="flex justify-center mt-8">
+                <button 
+                  onClick={() => setVisibleCount(prev => prev + 50)}
+                  className="px-8 py-3 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 font-black text-[11px] uppercase tracking-widest rounded-xl transition-all border border-slate-200 dark:border-white/10"
+                >
+                  Load More Transactions
+                </button>
+              </div>
+            )}
 
 
           </div>
@@ -274,9 +400,9 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
           <div className="vylos-glass-readable p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-[13px] font-black text-slate-900 dark:text-white">Spending Summary</h3>
-              <button className="flex items-center gap-1 text-[11px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-500/10 px-2 py-1 rounded-md">
-                This Month <ChevronDown size={12} />
-              </button>
+              <div className="flex items-center gap-1 text-[11px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-500/10 px-2 py-1 rounded-md">
+                This Month
+              </div>
             </div>
             
             <div className="flex items-center justify-between mb-6">
@@ -327,7 +453,12 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
           <div className="vylos-glass-readable p-6">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-[13px] font-black text-slate-900 dark:text-white">Recurring Payments</h3>
-              <button className="text-[11px] font-black text-blue-600 hover:underline uppercase tracking-widest">View all</button>
+              <button 
+                onClick={() => setPage("reminders")}
+                className="text-[11px] font-black text-blue-600 hover:underline uppercase tracking-widest"
+              >
+                View all
+              </button>
             </div>
             
             <div className="flex flex-col gap-4 mb-4">
@@ -360,9 +491,9 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
           <div className="vylos-glass-readable p-6 flex flex-col h-full">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-[13px] font-black text-slate-900 dark:text-white">Spending by Category</h3>
-              <button className="flex items-center gap-1 text-[11px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-500/10 px-2 py-1 rounded-md">
-                This Month <ChevronDown size={12} />
-              </button>
+              <div className="flex items-center gap-1 text-[11px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-500/10 px-2 py-1 rounded-md">
+                This Month
+              </div>
             </div>
             
             <div className="flex flex-col gap-4 flex-1">
@@ -388,9 +519,65 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
             </div>
 
             <div className="mt-4 pt-4 border-t border-slate-100 dark:border-white/5 flex justify-center">
-              <button className="text-[12px] font-black text-blue-600 hover:text-blue-700 transition-colors">
+              <button 
+                onClick={() => setPage("analytics")}
+                className="text-[12px] font-black text-blue-600 hover:text-blue-700 transition-colors"
+              >
                 View full breakdown
               </button>
+            </div>
+          </div>
+
+          {/* Recent Receipts Panel */}
+          <div className="vylos-glass-readable p-6 flex flex-col">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-[13px] font-black text-slate-900 dark:text-white">Recent Receipts</h3>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 dark:bg-white/5 px-2 py-1 rounded-md">
+                {receipts.length} Captured
+              </span>
+            </div>
+            
+            <div className="flex flex-col gap-3 max-h-64 overflow-y-auto no-scrollbar">
+              {loadingReceipts ? (
+                <div className="py-6 flex items-center justify-center text-text-muted gap-2 text-xs font-bold">
+                  <Loader2 size={14} className="animate-spin" />
+                  <span>Syncing...</span>
+                </div>
+              ) : receipts.length === 0 ? (
+                <div className="py-8 text-center text-xs font-bold text-slate-400 border border-dashed border-slate-200 dark:border-white/5 rounded-2xl">
+                  No captured receipts yet. Use the Scan Receipt button to scan!
+                </div>
+              ) : (
+                receipts.map((rec: any) => (
+                  <div 
+                    key={rec.id} 
+                    onClick={() => handleViewReceipt(rec.file_path)}
+                    className="p-3 bg-slate-50 hover:bg-slate-100 dark:bg-white/5 dark:hover:bg-white/10 rounded-2xl border border-slate-100 dark:border-white/5 flex items-center justify-between cursor-pointer transition-all active:scale-[0.98] group"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:scale-105 transition-transform">
+                        <FileText size={18} />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[12px] font-black text-slate-900 dark:text-white truncate">
+                          {rec.merchant_name || "Captured Receipt"}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-400">
+                          {new Date(rec.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <span className="text-[12px] font-black text-blue-600 dark:text-blue-400">
+                        View
+                      </span>
+                      <span className="text-[9px] font-bold text-slate-400">
+                        {(rec.file_size / (1024 * 1024)).toFixed(2)} MB
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -398,14 +585,17 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
 
       </div>
 
-      <ImportTransactionsModal 
-        isOpen={showImportModal} 
-        onClose={() => setShowImportModal(false)} 
-      />
       <ExportTransactionsModal 
         isOpen={showExportModal} 
-        onClose={() => setShowExportModal(false)} 
+        onClose={() => setShowExportModalLocal(false)} 
         data={fullFilteredTxs}
+      />
+
+      <ScanReceiptModal
+        isOpen={showScanReceiptModal}
+        onClose={() => setShowScanReceiptModal(false)}
+        onUploadSuccess={fetchReceipts}
+        transactionId={selectedTransactionId}
       />
     </div>
   );

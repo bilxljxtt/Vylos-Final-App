@@ -48,6 +48,28 @@ const SegmentedControl = ({
   </div>
 );
 
+const STANDARD_CATEGORIES = [
+  "Bills",
+  "Subscriptions",
+  "Savings",
+  "Entertainment",
+  "Health",
+  "Other"
+];
+
+const PRIORITY_OPTIONS = [
+  { label: "Low", value: "low" },
+  { label: "Medium", value: "medium" },
+  { label: "High", value: "high" }
+];
+
+const RECURRING_OPTIONS = [
+  { label: "Once-off", value: "none" },
+  { label: "Daily", value: "daily" },
+  { label: "Weekly", value: "weekly" },
+  { label: "Monthly", value: "monthly" }
+];
+
 export function CalendarEventModal({ isOpen, onClose, editingEvent }: CalendarEventModalProps) {
   const { addReminder, updateReminder } = useAppStore();
   const { toast } = useToast();
@@ -98,7 +120,7 @@ export function CalendarEventModal({ isOpen, onClose, editingEvent }: CalendarEv
         amount: "",
       });
     }
-  }, [editingEvent, isOpen]);
+  }, [editingEvent?.id, isOpen]);
 
   if (!isOpen) return null;
   
@@ -113,42 +135,42 @@ export function CalendarEventModal({ isOpen, onClose, editingEvent }: CalendarEv
         status: editingEvent ? editingEvent.status : "pending" as const
       };
 
-      if (editingEvent) {
-        await updateReminder(editingEvent.id, payload);
-        toast("Event updated successfully", "success");
-      } else {
-        await addReminder(payload);
-        toast("New event added to calendar", "success");
-      }
+      const savePromise = (async () => {
+        if (editingEvent) {
+          await updateReminder(editingEvent.id, payload);
+          console.log("Updated reminder:", payload);
+          console.log("Reminder date field:", payload.due_date);
+          toast("Event updated successfully", "success");
+        } else {
+          await addReminder(payload);
+          console.log("Saved reminder:", payload);
+          console.log("Reminder date field:", payload.due_date);
+          toast("New event added to calendar", "success");
+        }
+      })();
+
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          const err = new Error("Request timed out. Please check your connection and try again.");
+          err.name = "AbortError";
+          reject(err);
+        }, 15000);
+      });
+
+      await Promise.race([savePromise, timeoutPromise]);
       onClose();
     } catch (err: any) {
-      toast(err.message, "error");
+      console.error("Calendar event save error:", err);
+      if (err.name === 'AbortError') {
+        toast("Request timed out. Please check your connection and try again.", "error");
+      } else {
+        toast(err.message || "Failed to save event. Please check your data and try again.", "error");
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const standardCategories = [
-    "Bills",
-    "Subscriptions",
-    "Savings",
-    "Entertainment",
-    "Health",
-    "Other"
-  ];
-
-  const priorityOptions = [
-    { label: "Low", value: "low" },
-    { label: "Medium", value: "medium" },
-    { label: "High", value: "high" }
-  ];
-
-  const recurringOptions = [
-    { label: "Once-off", value: "none" },
-    { label: "Daily", value: "daily" },
-    { label: "Weekly", value: "weekly" },
-    { label: "Monthly", value: "monthly" }
-  ];
 
   return (
     <Portal>
@@ -246,7 +268,7 @@ export function CalendarEventModal({ isOpen, onClose, editingEvent }: CalendarEv
                 <div className="space-y-4">
                   <label className="text-[11px] font-black text-text-main uppercase tracking-widest ml-1 opacity-80">Category</label>
                   <div className="grid grid-cols-2 gap-3">
-                    {standardCategories.map(cat => (
+                    {STANDARD_CATEGORIES.map(cat => (
                       <button
                         key={cat}
                         type="button"
@@ -267,14 +289,14 @@ export function CalendarEventModal({ isOpen, onClose, editingEvent }: CalendarEv
                 <div className="space-y-10">
                   <SegmentedControl 
                     label="Priority Level"
-                    options={priorityOptions}
+                    options={PRIORITY_OPTIONS}
                     value={formData.priority}
                     onChange={(val) => setFormData({...formData, priority: val})}
                   />
                   
                   <SegmentedControl 
                     label="Recurrence"
-                    options={recurringOptions}
+                    options={RECURRING_OPTIONS}
                     value={formData.recurring}
                     onChange={(val) => setFormData({...formData, recurring: val})}
                   />

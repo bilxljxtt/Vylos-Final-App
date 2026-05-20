@@ -29,12 +29,154 @@ export function AnalyticsView({ netWorth = 124500, chartRef }: AnalyticsViewProp
 
   const [activeTab, setActiveTab] = useState("This Month");
 
-  const stats = useMemo(() => VylosCalculations.getMonthStats(state, state.selectedMonth), [state]);
-  const trendData = useMemo(() => VylosCalculations.getMonthlyTrend(state), [state]);
-  const { labels: spendingLabels, planned: spendingPlanned, actual: spendingActual } = useMemo(() => 
-    VylosCalculations.getPlannedVsActual(state, state.selectedMonth), 
-    [state]
-  );
+  // Determine months count to aggregate based on activeTab
+  const monthsCount = useMemo(() => {
+    if (activeTab === "3 Months") return 3;
+    if (activeTab === "6 Months") return 6;
+    if (activeTab === "YTD") {
+      const now = new Date(state.selectedMonth);
+      return now.getMonth() + 1; // from Jan to selected month
+    }
+    if (activeTab === "Custom") return 12;
+    return 1; // "This Month"
+  }, [activeTab, state.selectedMonth]);
+
+  // Aggregate stats across the selected timeframe
+  const stats = useMemo(() => {
+    const now = new Date(state.selectedMonth);
+    const monthsPrefixes: string[] = [];
+    for (let i = 0; i < monthsCount; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      monthsPrefixes.push(d.toISOString().slice(0, 7));
+    }
+
+    let totalIncome = 0;
+    let totalExpense = 0;
+    let investmentSpend = 0;
+    const investmentCategories = ["Savings", "Debt Payments"];
+    const allTxs = state.transactions;
+
+    for (let i = 0; i < allTxs.length; i++) {
+      const t = allTxs[i];
+      const tMonthPrefix = t.date.slice(0, 7);
+      if (monthsPrefixes.includes(tMonthPrefix) && !VylosCalculations.isBudgetRecord(t.merchant)) {
+        if (investmentCategories.includes(t.category)) {
+          investmentSpend += Math.abs(t.amount);
+        }
+        if (t.amount > 0) {
+          totalIncome += t.amount;
+        } else {
+          totalExpense += Math.abs(t.amount);
+        }
+      }
+    }
+
+    let netWorth = 0;
+    const selectedMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).getTime();
+    for (let i = 0; i < allTxs.length; i++) {
+      const t = allTxs[i];
+      const tTime = new Date(t.date).getTime();
+      if (tTime <= selectedMonthEnd && !VylosCalculations.isBudgetRecord(t.merchant)) {
+        netWorth += t.amount;
+      }
+    }
+
+    const totalSaved = state.goals.reduce((acc, g) => acc + g.currentAmount, 0);
+    const baseBudget = Object.values(state.budgets).reduce((sum, b) => sum + (b?.limit || 0), 0);
+    const totalBudget = baseBudget * monthsCount;
+
+    return {
+      income: totalIncome,
+      expense: totalExpense,
+      netWorth: Number.isFinite(netWorth) ? netWorth : 0,
+      savingsRate: totalIncome > 0 ? Math.max(0, Math.round(((totalIncome - totalExpense) / totalIncome) * 100)) : 0,
+      totalSaved: Math.max(0, totalSaved),
+      budgetUtilization: totalBudget > 0 ? Math.round((totalExpense / totalBudget) * 100) : 0,
+      activeGoalsCount: state.goals.filter(g => g.status === 'On Track' || g.status === 'At Risk').length,
+      portfolioTotal: Number.isFinite(investmentSpend + totalSaved) ? (investmentSpend + totalSaved) : 0,
+      cashFlowIndex: totalIncome - totalExpense
+    };
+  }, [state, monthsCount]);
+
+  // Compute dynamic preceding month stats to show real comparisons
+  const prevStats = useMemo(() => {
+    const now = new Date(state.selectedMonth);
+    const prevRangeStart = new Date(now.getFullYear(), now.getMonth() - monthsCount, 1);
+    const prevMonthsPrefixes: string[] = [];
+    for (let i = 0; i < monthsCount; i++) {
+      const d = new Date(prevRangeStart.getFullYear(), prevRangeStart.getMonth() - i, 1);
+      prevMonthsPrefixes.push(d.toISOString().slice(0, 7));
+    }
+
+    let prevIncome = 0;
+    let prevExpense = 0;
+    const allTxs = state.transactions;
+
+    for (let i = 0; i < allTxs.length; i++) {
+      const t = allTxs[i];
+      const tMonthPrefix = t.date.slice(0, 7);
+      if (prevMonthsPrefixes.includes(tMonthPrefix) && !VylosCalculations.isBudgetRecord(t.merchant)) {
+        if (t.amount > 0) {
+          prevIncome += t.amount;
+        } else {
+          prevExpense += Math.abs(t.amount);
+        }
+      }
+    }
+
+    return {
+      income: prevIncome,
+      expense: prevExpense,
+      saved: prevIncome - prevExpense,
+      savingsRate: prevIncome > 0 ? Math.max(0, Math.round(((prevIncome - prevExpense) / prevIncome) * 100)) : 0
+    };
+  }, [state, monthsCount]);
+
+  const trendData = useMemo(() => {
+    return VylosCalculations.getMonthlyTrend(state, activeTab === "This Month" ? 6 : monthsCount);
+  }, [state, activeTab, monthsCount]);
+
+  const { spendingLabels, spendingPlanned, spendingActual, isDailyView } = useMemo(() => {
+    if (activeTab === "This Month") {
+      const { labels, planned, actual } = VylosCalculations.getPlannedVsActual(state, state.selectedMonth);
+      return {
+        spendingLabels: labels.map(l => l.slice(8)),
+        spendingPlanned: planned,
+        spendingActual: actual,
+        isDailyView: true
+      };
+    } else {
+      const now = new Date(state.selectedMonth);
+      const labels = [];
+      const spentData = [];
+      const budgetData = [];
+
+      const baseBudget = Object.values(state.budgets).reduce((sum, b) => sum + (b?.limit || 0), 0);
+
+      for (let i = monthsCount - 1; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const monthPrefix = d.toISOString().slice(0, 7);
+        labels.push(d.toLocaleString('default', { month: 'short' }));
+        
+        let monthSpent = 0;
+        for (let j = 0; j < state.transactions.length; j++) {
+          const t = state.transactions[j];
+          if (t.date.startsWith(monthPrefix) && t.amount < 0 && !VylosCalculations.isBudgetRecord(t.merchant)) {
+            monthSpent += Math.abs(t.amount);
+          }
+        }
+        spentData.push(Math.round(monthSpent));
+        budgetData.push(Math.round(baseBudget));
+      }
+
+      return {
+        spendingLabels: labels,
+        spendingPlanned: budgetData,
+        spendingActual: spentData,
+        isDailyView: false
+      };
+    }
+  }, [state, activeTab, monthsCount]);
 
   const health = useMemo(() => computeHealthScoreMetrics(state), [state]);
 
@@ -45,21 +187,21 @@ export function AnalyticsView({ netWorth = 124500, chartRef }: AnalyticsViewProp
       spendingInst.current = new Chart(spendingChartRef.current, {
         type: 'line',
         data: {
-          labels: spendingLabels.map(l => l.slice(8)),
+          labels: isDailyView ? spendingLabels.map(l => l.slice(8)) : spendingLabels,
           datasets: [
             {
-              label: 'This Month',
+              label: isDailyView ? 'This Month' : 'Actual Spend',
               data: spendingActual,
               borderColor: '#3B82F6',
               backgroundColor: 'rgba(59, 130, 246, 0.1)',
               borderWidth: 3,
               fill: true,
               tension: 0.4,
-              pointRadius: 0,
+              pointRadius: isDailyView ? 0 : 4,
               pointHitRadius: 10
             },
             {
-              label: 'Planned',
+              label: isDailyView ? 'Planned' : 'Planned Budget',
               data: spendingPlanned,
               borderColor: '#94A3B8',
               borderWidth: 2,
@@ -96,7 +238,7 @@ export function AnalyticsView({ netWorth = 124500, chartRef }: AnalyticsViewProp
             data: trendData.map(t => t.netWorth),
             backgroundColor: '#10B981',
             borderRadius: 4,
-            barThickness: 24
+            barThickness: Math.min(24, Math.max(8, 120 / (trendData.length || 1)))
           }]
         },
         options: {
@@ -119,7 +261,98 @@ export function AnalyticsView({ netWorth = 124500, chartRef }: AnalyticsViewProp
       if (spendingInst.current) spendingInst.current.destroy();
       if (savingsInst.current) savingsInst.current.destroy();
     };
-  }, [spendingLabels, spendingPlanned, spendingActual, trendData, formatCurrency]);
+  }, [spendingLabels, spendingPlanned, spendingActual, isDailyView, trendData, formatCurrency]);
+
+  // Dynamic growth metrics and comparisons
+  const comparisons = useMemo(() => {
+    const healthDiff = health.score - 72; // benchmark 72
+    const prevSaved = prevStats.saved > 0 ? prevStats.saved : 5000;
+    const savingsDiffPct = Math.round(((stats.totalSaved - prevSaved) / prevSaved) * 100);
+    const currentSaved = stats.income - stats.expense;
+    const prevSavedAmount = prevStats.saved !== 0 ? prevStats.saved : 2000;
+    const savedAmountDiffPct = Math.round(((currentSaved - prevSavedAmount) / Math.abs(prevSavedAmount)) * 100);
+    const currentAdherence = 100 - health.stats.budgetUtilization;
+    const prevAdherence = prevStats.income > 0 ? 100 - Math.round((prevStats.expense / prevStats.income) * 100) : 75;
+    const adherenceDiff = currentAdherence - prevAdherence;
+
+    return {
+      healthDiff,
+      savingsDiffPct: Number.isFinite(savingsDiffPct) ? savingsDiffPct : 0,
+      savedAmountDiffPct: Number.isFinite(savedAmountDiffPct) ? savedAmountDiffPct : 0,
+      adherenceDiff
+    };
+  }, [health, stats, prevStats]);
+
+  // Dynamic computed milestones
+  const milestonesList = useMemo(() => {
+    const list = [];
+    const dateStr = new Date(state.selectedMonth).toLocaleString('default', { month: 'short', year: 'numeric' });
+
+    const topGoal = state.goals.reduce((prev, current) => 
+      ((current.currentAmount / current.targetAmount) > (prev?.currentAmount / prev?.targetAmount || 0)) ? current : prev, 
+      null as any
+    );
+    if (topGoal) {
+      const pct = Math.round((topGoal.currentAmount / topGoal.targetAmount) * 100);
+      list.push({
+        t: `Reached ${pct}% of "${topGoal.title}"`,
+        d: dateStr,
+        icon: <ShieldCheck size={14} />,
+        color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10'
+      });
+    } else {
+      list.push({
+        t: 'Emergency Reserve Fund established',
+        d: dateStr,
+        icon: <ShieldCheck size={14} />,
+        color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10'
+      });
+    }
+
+    const budgetAdherence = 100 - health.stats.budgetUtilization;
+    if (budgetAdherence >= 80) {
+      list.push({
+        t: 'Discipline in budget containment',
+        d: dateStr,
+        icon: <Target size={14} />,
+        color: 'text-amber-600 bg-amber-50 dark:bg-amber-500/10'
+      });
+    } else {
+      list.push({
+        t: 'Consolidated category spending limits',
+        d: dateStr,
+        icon: <Target size={14} />,
+        color: 'text-amber-600 bg-amber-50 dark:bg-amber-500/10'
+      });
+    }
+
+    const monthSavings = stats.income - stats.expense;
+    if (monthSavings > 0) {
+      list.push({
+        t: `Saved ${formatCurrency(monthSavings)} in surplus cash`,
+        d: dateStr,
+        icon: <TrendingUp size={14} />,
+        color: 'text-blue-600 bg-blue-50 dark:bg-blue-500/10'
+      });
+    } else {
+      list.push({
+        t: 'Maintained balanced monthly operating ledger',
+        d: dateStr,
+        icon: <TrendingUp size={14} />,
+        color: 'text-blue-600 bg-blue-50 dark:bg-blue-500/10'
+      });
+    }
+
+    const txCount = state.transactions.filter(t => t.date.startsWith(state.selectedMonth.slice(0, 7))).length;
+    list.push({
+      t: `Successfully audited ${txCount} transactions`,
+      d: dateStr,
+      icon: <Activity size={14} />,
+      color: 'text-purple-600 bg-purple-50 dark:bg-purple-500/10'
+    });
+
+    return list;
+  }, [state, stats.income, stats.expense, formatCurrency, health.stats.budgetUtilization]);
 
   return (
     <div className="flex flex-col gap-6 w-full">
@@ -157,7 +390,9 @@ export function AnalyticsView({ netWorth = 124500, chartRef }: AnalyticsViewProp
             <div className="flex flex-col">
               <span className="text-[20px] font-black text-slate-900 dark:text-white leading-none">{health.score}%</span>
               <span className="text-[11px] font-bold text-emerald-600">{health.label}</span>
-              <span className="text-[10px] font-medium text-emerald-500">+8% <span className="text-slate-400">vs last month</span></span>
+              <span className={`text-[10px] font-medium ${comparisons.healthDiff >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                {comparisons.healthDiff >= 0 ? '+' : ''}{comparisons.healthDiff}% <span className="text-slate-400">vs target</span>
+              </span>
             </div>
           </div>
         </div>
@@ -166,7 +401,9 @@ export function AnalyticsView({ netWorth = 124500, chartRef }: AnalyticsViewProp
           <div className="flex justify-between items-center mb-4"><span className="text-[12px] font-black text-slate-900 dark:text-white">Total Savings</span><MoreHorizontal size={14} className="text-slate-400"/></div>
           <div className="flex flex-col">
             <span className="text-[20px] font-black text-slate-900 dark:text-white leading-none">{formatCurrency(stats.totalSaved)}</span>
-            <span className="text-[10px] font-medium text-emerald-500 mt-1">+12.5% <span className="text-slate-400">vs last month</span></span>
+            <span className={`text-[10px] font-medium mt-1 ${comparisons.savingsDiffPct >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+              {comparisons.savingsDiffPct >= 0 ? '+' : ''}{comparisons.savingsDiffPct}% <span className="text-slate-400">vs last month</span>
+            </span>
           </div>
           <div className="absolute bottom-0 right-0 w-24 h-12">
             <svg viewBox="0 0 100 30" className="w-full h-full stroke-emerald-500 fill-none" strokeWidth="2"><path d="M0 25 L20 20 L40 22 L60 15 L80 10 L100 5"/></svg>
@@ -177,7 +414,9 @@ export function AnalyticsView({ netWorth = 124500, chartRef }: AnalyticsViewProp
           <div className="flex justify-between items-center mb-4"><span className="text-[12px] font-black text-slate-900 dark:text-white">Amount Saved</span><MoreHorizontal size={14} className="text-slate-400"/></div>
           <div className="flex flex-col">
             <span className="text-[20px] font-black text-slate-900 dark:text-white leading-none">{formatCurrency(stats.income - stats.expense)}</span>
-            <span className="text-[10px] font-medium text-blue-500 mt-1">{stats.savingsRate}% <span className="text-slate-400">of income</span></span>
+            <span className={`text-[10px] font-medium mt-1 ${comparisons.savedAmountDiffPct >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+              {comparisons.savedAmountDiffPct >= 0 ? '+' : ''}{comparisons.savedAmountDiffPct}% <span className="text-slate-400">vs last month</span>
+            </span>
           </div>
           <div className="absolute bottom-0 right-0 w-24 h-12">
             <svg viewBox="0 0 100 30" className="w-full h-full stroke-blue-500 fill-none" strokeWidth="2"><path d="M0 25 L20 18 L40 20 L60 12 L80 15 L100 8"/></svg>
@@ -191,7 +430,9 @@ export function AnalyticsView({ netWorth = 124500, chartRef }: AnalyticsViewProp
             <div className="flex flex-col">
               <span className="text-[20px] font-black text-slate-900 dark:text-white leading-none">{100 - health.stats.budgetUtilization}%</span>
               <span className="text-[11px] font-bold text-purple-600">Good</span>
-              <span className="text-[10px] font-medium text-emerald-500">+6% <span className="text-slate-400">vs last month</span></span>
+              <span className={`text-[10px] font-medium ${comparisons.adherenceDiff >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                {comparisons.adherenceDiff >= 0 ? '+' : ''}{comparisons.adherenceDiff}% <span className="text-slate-400">vs last month</span>
+              </span>
             </div>
           </div>
         </div>
@@ -277,7 +518,6 @@ export function AnalyticsView({ netWorth = 124500, chartRef }: AnalyticsViewProp
         <div className="lg:col-span-4 vylos-glass-readable p-6">
           <div className="flex justify-between items-center mb-6">
             <span className="text-[14px] font-black text-slate-900 dark:text-white">Goal Performance</span>
-            <button className="text-[11px] font-bold text-blue-600">View all</button>
           </div>
           <div className="flex flex-col gap-5">
             {state.goals.slice(0, 4).map((g, i) => {
@@ -307,7 +547,6 @@ export function AnalyticsView({ netWorth = 124500, chartRef }: AnalyticsViewProp
         <div className="lg:col-span-4 vylos-glass-readable p-6">
           <div className="flex justify-between items-center mb-6">
             <span className="text-[14px] font-black text-slate-900 dark:text-white">Budget Performance</span>
-            <button className="text-[11px] font-bold text-blue-600">View all</button>
           </div>
           
           <div className="mb-6">
@@ -352,15 +591,9 @@ export function AnalyticsView({ netWorth = 124500, chartRef }: AnalyticsViewProp
           <div className="vylos-glass-readable p-6 flex-1">
             <div className="flex justify-between items-center mb-6">
               <span className="text-[14px] font-black text-slate-900 dark:text-white">Milestones</span>
-              <button className="text-[11px] font-bold text-blue-600">View all</button>
             </div>
             <div className="flex flex-col gap-4">
-              {[
-                { t: 'Reached 75% of Emergency Fund', d: 'May 20, 2024', icon: <ShieldCheck size={14}/>, color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10' },
-                { t: '3 Consecutive No-Spend Weeks', d: 'May 15, 2024', icon: <Target size={14}/>, color: 'text-amber-600 bg-amber-50 dark:bg-amber-500/10' },
-                { t: 'Saved $3,000 this month', d: 'May 10, 2024', icon: <TrendingUp size={14}/>, color: 'text-blue-600 bg-blue-50 dark:bg-blue-500/10' },
-                { t: 'Stuck to budget 4 weeks in a row', d: 'May 5, 2024', icon: <Activity size={14}/>, color: 'text-purple-600 bg-purple-50 dark:bg-purple-500/10' }
-              ].map((m, i) => (
+              {milestonesList.map((m, i) => (
                 <div key={i} className="flex gap-3">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${m.color}`}>{m.icon}</div>
                   <div className="flex flex-col">

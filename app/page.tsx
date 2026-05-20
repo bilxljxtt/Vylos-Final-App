@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { MessageCircle } from "lucide-react";
 import { Chart, registerables } from 'chart.js';
 import { useAppStore } from "@/lib/AppContext";
 import { TransactionCategory, getMonthStart } from "@/lib/store";
@@ -33,6 +34,7 @@ import { LegalView } from "@/components/views/LegalView";
 import { ActivityView } from "@/components/views/ActivityView";
 import { TermsAcceptanceView } from "@/components/views/TermsAcceptanceView";
 import { TransactionModal, GoalModal } from "@/components/ui/Modals";
+import { ExportTransactionsModal } from "@/components/modals/ExportTransactionsModal";
 import { HealthDetailModal } from "@/components/modals/HealthDetailModal";
 import { RemindersModal } from "@/components/modals/RemindersModal";
 import { EditBudgetModal } from "@/components/modals/EditBudgetModal";
@@ -71,6 +73,38 @@ export default function App() {
     }
   }, [dark]);
 
+  // Sync database profile theme with local dark state reactively
+  useEffect(() => {
+    const userTheme = state.userProfile?.theme as string | undefined;
+    if (userTheme === "Dark") {
+      setDark(true);
+    } else if (userTheme === "Light") {
+      setDark(false);
+    } else if (userTheme === "System Default" || userTheme === "System" || !userTheme) {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setDark(prefersDark);
+    }
+  }, [state.userProfile?.theme]);
+
+  // Listen for OS color scheme changes if theme is System Default
+  useEffect(() => {
+    const userTheme = state.userProfile?.theme as string | undefined;
+    if (userTheme === "System Default" || userTheme === "System" || !userTheme) {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const handleChange = (e: MediaQueryListEvent) => {
+        setDark(e.matches);
+      };
+      
+      if (mediaQuery.addEventListener) {
+        mediaQuery.addEventListener('change', handleChange);
+        return () => mediaQuery.removeEventListener('change', handleChange);
+      } else {
+        mediaQuery.addListener(handleChange);
+        return () => mediaQuery.removeListener(handleChange);
+      }
+    }
+  }, [state.userProfile?.theme]);
+
   const [page, setPage] = useState<string>(() => {
     if (typeof window === "undefined") return "dashboard";
     const savedPage = localStorage.getItem('vylos-last-page');
@@ -78,11 +112,18 @@ export default function App() {
   });
 
   // Daily XP and Consistency Check
+  const dailyXPProcessed = useRef(false);
+  const dashboardReviewProcessed = useRef(false);
   useEffect(() => {
-    if (sessionUser && state.userProfile.termsAccepted && state.userProfile.onboardingCompleted) {
-      async function handleDailyXP() {
+    if (!sessionUser || !state.userProfile.termsAccepted || !state.userProfile.onboardingCompleted) return;
+
+    async function handleDailyXP() {
+      try {
         const today = new Date().toISOString().split('T')[0];
-        if (state.userProfile.lastLoginXpDate !== today) {
+        
+        // 1. First login of the day
+        if (state.userProfile.lastLoginXpDate !== today && !dailyXPProcessed.current) {
+          dailyXPProcessed.current = true;
           const { XP_CONFIG } = await import("@/lib/services/XPService");
           await awardXP("DAILY_LOGIN", XP_CONFIG.DAILY_LOGIN.xp, "First login of the day");
           await updateDailyConsistency("LOGIN");
@@ -90,14 +131,21 @@ export default function App() {
           showToast(`+${XP_CONFIG.DAILY_LOGIN.xp} XP for your daily visit!`, "success");
         }
         
-        // Mark Dashboard Review
-        if (page === "dashboard") {
+        // 2. Mark Dashboard Review (once per day/session)
+        if (page === "dashboard" && !dashboardReviewProcessed.current) {
+           dashboardReviewProcessed.current = true;
            await updateDailyConsistency("REVIEW");
         }
+      } catch (err: any) {
+        console.error("Daily XP Error:", err);
+        // On error, reset processed flags to allow retry
+        if (err.message === "Failed to fetch") {
+           // We might not want to reset immediately if it's a persistent network issue
+        }
       }
-      handleDailyXP();
     }
-  }, [sessionUser, state.userProfile.termsAccepted, state.userProfile.onboardingCompleted, page]);
+    handleDailyXP();
+  }, [sessionUser, state.userProfile.termsAccepted, state.userProfile.onboardingCompleted, state.userProfile.lastLoginXpDate, page]);
 
   // Persist page to localStorage and Handle Route Protection
   useEffect(() => {
@@ -129,47 +177,77 @@ export default function App() {
   const [showNewBudget, setShowNewBudget] = useState(false);
   const [showFundCategory, setShowFundCategory] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const [showComingSoon, setShowComingSoon] = useState({ isOpen: false, source: "billing_upgrade", title: "Coming Soon" });
 
   // Compute stats (Real-time Calculation Engine)
-  const selectedMonth = /^\d{4}-\d{2}-\d{2}$/.test(state.selectedMonth)
-    ? state.selectedMonth
-    : getMonthStart();
+  const selectedMonth = useMemo(() => {
+    return /^\d{4}-\d{2}-\d{2}$/.test(state.selectedMonth)
+      ? state.selectedMonth
+      : getMonthStart();
+  }, [state.selectedMonth]);
   
   const currentMonthStr = selectedMonth;
-  const previousMonthDate = new Date(selectedMonth);
-  previousMonthDate.setMonth(previousMonthDate.getMonth() - 1);
-  const previousMonthStr = previousMonthDate.toISOString().slice(0, 10);
+  const previousMonthStr = useMemo(() => {
+    const d = new Date(selectedMonth);
+    d.setMonth(d.getMonth() - 1);
+    return d.toISOString().slice(0, 10);
+  }, [selectedMonth]);
 
-  const stats = VylosCalculations.getMonthStats(state, currentMonthStr);
-  const prevStats = VylosCalculations.getMonthStats(state, previousMonthStr);
+  const transactionIndex = useMemo(() => {
+    return VylosCalculations.createTransactionIndex(state.transactions);
+  }, [state.transactions]);
+
+  const stats = useMemo(() => {
+    const start = performance.now();
+    const res = VylosCalculations.getMonthStats(state, currentMonthStr, transactionIndex);
+    const end = performance.now();
+    if (end - start > 10) console.log(`[Perf] getMonthStats took ${(end - start).toFixed(2)}ms`);
+    return res;
+  }, [state, currentMonthStr, transactionIndex]);
+
+  const prevStats = useMemo(() => {
+    return VylosCalculations.getMonthStats(state, previousMonthStr, transactionIndex);
+  }, [state, previousMonthStr, transactionIndex]);
 
   const income = stats.income;
   const expense = stats.expense;
   const netWorth = stats.netWorth;
   const savingsRate = stats.savingsRate;
   
-  const incomeTrend = prevStats.income > 0 ? ((income - prevStats.income) / prevStats.income) * 100 : 0;
-  const expenseTrend = prevStats.expense > 0 ? ((expense - prevStats.expense) / prevStats.expense) * 100 : 0;
-  const netWorthTrend = prevStats.netWorth > 0 ? ((netWorth - prevStats.netWorth) / prevStats.netWorth) * 100 : 0;
+  const trends = useMemo(() => ({
+    incomeTrend: prevStats.income > 0 ? ((income - prevStats.income) / prevStats.income) * 100 : 0,
+    expenseTrend: prevStats.expense > 0 ? ((expense - prevStats.expense) / prevStats.expense) * 100 : 0,
+    netWorthTrend: prevStats.netWorth > 0 ? ((netWorth - prevStats.netWorth) / prevStats.netWorth) * 100 : 0
+  }), [income, expense, netWorth, prevStats]);
 
-  const engineOutput = VylosEngine.run(state);
-  const healthMetrics = {
-    score: engineOutput.healthScore,
-    label: engineOutput.healthCategory,
-    breakdown: {
-      spending: Math.round(VylosEngine.computeHealthScore(state).components.C * 25),
-      savings: Math.round(VylosEngine.computeHealthScore(state).components.Q * 25),
-      budget: Math.round(VylosEngine.computeHealthScore(state).components.D * 25),
-      goals: Math.round(VylosEngine.computeHealthScore(state).components.G * 25),
-    },
-    stats: {
-      runwayMonths: engineOutput.burnRateMonths,
-      budgetUtilization: stats.budgetUtilization,
-      savingsRate: savingsRate
-    },
-    explanation: VylosEngine.explainHealthScoreChange(engineOutput.healthScore, engineOutput.healthScore, { Q: 0, D: 0, C: 0, G: 0 })
-  };
+  const engineOutput = useMemo(() => {
+    const start = performance.now();
+    const res = VylosEngine.run(state, transactionIndex);
+    const end = performance.now();
+    if (end - start > 10) console.log(`[Perf] VylosEngine.run took ${(end - start).toFixed(2)}ms`);
+    return res;
+  }, [state, transactionIndex]);
+
+  const healthMetrics = useMemo(() => {
+    const scoreState = VylosEngine.computeHealthScore(state, transactionIndex);
+    return {
+      score: engineOutput.healthScore,
+      label: engineOutput.healthCategory,
+      breakdown: {
+        spending: Math.round(scoreState.components.C * 25),
+        savings: Math.round(scoreState.components.Q * 25),
+        budget: Math.round(scoreState.components.D * 25),
+        goals: Math.round(scoreState.components.G * 25),
+      },
+      stats: {
+        runwayMonths: engineOutput.burnRateMonths,
+        budgetUtilization: stats.budgetUtilization,
+        savingsRate: savingsRate
+      },
+      explanation: VylosEngine.explainHealthScoreChange(engineOutput.healthScore, engineOutput.healthScore, { Q: 0, D: 0, C: 0, G: 0 })
+    };
+  }, [engineOutput, stats.budgetUtilization, savingsRate, state, transactionIndex]);
   const [filterCat, setFilterCat] = useState("All");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiMessages, setAiMessages] = useState<Message[]>([
@@ -227,41 +305,43 @@ export default function App() {
   const lowestMonthSpend = spendValues.length > 0 ? Math.min(...spendValues) : 0;
   const highestMonthSpend = spendValues.length > 0 ? Math.max(...spendValues) : 0;
 
-  const isPro = Permissions.isInternalUser(state.userProfile) || state.userProfile.subscription_tier !== 'free';
+  const isPro = useMemo(() => Permissions.isInternalUser(state.userProfile) || state.userProfile.subscription_tier !== 'free', [state.userProfile]);
+
+  // Chart Data Preparation (Memoized to prevent freezing during render)
+  const chartData = useMemo(() => {
+    const start = performance.now();
+    const [refYear, refMonth] = selectedMonth.split('-').map(Number);
+    const monthlyHealth: number[] = new Array(6).fill(0);
+    const labels = new Array(6).fill("");
+
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(refYear, refMonth - 1 - i, 1);
+      labels[5 - i] = d.toLocaleString('default', { month: 'short' });
+      
+      const monthPrefix = d.toISOString().slice(0, 7);
+      const monthTxs = transactionIndex.monthMap[monthPrefix] || [];
+
+      // Optimized mini-state for health calculation
+      const monthState = {
+          ...state,
+          transactions: monthTxs,
+          budgets: Object.fromEntries(Object.entries(state.budgets).map(([k, b]: [string, any]) => {
+              const catSpend = monthTxs.filter(t => t.category === k && t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
+              return [k, { ...b, spent: catSpend }];
+          }))
+      };
+      monthlyHealth[5 - i] = VylosEngine.computeHealthScore(monthState).score;
+    }
+    const end = performance.now();
+    console.log(`[Perf] Chart data calculation took ${(end - start).toFixed(2)}ms`);
+    return { labels, monthlyHealth };
+  }, [state, selectedMonth, transactionIndex]);
 
   // Handle Charts
   useEffect(()=>{
     const drawCharts = () => {
-      const [refYear, refMonth] = selectedMonth.split('-').map(Number);
       const budgetSummary = BudgetService.calculateBudgetSummary(state, currentMonthStr);
-      const monthlySpend = new Array(6).fill(0);
-      const labels = new Array(6).fill("");
-      const now = new Date();
-      const monthlyHealth: number[] = new Array(6).fill(0);
-      for (let i = 5; i >= 0; i--) {
-        const d = new Date(refYear, refMonth - 1 - i, 1);
-        labels[5 - i] = d.toLocaleString('default', { month: 'short' });
-        
-        // Compute health for this specific month
-        const monthStart = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
-        const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999).getTime();
-        const monthTxs = state.transactions.filter(t => {
-            const dateKey = getTransactionDateKey(t);
-            return dateKey.startsWith(d.toISOString().slice(0, 7));
-        });
-
-        // Create a mock state for this month
-        const monthState = {
-            ...state,
-            transactions: monthTxs,
-            // Re-calculate spent for budgets based on these txs
-            budgets: Object.fromEntries(Object.entries(state.budgets).map(([k, b]: [string, any]) => {
-                const catSpend = monthTxs.filter(t => t.category === k && t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
-                return [k, { ...b, spent: catSpend }];
-            }))
-        };
-        monthlyHealth[5 - i] = VylosEngine.computeHealthScore(monthState).score;
-      }
+      const { labels, monthlyHealth } = chartData;
 
       if(chartRef.current) {
         if(chartInst.current) chartInst.current.destroy();
@@ -341,7 +421,7 @@ export default function App() {
     return () => { 
       clearTimeout(timer);
     };
-  }, [page, dark, state.transactions, currentMonthStr]);
+  }, [page, dark, chartData, state.budgets, currentMonthStr]);
 
   // Actions
   async function handleAddTransaction() {
@@ -494,6 +574,17 @@ export default function App() {
     showToast(`Successfully imported ${count} transactions! +${earned} XP earned.`, "success");
   }
 
+  const filteredTransactions = useMemo(() => {
+    return state.transactions
+      .filter(t => {
+        const dateKey = getTransactionDateKey(t);
+        return dateKey.startsWith(currentMonthStr.slice(0, 7));
+      })
+      .sort((a, b) => getTransactionDateKey(b).localeCompare(getTransactionDateKey(a)));
+  }, [state.transactions, currentMonthStr]);
+
+  const firstName = state.userProfile.name?.split(" ")[0] || "User";
+
   if (!isAuthLoaded) return (
     <div className="vylos-bg-premium h-screen w-full flex flex-col items-center justify-center">
       <div className="relative">
@@ -535,23 +626,15 @@ export default function App() {
     return <OnboardingView userName={state.userProfile.name} onComplete={handleOnboardingComplete} />;
   }
 
-  const filteredTransactions = state.transactions
-    .filter(t => {
-      const dateKey = getTransactionDateKey(t);
-      return dateKey.startsWith(currentMonthStr.slice(0, 7));
-    })
-    .sort((a, b) => getTransactionDateKey(b).localeCompare(getTransactionDateKey(a)));
-
-  const firstName = state.userProfile.name?.split(" ")[0] || "User";
-
   return (
-    <div className="vylos-bg-premium min-h-screen w-full flex flex-col pt-2 pb-8 px-4 md:pt-4 md:px-6 lg:pt-4 lg:px-8 font-inter overflow-x-hidden relative">
+    <div className="vylos-bg-premium min-h-screen w-full flex flex-col pt-2 pb-8 px-4 md:pt-4 md:px-6 lg:pt-4 lg:px-8 font-inter relative">
       
       {/* ─── Global App Header ─── */}
       <V2Header 
         firstName={firstName} 
         avatarUrl={state.userProfile?.avatarUrl} 
         onPageChange={setPage} 
+        onShowFeedback={() => setShowFeedback(true)}
       />
 
       {/* ─── Main Content Area ─── */}
@@ -581,11 +664,12 @@ export default function App() {
           <TransactionsView 
             transactions={filteredTransactions} filterCat={filterCat} setFilterCat={setFilterCat} 
             setShowAddTx={setShowAddTx} deleteTx={handleDeleteTx} setPage={setPage}
-            trends={{ incomeTrend, expenseTrend, netWorthTrend }}
+            setShowExportModal={setShowExportModal}
+            trends={trends}
           />
         )}
         {page === "calendar" && (
-          <CalendarView />
+          <CalendarView setPage={setPage} />
         )}
         {page === "reminders" && (
           <RemindersView setShowAddReminder={setShowAddReminder} />
@@ -603,6 +687,8 @@ export default function App() {
             setShowNewBudget={setShowNewBudget} 
             handleDeleteCategory={handleDeleteCategory}
             onQuickAddTx={handleQuickAddTransaction}
+            setShowFundCategory={setShowFundCategory}
+            setShowHealthDetail={setShowHealthDetail}
           />
         )}
         {page === "goals" && (
@@ -640,26 +726,10 @@ export default function App() {
         )}
         {page === "import" && (
           <ImportView 
-            handleCSV={()=>{}} 
-            handleImportResults={handleImportResults} 
             showToast={showToast} 
             importPreview={importPreview} 
             setImportPreview={setImportPreview} 
             confirmImport={confirmImport} 
-            processFile={async (file) => {
-              try {
-                const results = await ImportService.processFile(file, state.transactions);
-                if (results.length === 0) {
-                  showToast("No valid transactions found in file.", "info");
-                } else {
-                  setImportPreview(results);
-                  const summary = ImportService.getSummary(results);
-                  showToast(`Found ${summary.total} transactions (${summary.categorized} auto-categorized).`, "success");
-                }
-              } catch (err) {
-                showToast("Error parsing file. Ensure it's a valid CSV or Excel document.", "error");
-              }
-            }}
           />
         )}
         {page === "settings" && (
@@ -671,6 +741,7 @@ export default function App() {
             setDark={setDark} 
             setPage={setPage} 
             onUpgrade={(title: string) => setShowComingSoon({ isOpen: true, source: "settings_page", title })}
+            onShowFeedback={() => setShowFeedback(true)}
           />
         )}
         {page === "privacy" && <LegalView type="privacy" onBack={() => setPage("dashboard")} />}
@@ -682,7 +753,7 @@ export default function App() {
 
       {/* Abstract Background Shapes */}
       <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-blue-600/20 rounded-full blur-[160px] pointer-events-none animate-pulse" />
-      <div className="absolute bottom-[-5%] right-[-5%] w-[50%] h-[50%] bg-indigo-600/15 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute bottom-0 right-0 w-[50%] h-[50%] bg-indigo-600/15 rounded-full blur-[140px] pointer-events-none" />
       <div className="absolute top-[40%] right-[-10%] w-[30%] h-[40%] bg-cyan-600/10 rounded-full blur-[120px] pointer-events-none" />
 
       {showAddTx && (
@@ -723,7 +794,10 @@ export default function App() {
       <FeedbackModal 
         isOpen={showFeedback}
         onClose={() => setShowFeedback(false)}
-        showToast={showToast}
+      />
+      <ExportTransactionsModal 
+        isOpen={showExportModal} 
+        onClose={() => setShowExportModal(false)} 
       />
       <ComingSoonModal 
         isOpen={showComingSoon.isOpen}

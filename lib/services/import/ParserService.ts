@@ -9,9 +9,82 @@ export interface ExtractedTransaction {
   originalDescription?: string;
 }
 
+export interface RawParsedData {
+  headers: string[];
+  rows: any[];
+}
+
 type ImportRow = Record<string, unknown>;
 
 export class ParserService {
+  /**
+   * Get Raw Data for Mapping
+   */
+  static async getRawData(file: File): Promise<RawParsedData> {
+    const isExcel = file.name.endsWith(".xlsx") || file.name.endsWith(".xls");
+    
+    if (isExcel) {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: "array" });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+      
+      if (data.length === 0) return { headers: [], rows: [] };
+      
+      const headers = data[0].map(h => String(h || ""));
+      const rows = data.slice(1).map(row => {
+        const obj: any = {};
+        headers.forEach((h, i) => { obj[h] = row[i]; });
+        return obj;
+      });
+      
+      return { headers, rows };
+    } else {
+      return new Promise((resolve, reject) => {
+        Papa.parse(file, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => {
+            resolve({
+              headers: results.meta.fields || [],
+              rows: results.data
+            });
+          },
+          error: (err) => reject(err)
+        });
+      });
+    }
+  }
+
+  /**
+   * Parse Raw Data with Mappings
+   */
+  static async parseWithMapping(rows: any[], mapping: { date: string; merchant: string; amount: string; category?: string; debit?: string; credit?: string }): Promise<ExtractedTransaction[]> {
+    return rows.map(row => {
+      const dateVal = row[mapping.date];
+      const merchantVal = row[mapping.merchant];
+      const catVal = mapping.category ? row[mapping.category] : undefined;
+      
+      let amount = 0;
+      if (mapping.debit && mapping.credit) {
+        const d = this.parseAmount(row[mapping.debit]);
+        const c = this.parseAmount(row[mapping.credit]);
+        if (!isNaN(d) && d !== 0) amount = -Math.abs(d);
+        else if (!isNaN(c) && c !== 0) amount = Math.abs(c);
+      } else {
+        amount = this.parseAmount(row[mapping.amount]);
+      }
+
+      return {
+        date: this.standardizeDate(dateVal),
+        merchant: String(merchantVal || "Unknown"),
+        amount: amount,
+        category: catVal ? String(catVal) : undefined,
+        originalDescription: String(merchantVal || "")
+      };
+    }).filter(tx => !isNaN(tx.amount) && tx.date);
+  }
   /**
    * Parse CSV File
    */
@@ -23,15 +96,15 @@ export class ParserService {
         dynamicTyping: true,
         complete: (results) => {
           const txs: ExtractedTransaction[] = (results.data as ImportRow[]).map((row) => {
-            const dateStr = this.findValue(row, ["date", "posting", "timestamp", "time", "day", "trans"]);
-            const merchantStr = this.findValue(row, ["merchant", "description", "payee", "detail", "vendor", "narrative", "memo", "info"]);
-            const categoryStr = this.findValue(row, ["category", "type"]);
+            const dateStr = this.findValue(row, ["date", "posting", "timestamp", "time", "day", "trans", "effective", "valuta"]);
+            const merchantStr = this.findValue(row, ["merchant", "description", "payee", "detail", "vendor", "narrative", "memo", "info", "beneficiary", "reference"]);
+            const categoryStr = this.findValue(row, ["category", "type", "tag", "label", "classification"]);
             
             // Amount can be in one column or split (debit/credit)
             let amount = 0;
-            const debit = this.findValue(row, ["debit", "out", "expense", "withdrawal"]);
-            const credit = this.findValue(row, ["credit", "in", "income", "deposit"]);
-            const genericAmount = this.findValue(row, ["amount", "value", "total", "price", "sum"]);
+            const debit = this.findValue(row, ["debit", "out", "expense", "withdrawal", "paid out", "payment", "spend"]);
+            const credit = this.findValue(row, ["credit", "in", "income", "deposit", "paid in", "receipt"]);
+            const genericAmount = this.findValue(row, ["amount", "value", "total", "price", "sum", "movement", "balance movement", "zar", "rand", "zar amount"]);
 
             if (debit) amount = -Math.abs(this.parseAmount(debit));
             else if (credit) amount = Math.abs(this.parseAmount(credit));
@@ -60,14 +133,14 @@ export class ParserService {
     const data = XLSX.utils.sheet_to_json(worksheet);
 
     return (data as ImportRow[]).map((row) => {
-       const dateStr = this.findValue(row, ["date", "posting", "timestamp", "trans"]);
-       const merchantStr = this.findValue(row, ["merchant", "description", "payee", "detail", "vendor"]);
-       const categoryStr = this.findValue(row, ["category", "type"]);
+       const dateStr = this.findValue(row, ["date", "posting", "timestamp", "trans", "effective"]);
+       const merchantStr = this.findValue(row, ["merchant", "description", "payee", "detail", "vendor", "narrative", "reference"]);
+       const categoryStr = this.findValue(row, ["category", "type", "tag"]);
        
        let amount = 0;
-       const debit = this.findValue(row, ["debit", "out", "expense"]);
-       const credit = this.findValue(row, ["credit", "in", "income"]);
-       const genericAmount = this.findValue(row, ["amount", "value", "total"]);
+       const debit = this.findValue(row, ["debit", "out", "expense", "withdrawal"]);
+       const credit = this.findValue(row, ["credit", "in", "income", "deposit"]);
+       const genericAmount = this.findValue(row, ["amount", "value", "total", "sum"]);
 
        if (debit) amount = -Math.abs(this.parseAmount(debit));
        else if (credit) amount = Math.abs(this.parseAmount(credit));
@@ -134,14 +207,38 @@ export class ParserService {
     // Try common separators
     const separators = ["-", "/", ".", " "];
     for (const sep of separators) {
-      const parts = dateStr.split(sep);
+      const parts = dateStr.split(sep).map(p => p.trim());
       if (parts.length === 3) {
-        // Try DD-MM-YYYY or YYYY-MM-DD
-        let d: Date;
-        if (parts[0].length === 4) d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-        else d = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+        let y, m, d_val;
         
-        if (!isNaN(d.getTime())) return this.formatDate(d);
+        if (parts[0].length === 4) {
+          // YYYY-MM-DD
+          y = Number(parts[0]);
+          m = Number(parts[1]) - 1;
+          d_val = Number(parts[2]);
+        } else {
+          // Could be DD-MM-YYYY or MM-DD-YYYY
+          const p0 = Number(parts[0]);
+          const p1 = Number(parts[1]);
+          const p2 = Number(parts[2]);
+          
+          if (p1 > 12) {
+            // Must be MM-DD-YYYY
+            y = p2;
+            m = p0 - 1;
+            d_val = p1;
+          } else {
+            // Default to DD-MM-YYYY (International/SA standard)
+            y = p2;
+            m = p1 - 1;
+            d_val = p0;
+          }
+        }
+        
+        const dateObj = new Date(y, m, d_val);
+        if (!isNaN(dateObj.getTime()) && dateObj.getFullYear() === y && dateObj.getMonth() === m) {
+          return this.formatDate(dateObj);
+        }
       }
     }
 

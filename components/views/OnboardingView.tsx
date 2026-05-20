@@ -98,8 +98,8 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
           
           {step === 0 ? (
             <div className="vylos-glass-readable !p-10 md:!p-16 !rounded-[40px] shadow-2xl animate-in fade-in zoom-in-95 duration-700">
-               <div className="w-20 h-20 rounded-[2rem] bg-blue-600/10 border border-blue-600/20 flex items-center justify-center mb-10 shadow-inner">
-                 <Sparkles size={40} className="text-blue-600" />
+               <div className="w-20 h-20 rounded-[2rem] bg-white border border-blue-600/20 flex items-center justify-center mb-10 shadow-2xl overflow-hidden p-3">
+                 <img src="/vylos-logo-final.png" alt="Vylos" className="w-full h-full object-contain" />
                </div>
                
                <h1 className="text-4xl md:text-5xl font-black text-slate-900 dark:text-white tracking-tighter leading-tight mb-8">

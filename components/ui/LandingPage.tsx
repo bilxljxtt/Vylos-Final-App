@@ -142,7 +142,7 @@ export function LandingPage() {
                                     </div>
                                     <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Total Net Worth</span>
                                 </div>
-                                <span className="text-lg font-black text-white">$124,500.00</span>
+                                <span className="text-lg font-black text-white">R124,500.00</span>
                             </div>
                             <div className="space-y-3">
                                 <div className="h-2 bg-white/5 rounded-full overflow-hidden">

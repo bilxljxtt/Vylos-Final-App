@@ -3,13 +3,20 @@ import { createClient } from "@/utils/supabase/server";
 
 export async function POST(req: NextRequest) {
   try {
-    const { transactions, userId, updateRules } = await req.json();
-    
-    if (!transactions || !userId) {
-      return NextResponse.json({ error: "Missing data" }, { status: 400 });
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const supabase = await createClient();
+    const { transactions, updateRules } = await req.json();
+    
+    if (!transactions) {
+      return NextResponse.json({ error: "Missing transactions data" }, { status: 400 });
+    }
+
+    const userId = user.id; // Discard client-supplied userId completely to prevent parameter spoofing!
 
     // 1. Prepare batch insert for transactions
     const pgTransactions = transactions.map((tx: any) => ({
@@ -94,6 +101,6 @@ export async function POST(req: NextRequest) {
 
   } catch (err: any) {
     console.error("Finalize Error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: "An unexpected error occurred while finalizing and saving the transactions." }, { status: 500 });
   }
 }

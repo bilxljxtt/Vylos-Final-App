@@ -57,9 +57,14 @@ type Action =
   | { type: "ADD_MERCHANT_RULE"; payload: MerchantRule }
   | { type: "SET_NOTIFICATIONS"; payload: Notification[] }
   | { type: "DELETE_NOTIFICATION"; payload: string }
-  | { type: "UPDATE_REMINDERS"; payload: Reminder[] }
   | { type: "UPDATE_REMINDER"; payload: { id: string; updates: Partial<Reminder> } }
+  | { type: "UPDATE_REMINDER_COMPLETIONS"; payload: any[] }
+  | { type: "ADD_REMINDER_COMPLETION"; payload: any }
+  | { type: "DELETE_REMINDER_COMPLETION"; payload: { reminder_id: string; year: number; month: number } }
   | { type: "MARK_ALL_READ" }
+  | { type: "UPDATE_REMINDERS"; payload: Reminder[] }
+  | { type: "UPDATE_BACKEND_HEALTH_SCORE"; payload: any }
+  | { type: "SET_HEALTH_SCORE_LOADING"; payload: boolean }
   | { type: "RESET" };
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────
@@ -170,7 +175,24 @@ function reducer(state: AppState, action: Action): AppState {
         reminders: state.reminders.map(r => r.id === action.payload.id ? { ...r, ...action.payload.updates } : r)
       };
     case "DELETE_REMINDER":
-      return { ...state, reminders: state.reminders.filter(r => r.id !== action.payload) };
+      return { 
+        ...state, 
+        reminders: state.reminders.filter(r => r.id !== action.payload),
+        reminderCompletions: state.reminderCompletions.filter(c => c.reminder_id !== action.payload)
+      };
+    case "UPDATE_REMINDER_COMPLETIONS":
+      return { ...state, reminderCompletions: action.payload };
+    case "ADD_REMINDER_COMPLETION":
+      return { ...state, reminderCompletions: [action.payload, ...state.reminderCompletions] };
+    case "DELETE_REMINDER_COMPLETION": {
+      const { reminder_id, year, month } = action.payload;
+      return {
+        ...state,
+        reminderCompletions: state.reminderCompletions.filter(c => 
+          !(c.reminder_id === reminder_id && c.year === year && c.month === month)
+        )
+      };
+    }
     case "SET_SELECTED_MONTH":
       return { ...state, selectedMonth: action.payload };
     case "UPDATE_MERCHANT_RULES":
@@ -187,6 +209,10 @@ function reducer(state: AppState, action: Action): AppState {
         notificationList: state.notificationList.map(n => ({ ...n, read: true })),
         unreadNotificationCount: 0
       };
+    case "UPDATE_BACKEND_HEALTH_SCORE":
+      return { ...state, backendHealthScore: action.payload, isCalculatingHealthScore: false };
+    case "SET_HEALTH_SCORE_LOADING":
+      return { ...state, isCalculatingHealthScore: action.payload };
     case "RESET":
       if (typeof window !== 'undefined') {
         localStorage.removeItem('vylos-last-page');
@@ -221,6 +247,7 @@ interface AppContextValue {
   markAllNotificationsAsRead: () => Promise<void>;
   addReminder: (rem: Omit<Reminder, "id">) => Promise<void>;
   updateReminder: (id: string, updates: Partial<Reminder>) => Promise<void>;
+  toggleReminderCompletion: (reminderId: string, year: number, month: number) => Promise<void>;
   deleteReminder: (id: string) => Promise<void>;
   addMerchantRule: (rule: Omit<MerchantRule, "id">) => Promise<void>;
   categorizeTransaction: (desc: string, type: "income" | "expense") => TransactionCategory;
@@ -230,6 +257,7 @@ interface AppContextValue {
   lastSynced: Date | null;
   setSelectedMonth: (date: string) => void;
   refreshData: () => Promise<void>;
+  triggerHealthScoreRecalculation: () => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -241,6 +269,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [lastNotificationCheck, setLastNotificationCheck] = useState<number>(0);
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const supabase = useMemo(() => createClient(), []);
+  const healthScoreTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const triggerHealthScoreRecalculation = useCallback(() => {
+    if (healthScoreTimeoutRef.current) clearTimeout(healthScoreTimeoutRef.current);
+    
+    healthScoreTimeoutRef.current = setTimeout(() => {
+      // Ensure we are online and session exists
+      if (!sessionUser || !navigator.onLine) return;
+      
+      // Fire and forget recalculation to keep UI snappy
+      fetch("/api/user/health-score/recalculate", { method: "POST" })
+        .catch(err => {
+          console.warn("Background health score recalculation deferred:", err);
+        });
+    }, 5000); // 5s debounce to allow for multiple rapid mutations
+  }, [sessionUser]);
 
   const updateProfile = useCallback(
     async (updates: Partial<UserProfile>) => {
@@ -286,8 +330,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (updates.lastLoginXpDate !== undefined) pgUpdates.last_login_xp_date = updates.lastLoginXpDate;
       if (updates.dismissed_notifications !== undefined) pgUpdates.dismissed_notifications = updates.dismissed_notifications;
 
-      const { error } = await supabase.from('user_profiles').update(pgUpdates).eq('id', sessionUser.id);
-      if (error) { dispatch({ type: "UPDATE_PROFILE", payload: previousProfile }); throw new Error(error.message); }
+      try {
+        const { error } = await supabase.from('user_profiles').update(pgUpdates).eq('id', sessionUser.id);
+        if (error) { 
+          console.error("Supabase Profile Update Error:", error);
+          dispatch({ type: "UPDATE_PROFILE", payload: previousProfile }); 
+          throw new Error(error.message); 
+        }
+      } catch (err: any) {
+        if (err.message === "Failed to fetch") {
+          console.error("Network Error in updateProfile. Retrying in 1s...");
+          // Optional: implement retry logic or show a specific toast
+        }
+        throw err;
+      }
     },
     [sessionUser, state.userProfile, supabase]
   );
@@ -420,9 +476,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (error) throw new Error(error.message);
       if (data) {
         dispatch({ type: "ADD_TRANSACTION", payload: { ...tx, id: data.id } });
+        triggerHealthScoreRecalculation();
       }
     },
-    [sessionUser, state.budgets, supabase]
+    [sessionUser, state.budgets, supabase, triggerHealthScoreRecalculation]
   );
 
   // Automated Reminder Notifications
@@ -480,21 +537,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (updates.notes !== undefined) pgUpdates.notes = updates.notes;
       if (updates.recurring !== undefined) pgUpdates.recurring = updates.recurring;
       if (updates.payment_status) pgUpdates.payment_status = updates.payment_status;
-      const { error } = await supabase.from('transactions').update(pgUpdates).eq('id', id);
+      const { error } = await supabase.from('transactions').update(pgUpdates).eq('id', id).eq('user_id', sessionUser.id);
       if (error) throw new Error(error.message);
       dispatch({ type: "UPDATE_TRANSACTION", payload: { id, updates } });
+      triggerHealthScoreRecalculation();
     },
-    [sessionUser, supabase]
+    [sessionUser, supabase, triggerHealthScoreRecalculation]
   );
 
   const deleteTransaction = useCallback(
     async (id: string) => {
       if (!sessionUser) return;
-      const { error } = await supabase.from('transactions').delete().eq('id', id);
+      const { error } = await supabase.from('transactions').delete().eq('id', id).eq('user_id', sessionUser.id);
       if (error) throw new Error(error.message);
       dispatch({ type: "DELETE_TRANSACTION", payload: id });
+      triggerHealthScoreRecalculation();
     },
-    [sessionUser, state.transactions, supabase]
+    [sessionUser, state.transactions, supabase, triggerHealthScoreRecalculation]
   );
 
   const addSubscription = useCallback(
@@ -502,9 +561,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (!sessionUser) return;
       const { data, error } = await supabase.from('subscriptions').insert([{ user_id: sessionUser.id, name: sub.name, amount: sub.amount, category: sub.category, frequency: sub.frequency, next_due: sub.nextDue }]).select().single();
       if (error) throw new Error(error.message);
-      if (data) dispatch({ type: "ADD_SUBSCRIPTION", payload: { ...sub, id: data.id } });
+      if (data) {
+        dispatch({ type: "ADD_SUBSCRIPTION", payload: { ...sub, id: data.id } });
+        triggerHealthScoreRecalculation();
+      }
     },
-    [sessionUser, supabase]
+    [sessionUser, supabase, triggerHealthScoreRecalculation]
   );
 
   const deleteSubscription = useCallback(
@@ -513,8 +575,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.from('subscriptions').delete().eq('id', id).eq('user_id', sessionUser.id);
       if (error) throw new Error(error.message);
       dispatch({ type: "DELETE_SUBSCRIPTION", payload: id });
+      triggerHealthScoreRecalculation();
     },
-    [sessionUser, supabase]
+    [sessionUser, supabase, triggerHealthScoreRecalculation]
   );
 
   const addGoal = useCallback(
@@ -609,9 +672,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const { XP_CONFIG } = await import("./services/XPService");
         await awardXP("UPDATE_GOAL_PROGRESS", XP_CONFIG.UPDATE_GOAL_PROGRESS.xp, `Added contribution to goal: ${contribution.goalId}`);
         await updateDailyConsistency("BUDGET_UPDATE");
+        triggerHealthScoreRecalculation();
       }
     },
-    [sessionUser, state.goals, supabase, awardXP, updateDailyConsistency]
+    [sessionUser, state.goals, supabase, awardXP, updateDailyConsistency, triggerHealthScoreRecalculation]
   );
 
   const updateBudgetLimit = useCallback(
@@ -624,8 +688,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const { XP_CONFIG } = await import("./services/XPService");
       await awardXP("UPDATE_BUDGET", XP_CONFIG.UPDATE_BUDGET.xp, `Updated budget limit for ${category}`);
       await updateDailyConsistency("BUDGET_UPDATE");
+      triggerHealthScoreRecalculation();
     },
-    [sessionUser, state.budgets, supabase, awardXP, updateDailyConsistency]
+    [sessionUser, state.budgets, supabase, awardXP, updateDailyConsistency, triggerHealthScoreRecalculation]
   );
 
   const updateBudgets = useCallback(
@@ -640,8 +705,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const count = Object.keys(updates).length;
       await awardXP(count > 1 ? "CREATE_BUDGET" : "UPDATE_BUDGET", count > 1 ? XP_CONFIG.CREATE_BUDGET.xp : XP_CONFIG.UPDATE_BUDGET.xp, `Updated ${count} budgets`);
       await updateDailyConsistency("BUDGET_UPDATE");
+      triggerHealthScoreRecalculation();
     },
-    [sessionUser, state.budgets, supabase, awardXP, updateDailyConsistency]
+    [sessionUser, state.budgets, supabase, awardXP, updateDailyConsistency, triggerHealthScoreRecalculation]
   );
 
   const updateNotifications = useCallback(
@@ -763,12 +829,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         category: rem.category, 
         priority: rem.priority,
         recurring: rem.recurring,
-        status: rem.status || 'pending'
+        status: rem.status || 'pending',
+        billing_day: rem.billing_day || (rem.due_date ? parseInt(rem.due_date.split('-')[2]) : null)
       }]).select().single();
-      if (error) throw new Error(error.message);
-      if (data) dispatch({ type: "ADD_REMINDER", payload: { ...rem, id: data.id } });
+      
+      if (error) {
+        console.error("Supabase Reminder Insert Error:", error);
+        throw new Error(error.message);
+      }
+      
+      if (data) {
+        dispatch({ type: "ADD_REMINDER", payload: { ...rem, id: data.id } });
+        // Health score recalculation is debounced and non-blocking
+        triggerHealthScoreRecalculation();
+      }
     },
-    [sessionUser, supabase]
+    [sessionUser, supabase, triggerHealthScoreRecalculation]
   );
 
   const updateReminder = useCallback(
@@ -782,34 +858,62 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       if (!error) {
         dispatch({ type: "UPDATE_REMINDER", payload: { id, updates } });
-
-        // Recurrence Logic: If task is completed and has a recurring pattern, create the next instance
-        if (updates.status === 'completed') {
-          const fullReminder = state.reminders.find(r => r.id === id);
-          if (fullReminder && fullReminder.recurring !== 'none') {
-            const { getNextOccurrence } = await import("./utils");
-            const nextDate = getNextOccurrence(fullReminder.due_date, fullReminder.recurring);
-            
-            if (nextDate) {
-              await addReminder({
-                title: fullReminder.title,
-                description: fullReminder.description,
-                amount: fullReminder.amount,
-                due_date: nextDate,
-                due_time: fullReminder.due_time,
-                category: fullReminder.category,
-                priority: fullReminder.priority,
-                recurring: fullReminder.recurring,
-                status: 'pending'
-              });
-            }
-          }
-        }
+        triggerHealthScoreRecalculation();
       } else {
+        console.error("Supabase Reminder Update Error:", error);
         throw new Error(error.message);
       }
     },
-    [sessionUser, supabase, state.reminders, addReminder]
+    [sessionUser, supabase, triggerHealthScoreRecalculation]
+  );
+
+  const toggleReminderCompletion = useCallback(
+    async (reminderId: string, year: number, month: number) => {
+      if (!sessionUser) return;
+      
+      const existing = state.reminderCompletions.find(c => 
+        c.reminder_id === reminderId && c.year === year && c.month === month
+      );
+
+      if (existing) {
+        // Unmark as completed
+        const { error } = await supabase
+          .from('reminder_completions')
+          .delete()
+          .eq('id', existing.id)
+          .eq('user_id', sessionUser.id);
+          
+        if (!error) {
+          dispatch({ type: "DELETE_REMINDER_COMPLETION", payload: { reminder_id: reminderId, year, month } });
+          triggerHealthScoreRecalculation();
+        }
+      } else {
+        // Mark as completed
+        const payload = {
+          reminder_id: reminderId,
+          user_id: sessionUser.id,
+          year,
+          month,
+          completed_at: new Date().toISOString()
+        };
+        
+        const { data, error } = await supabase
+          .from('reminder_completions')
+          .insert([payload])
+          .select()
+          .single();
+          
+        if (!error && data) {
+          dispatch({ type: "ADD_REMINDER_COMPLETION", payload: data });
+          
+          // XP Bonus for paying a bill
+          const { XP_CONFIG } = await import("./services/XPService");
+          await awardXP("COMPLETE_REMINDER", XP_CONFIG.UPDATE_GOAL_PROGRESS.xp, `Completed bill for ${month}/${year}`);
+          triggerHealthScoreRecalculation();
+        }
+      }
+    },
+    [sessionUser, state.reminderCompletions, supabase, awardXP, triggerHealthScoreRecalculation]
   );
 
   const deleteReminder = useCallback(
@@ -818,8 +922,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.from('reminders').delete().eq('id', id).eq('user_id', sessionUser.id);
       if (error) throw new Error(error.message);
       dispatch({ type: "DELETE_REMINDER", payload: id });
+      triggerHealthScoreRecalculation();
     },
-    [sessionUser, supabase]
+    [sessionUser, supabase, triggerHealthScoreRecalculation]
   );
 
   const addMerchantRule = useCallback(
@@ -863,11 +968,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       supabase.from('budgets').select('*').eq('user_id', user.id),
       supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
       supabase.from('reminders').select('*').eq('user_id', user.id).order('due_date', { ascending: true }),
+      supabase.from('reminder_completions').select('*').eq('user_id', user.id),
       supabase.from('merchant_rules').select('*').eq('user_id', user.id),
-      supabase.from('ai_usage').select('*').eq('user_id', user.id).eq('billing_month', currentMonth).single()
+      supabase.from('ai_usage').select('*').eq('user_id', user.id).eq('billing_month', currentMonth).single(),
+      supabase.from('user_health_scores').select('*').eq('user_id', user.id).order('calculated_at', { ascending: false }).limit(1).maybeSingle()
     ]);
 
-    const [profRes, txsRes, subsRes, gpsRes, contribsRes, budgetsRes, notifyRes, remRes, rulesRes, usageRes] = results;
+    const [profRes, txsRes, subsRes, gpsRes, contribsRes, budgetsRes, notifyRes, remRes, compRes, rulesRes, usageRes, scoreRes] = results;
     const prof = profRes.data;
     const txs = txsRes.data;
     const subs = subsRes.data;
@@ -927,8 +1034,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           priority: r.priority,
           recurring: r.recurring, 
           status: r.status,
-          completed_at: r.completed_at
+          completed_at: r.completed_at,
+          billing_day: r.billing_day
         })) : [],
+        reminderCompletions: compRes.data || [],
         merchantRules: rules ? rules.map((r: any) => ({ id: r.id, user_id: r.user_id, merchant_keyword: r.merchant_keyword, category: r.category })) : [],
         budgets: Object.keys(budgetsObj).length > 0 ? budgetsObj : initialState.budgets,
         aiUsage: usage ? { messages_used: usage.messages_used, billing_month: usage.billing_month } : { messages_used: 0, billing_month: currentMonth },
@@ -986,7 +1095,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         notifications: prof?.notifications ? (prof.notifications as any) : initialState.notifications,
         notificationList: notifyRes?.data || [],
         unreadNotificationCount: (notifyRes?.data || []).filter((n: any) => !n.read).length,
-        selectedMonth: getMonthStart()
+        selectedMonth: getMonthStart(),
+        backendHealthScore: scoreRes.data || null,
+        isCalculatingHealthScore: false
       }
     });
     setLastSynced(new Date());
@@ -1065,9 +1176,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               priority: r.priority,
               recurring: r.recurring, 
               status: r.status,
-              completed_at: r.completed_at
+              completed_at: r.completed_at,
+              billing_day: r.billing_day
             })) });
             setLastSynced(new Date());
+          }).subscribe();
+
+        const compChannel = supabase.channel('public:reminder_completions')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'reminder_completions', filter: `user_id=eq.${user.id}` }, async () => {
+            const { data: comps } = await supabase.from('reminder_completions').select('*').eq('user_id', user.id);
+            if (comps) dispatch({ type: "UPDATE_REMINDER_COMPLETIONS", payload: comps });
+            setLastSynced(new Date());
+          }).subscribe();
+
+        const scoreChannel = supabase.channel('public:user_health_scores')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'user_health_scores', filter: `user_id=eq.${user.id}` }, async (payload: any) => {
+            if (payload.new) {
+              dispatch({ type: "UPDATE_BACKEND_HEALTH_SCORE", payload: payload.new });
+            }
           }).subscribe();
       }
     });
@@ -1105,6 +1231,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         markAllNotificationsAsRead,
         addReminder,
         updateReminder,
+        toggleReminderCompletion,
         deleteReminder,
         addMerchantRule,
         categorizeTransaction,
@@ -1114,6 +1241,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         lastSynced,
         setSelectedMonth,
         refreshData,
+        triggerHealthScoreRecalculation,
       }}
     >
       {children}

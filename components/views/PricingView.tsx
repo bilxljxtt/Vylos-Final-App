@@ -86,7 +86,7 @@ export const PricingView: React.FC<PricingViewProps> = ({ onUpgrade, user }) => 
   ];
 
   return (
-    <ViewContainer className="flex flex-col pt-8 pb-32 animate-in fade-in duration-1000">
+    <ViewContainer className="flex flex-col pt-8 pb-4 animate-in fade-in duration-1000">
       {/* Header Section */}
       <div className="flex flex-col items-center text-center mb-16 space-y-6">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-md">

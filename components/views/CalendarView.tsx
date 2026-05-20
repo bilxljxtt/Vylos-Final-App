@@ -3,24 +3,30 @@
 import React, { useState, useMemo } from "react";
 import { ChevronLeft, ChevronRight, Plus, Home, Lightbulb, Smartphone, Music, TrendingUp, CreditCard as CreditCardIcon, Calendar as CalendarIcon, CheckCircle2, Clock } from "lucide-react";
 import { useAppStore } from "@/lib/AppContext";
-import { toDateKey, createLocalDate, getTransactionDateKey, formatDate, getReminderDerivedStatus } from "@/lib/utils";
+import { toDateKey, createLocalDate, getTransactionDateKey, formatDate, getReminderDerivedStatus, generateReminderOccurrences } from "@/lib/utils";
 import { CalendarEventModal } from "@/components/modals/CalendarEventModal";
 import { TransactionIcon } from "@/components/ui/TransactionIcon";
 
-export const CalendarView: React.FC = () => {
+interface CalendarViewProps {
+  setPage: (page: string) => void;
+}
+
+export const CalendarView: React.FC<CalendarViewProps> = ({ setPage }) => {
   const { state, setSelectedMonth, formatCurrency } = useAppStore();
   const [activeTab, setActiveTab] = useState<"month" | "week" | "list">("month");
   const [showEventModal, setShowEventModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState<any>(null);
   
-  // Keep track of the currently viewed month internally, or use global
-  const currentDate = useMemo(() => {
+  // Local state for the viewed month (decoupled from global state to prevent resets)
+  const [viewDate, setViewDate] = useState(() => {
     const [y, m] = state.selectedMonth.split('-').map(Number);
     return createLocalDate(y, m - 1, 1);
-  }, [state.selectedMonth]);
-
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
+  });
+  
+  const [selectedDay, setSelectedDay] = useState<Date>(new Date());
+  
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
 
   const monthStart = createLocalDate(year, month, 1);
   const monthEnd = createLocalDate(year, month + 1, 0);
@@ -54,16 +60,41 @@ export const CalendarView: React.FC = () => {
     return `${y}-${m}-01`;
   };
 
-  const prevMonth = () => setSelectedMonth(formatMonthKey(createLocalDate(year, month - 1, 1)));
-  const nextMonth = () => setSelectedMonth(formatMonthKey(createLocalDate(year, month + 1, 1)));
-  const goToday = () => setSelectedMonth(formatMonthKey(new Date()));
+  const prevMonth = () => {
+    const prev = createLocalDate(year, month - 1, 1);
+    setViewDate(prev);
+  };
+  
+  const nextMonth = () => {
+    const next = createLocalDate(year, month + 1, 1);
+    setViewDate(next);
+  };
+  
+  const goToday = () => {
+    const today = new Date();
+    const target = createLocalDate(today.getFullYear(), today.getMonth(), 1);
+    setViewDate(target);
+    setSelectedDay(today);
+    setSelectedMonth(formatMonthKey(today));
+  };
 
-  const monthName = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+  const monthName = viewDate.toLocaleString('default', { month: 'long', year: 'numeric' });
 
-  // Map state.transactions and state.reminders to calendar events
+  const visibleReminders = useMemo(() => {
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth() + 1;
+    const reminders = generateReminderOccurrences(state.reminders || [], state.reminderCompletions || [], year, month, 1);
+    
+    console.log("Viewed month:", viewDate);
+    console.log("Visible reminders:", reminders);
+    
+    return reminders;
+  }, [state.reminders, state.reminderCompletions, viewDate]);
+
+  // Map state.transactions and visibleReminders to calendar events
   const calendarEvents = useMemo(() => {
     const events: Record<string, any[]> = {};
-    
+
     state.transactions.forEach(t => {
       const key = getTransactionDateKey(t);
       if (!events[key]) events[key] = [];
@@ -76,7 +107,7 @@ export const CalendarView: React.FC = () => {
       });
     });
 
-    state.reminders.forEach(r => {
+    visibleReminders.forEach(r => {
       const key = r.due_date;
       if (!events[key]) events[key] = [];
       events[key].push({
@@ -84,14 +115,13 @@ export const CalendarView: React.FC = () => {
         subtitle: r.category,
         amount: r.amount ? formatCurrency(r.amount) : '',
         type: 'reminder',
-        dot: 'bg-blue-600'
+        dot: 'bg-blue-600',
+        originalReminder: r
       });
     });
 
     return events;
-  }, [state, formatCurrency]);
-
-  const [selectedDay, setSelectedDay] = useState<Date>(new Date());
+  }, [state.transactions, visibleReminders, formatCurrency]);
 
   const weekDays = useMemo(() => {
     const startOfWeek = new Date(selectedDay);
@@ -107,14 +137,16 @@ export const CalendarView: React.FC = () => {
   }, [selectedDay]);
 
   const upcomingEvents = useMemo(() => {
+    const viewStartStr = toDateKey(viewDate);
     const todayStr = toDateKey(new Date());
-    return state.reminders
+
+    return visibleReminders
       .filter(r => {
         const status = getReminderDerivedStatus(r);
-        return status !== 'completed' && r.due_date >= todayStr;
+        return status !== 'completed' && r.due_date >= viewStartStr;
       })
       .sort((a, b) => a.due_date.localeCompare(b.due_date))
-      .slice(0, 8)
+      .slice(0, 10)
       .map(r => ({
         date: r.due_date === todayStr ? 'Today' : formatDate(r.due_date),
         title: r.title,
@@ -122,7 +154,7 @@ export const CalendarView: React.FC = () => {
         icon: <TransactionIcon merchant={r.title} category={r.category} size="sm" />,
         bg: "bg-white/5 dark:bg-white/5"
       }));
-  }, [state.reminders, formatCurrency]);
+  }, [visibleReminders, formatCurrency, viewDate]);
 
   const getEventsForDay = (dateStr: string) => calendarEvents[dateStr] || [];
 
@@ -143,16 +175,28 @@ export const CalendarView: React.FC = () => {
           
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center bg-slate-100/50 dark:bg-white/5 rounded-2xl shadow-inner border border-slate-200 dark:border-white/10 p-1">
-              <button onClick={prevMonth} className="p-2.5 hover:bg-white dark:hover:bg-white/10 rounded-xl transition-all hover:shadow-sm">
+              <button 
+                type="button"
+                onClick={(e) => { e.stopPropagation(); prevMonth(); }} 
+                className="p-2.5 hover:bg-white dark:hover:bg-white/10 rounded-xl transition-all hover:shadow-sm"
+              >
                 <ChevronLeft size={20} className="text-slate-600 dark:text-slate-400" />
               </button>
               <span className="w-44 text-center text-sm font-black text-slate-900 dark:text-white tracking-tight">{monthName}</span>
-              <button onClick={nextMonth} className="p-2.5 hover:bg-white dark:hover:bg-white/10 rounded-xl transition-all hover:shadow-sm">
+              <button 
+                type="button"
+                onClick={(e) => { e.stopPropagation(); nextMonth(); }} 
+                className="p-2.5 hover:bg-white dark:hover:bg-white/10 rounded-xl transition-all hover:shadow-sm"
+              >
                 <ChevronRight size={20} className="text-slate-600 dark:text-slate-400" />
               </button>
             </div>
             
-            <button onClick={goToday} className="px-6 py-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/10 shadow-sm transition-all active:scale-95">
+            <button 
+              type="button"
+              onClick={goToday} 
+              className="px-6 py-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/10 shadow-sm transition-all active:scale-95"
+            >
               Today
             </button>
 
@@ -173,6 +217,7 @@ export const CalendarView: React.FC = () => {
             </div>
 
             <button 
+              type="button"
               onClick={() => {
                 setEditingEvent(null);
                 setShowEventModal(true);
@@ -230,9 +275,8 @@ export const CalendarView: React.FC = () => {
                             onClick={(e) => {
                               e.stopPropagation();
                               if (ev.type === 'reminder') {
-                                const realReminder = state.reminders.find(r => r.title === ev.title && r.due_date === day.dateKey);
-                                if (realReminder) {
-                                  setEditingEvent(realReminder);
+                                if (ev.originalReminder) {
+                                  setEditingEvent(ev.originalReminder);
                                   setShowEventModal(true);
                                 }
                               }
@@ -278,9 +322,8 @@ export const CalendarView: React.FC = () => {
                               key={j} 
                               onClick={() => {
                                 if (ev.type === 'reminder') {
-                                  const realReminder = state.reminders.find(r => r.title === ev.title && r.due_date === dKey);
-                                  if (realReminder) {
-                                    setEditingEvent(realReminder);
+                                  if (ev.originalReminder) {
+                                    setEditingEvent(ev.originalReminder);
                                     setShowEventModal(true);
                                   }
                                 }
@@ -314,8 +357,12 @@ export const CalendarView: React.FC = () => {
 
           {activeTab === "list" && (
             <div className="flex-1 flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300 overflow-y-auto pr-2 custom-scrollbar">
-              {state.reminders.length > 0 ? (
-                state.reminders
+              {(() => {
+                const year = viewDate.getFullYear();
+                const month = viewDate.getMonth() + 1;
+                const listReminders = generateReminderOccurrences(state.reminders || [], state.reminderCompletions || [], year, month);
+                
+                return listReminders.length > 0 ? listReminders
                   .sort((a, b) => a.due_date.localeCompare(b.due_date))
                   .map((r, i) => (
                     <div 
@@ -350,22 +397,22 @@ export const CalendarView: React.FC = () => {
                         })()}
                       </div>
                     </div>
-                  ))
-              ) : (
-                <div className="flex-1 flex flex-col items-center justify-center text-center p-20 bg-slate-50/50 dark:bg-white/5 rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:border-white/10">
-                  <div className="w-24 h-24 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center mb-6">
-                    <CalendarIcon size={40} className="text-slate-300 opacity-50" />
-                  </div>
-                  <h4 className="text-xl font-black text-slate-900 dark:text-white mb-2">Your timeline is empty</h4>
-                  <p className="text-sm font-medium text-slate-500 max-w-[280px] leading-relaxed">Stay organized by adding upcoming bills, goals, and important events.</p>
-                  <button 
-                    onClick={() => setShowEventModal(true)}
-                    className="mt-8 px-8 py-3 bg-blue-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/20"
-                  >
-                    Create First Event
-                  </button>
-                </div>
-              )}
+                  )) : (
+                    <div className="flex-1 flex flex-col items-center justify-center text-center p-20 bg-slate-50/50 dark:bg-white/5 rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:border-white/10">
+                      <div className="w-24 h-24 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center mb-6">
+                        <CalendarIcon size={40} className="text-slate-300 opacity-50" />
+                      </div>
+                      <h4 className="text-xl font-black text-slate-900 dark:text-white mb-2">Your timeline is empty</h4>
+                      <p className="text-sm font-medium text-slate-500 max-w-[280px] leading-relaxed">Stay organized by adding upcoming bills, goals, and important events.</p>
+                      <button 
+                        onClick={() => setShowEventModal(true)}
+                        className="mt-8 px-8 py-3 bg-blue-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/20"
+                      >
+                        Create First Event
+                      </button>
+                    </div>
+                  );
+              })()}
             </div>
           )}
         </div>
@@ -404,6 +451,13 @@ export const CalendarView: React.FC = () => {
               </div>
             )}
           </div>
+          
+          <button 
+            onClick={() => setPage("reminders")}
+            className="mt-4 w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-700 dark:text-white/60 dark:hover:text-white transition-all shadow-sm active:scale-95 flex items-center justify-center gap-2"
+          >
+            View All Reminders <ChevronRight size={14} />
+          </button>
         </div>
 
         {/* Intelligence CTA */}

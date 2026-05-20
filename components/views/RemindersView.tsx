@@ -9,15 +9,15 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/lib/AppContext";
 import { VylosCalculations } from "@/lib/vylosCalculations";
-import { toDateKey, createLocalDate, parseDateKey } from "@/lib/utils";
 import { TransactionIcon } from "@/components/ui/TransactionIcon";
+import { getReminderDerivedStatus, getSouthAfricanNow, generateReminderOccurrences, toDateKey, createLocalDate, parseDateKey } from "@/lib/utils";
 
 interface RemindersViewProps {
   setShowAddReminder: (show: boolean) => void;
 }
 
 export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
-  const { state, formatCurrency, updateReminder } = useAppStore();
+  const { state, formatCurrency, updateReminder, toggleReminderCompletion } = useAppStore();
   const [activeTab, setActiveTab] = useState("All");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   
@@ -28,40 +28,67 @@ export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
   });
 
   const summary = useMemo(() => VylosCalculations.getRemindersSummary(state), [state]);
-  const reminders = state.reminders || [];
-  const { getReminderDerivedStatus } = require("@/lib/utils");
   
-  const saNow = require("@/lib/utils").getSouthAfricanNow();
-  const todayStr = saNow.dateKey;
-  
-  const filteredReminders = reminders.filter(r => {
-    const derivedStatus = getReminderDerivedStatus(r);
-    
-    if (selectedDate) return r.due_date === selectedDate;
-    if (activeTab === "Completed") return derivedStatus === "completed";
-    if (derivedStatus === "completed" && activeTab !== "Completed") return false;
-    
-    if (activeTab === "All") return true;
-    if (activeTab === "Due Today") return r.due_date === todayStr;
-    if (activeTab === "Upcoming") return derivedStatus === "upcoming";
-    if (activeTab === "Overdue") return derivedStatus === "overdue";
-    if (activeTab === "This Week") {
-        const nextWeek = new Date();
-        nextWeek.setDate(nextWeek.getDate() + 7);
-        const nextWeekStr = nextWeek.toISOString().slice(0, 10);
-        return r.due_date >= todayStr && r.due_date <= nextWeekStr;
-    }
-    return true;
-  });
+  // Use dynamically generated occurrences instead of static reminders list
+  const reminders = useMemo(() => {
+    const year = calendarViewDate.getFullYear();
+    const month = calendarViewDate.getMonth() + 1;
+    return generateReminderOccurrences(state.reminders || [], state.reminderCompletions || [], year, month);
+  }, [state.reminders, state.reminderCompletions, calendarViewDate]);
 
-  const handleComplete = async (id: string) => {
+  const todayStr = getSouthAfricanNow().dateKey;
+  
+  const filteredReminders = useMemo(() => {
+    return reminders.filter((r: any) => {
+      const derivedStatus = getReminderDerivedStatus(r);
+      
+      if (selectedDate) return r.due_date === selectedDate;
+      if (activeTab === "Completed") return derivedStatus === "completed";
+      if (derivedStatus === "completed" && activeTab !== "Completed") return false;
+      
+      if (activeTab === "All") return true;
+      if (activeTab === "Due Today") return r.due_date === todayStr;
+      if (activeTab === "Upcoming") return derivedStatus === "upcoming";
+      if (activeTab === "Overdue") return derivedStatus === "overdue";
+      if (activeTab === "This Week") {
+          const nextWeek = new Date();
+          nextWeek.setDate(nextWeek.getDate() + 7);
+          const nextWeekStr = nextWeek.toISOString().slice(0, 10);
+          return r.due_date >= todayStr && r.due_date <= nextWeekStr;
+      }
+      return true;
+    });
+  }, [reminders, selectedDate, activeTab, todayStr]);
+
+  // Index reminders by date for O(1) calendar lookups
+  const remindersByDate = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    for (let i = 0; i < reminders.length; i++) {
+      const r = reminders[i];
+      if (!map[r.due_date]) map[r.due_date] = [];
+      map[r.due_date].push(r);
+    }
+    return map;
+  }, [reminders]);
+
+  const handleComplete = async (reminder: any) => {
     try {
-      await updateReminder(id, { 
-        status: 'completed', 
-        completed_at: new Date().toISOString() 
-      });
+      if (reminder.recurring && reminder.recurring !== 'none') {
+        // For recurring items, use the new per-month completion logic
+        await toggleReminderCompletion(
+          reminder.id, 
+          reminder.occurrence_year || calendarViewDate.getFullYear(), 
+          reminder.occurrence_month || (calendarViewDate.getMonth() + 1)
+        );
+      } else {
+        // For once-off items, use the legacy status update
+        await updateReminder(reminder.id, { 
+          status: reminder.status === 'completed' ? 'pending' : 'completed', 
+          completed_at: reminder.status === 'completed' ? undefined : new Date().toISOString() 
+        });
+      }
     } catch (err) {
-      console.error("Failed to complete reminder", err);
+      console.error("Failed to update reminder status", err);
     }
   };
 
@@ -85,10 +112,14 @@ export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
         </div>
         
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-2 px-4 py-2.5 vylos-glass-readable backdrop-blur-md rounded-xl text-[12px] font-bold text-slate-700 dark:text-slate-200 shadow-sm hover:bg-white/10 dark:hover:bg-slate-800 transition-colors !rounded-xl !p-2.5">
+          <button 
+            type="button"
+            className="flex items-center gap-2 px-4 py-2.5 vylos-glass-readable backdrop-blur-md rounded-xl text-[12px] font-bold text-slate-700 dark:text-slate-200 shadow-sm hover:bg-white/10 dark:hover:bg-slate-800 transition-colors !rounded-xl !p-2.5"
+          >
             This Month <ChevronRight size={14} className="rotate-90" />
           </button>
           <button 
+            type="button"
             onClick={() => setShowAddReminder(true)}
             className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[12px] font-bold shadow-md transition-colors"
           >
@@ -100,13 +131,21 @@ export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
       {/* ─── Top Row (5 Cards) ─── */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
-          { title: "Due Today", val: summary.dueTodayCount, sub: formatCurrency(summary.dueTodayAmount), subColor: "text-red-500", icon: <Calendar size={18}/>, color: "text-red-500 bg-red-50 dark:bg-red-500/10" },
-          { title: "Upcoming", val: summary.upcomingCount, sub: formatCurrency(summary.upcomingAmount), subColor: "text-amber-500", icon: <Clock size={18}/>, color: "text-amber-500 bg-amber-50 dark:bg-amber-500/10" },
-          { title: "Overdue", val: summary.overdueCount, sub: formatCurrency(summary.overdueAmount), subColor: "text-rose-600", icon: <Bell size={18}/>, color: "text-rose-600 bg-rose-50 dark:bg-rose-500/10" },
-          { title: "Completed", val: summary.completedCount, sub: "This Month", subColor: "text-slate-400", icon: <CheckCircle2 size={18}/>, color: "text-emerald-500 bg-emerald-50 dark:bg-emerald-500/10" },
-          { title: "Total Active", val: summary.dueTodayCount + summary.upcomingCount + summary.overdueCount, sub: formatCurrency(summary.dueTodayAmount + summary.upcomingAmount + summary.overdueAmount), subColor: "text-slate-500", icon: <CreditCard size={18}/>, color: "text-purple-500 bg-purple-50 dark:bg-purple-500/10" }
+          { title: "Due Today", val: summary.dueTodayCount, sub: formatCurrency(summary.dueTodayAmount), subColor: "text-red-500", icon: <Calendar size={18}/>, color: "text-red-500 bg-red-50 dark:bg-red-500/10", tab: "Due Today" },
+          { title: "Upcoming", val: summary.upcomingCount, sub: formatCurrency(summary.upcomingAmount), subColor: "text-amber-500", icon: <Clock size={18}/>, color: "text-amber-500 bg-amber-50 dark:bg-amber-500/10", tab: "Upcoming" },
+          { title: "Overdue", val: summary.overdueCount, sub: formatCurrency(summary.overdueAmount), subColor: "text-rose-600", icon: <Bell size={18}/>, color: "text-rose-600 bg-rose-50 dark:bg-rose-500/10", tab: "Overdue" },
+          { title: "Completed", val: summary.completedCount, sub: "This Month", subColor: "text-slate-400", icon: <CheckCircle2 size={18}/>, color: "text-emerald-500 bg-emerald-50 dark:bg-emerald-500/10", tab: "Completed" },
+          { title: "Total Active", val: summary.dueTodayCount + summary.upcomingCount + summary.overdueCount, sub: formatCurrency(summary.dueTodayAmount + summary.upcomingAmount + summary.overdueAmount), subColor: "text-slate-500", icon: <CreditCard size={18}/>, color: "text-purple-500 bg-purple-50 dark:bg-purple-500/10", tab: "All" }
         ].map((card, i) => (
-          <div key={i} className="vylos-glass-readable p-5 flex flex-col justify-between items-center text-center">
+          <div 
+            key={i} 
+            onClick={() => {
+              setActiveTab(card.tab);
+              setSelectedDate(null);
+              document.getElementById('active-reminders')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="vylos-glass-readable p-5 flex flex-col justify-between items-center text-center cursor-pointer hover:bg-white/10 transition-all border border-transparent hover:border-white/10 active:scale-95"
+          >
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${card.color}`}>
               {card.icon}
             </div>
@@ -124,11 +163,9 @@ export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
         <div className="vylos-glass-readable p-6 flex flex-col">
           <div className="flex justify-between items-center mb-5">
             <span className="text-[14px] font-black text-slate-900 dark:text-white">Upcoming Bills</span>
-            <button className="text-[10px] font-bold text-blue-600 hover:text-blue-500 transition-colors" onClick={() => setActiveTab("Upcoming")}>View all</button>
           </div>
           <div className="flex flex-col gap-4 flex-1">
-            {reminders.filter(r => r.category === 'Bills' && r.status !== 'completed').slice(0, 3).map((r, i) => {
-              const iconInfo = getIcon(r.category);
+            {reminders.filter((r: any) => r.category === 'Bills' && r.status !== 'completed').slice(0, 3).map((r: any, i: number) => {
               return (
                 <div key={i} className="flex items-center justify-between group">
                   <div className="flex items-center gap-3">
@@ -151,19 +188,18 @@ export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
           </div>
           <div className="mt-5 pt-4 border-t border-white/10 flex justify-between items-center">
             <span className="text-[11px] font-black text-slate-600 dark:text-white/40">Total Upcoming</span>
-            <span className="text-[14px] font-black text-slate-900 dark:text-white">{formatCurrency(reminders.filter(r => r.category === 'Bills' && r.status !== 'completed').reduce((sum, r) => sum + (r.amount || 0), 0))}</span>
+            <span className="text-[14px] font-black text-slate-900 dark:text-white">{formatCurrency(reminders.filter((r: any) => r.category === 'Bills' && r.status !== 'completed').reduce((sum: number, r: any) => sum + (r.amount || 0), 0))}</span>
           </div>
+          <button onClick={() => { setActiveTab('All'); setSelectedDate(null); document.getElementById('active-reminders')?.scrollIntoView({ behavior: 'smooth' }); }} className="mt-4 text-[10px] font-black uppercase tracking-widest text-primary hover:text-blue-400 text-left transition-colors">View all bills →</button>
         </div>
 
         {/* Subscriptions */}
         <div className="vylos-glass-readable p-6 flex flex-col">
           <div className="flex justify-between items-center mb-5">
             <span className="text-[14px] font-black text-slate-900 dark:text-white">Subscriptions</span>
-            <button className="text-[10px] font-bold text-blue-600 hover:text-blue-500 transition-colors" onClick={() => setActiveTab("Upcoming")}>View all</button>
           </div>
           <div className="flex flex-col gap-4 flex-1">
-            {reminders.filter(r => r.category === 'Subscriptions' && r.status !== 'completed').slice(0, 3).map((r, i) => {
-              const iconInfo = getIcon(r.category);
+            {reminders.filter((r: any) => r.category === 'Subscriptions' && r.status !== 'completed').slice(0, 3).map((r: any, i: number) => {
               return (
                 <div key={i} className="flex items-center justify-between group">
                   <div className="flex items-center gap-3">
@@ -186,19 +222,18 @@ export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
           </div>
           <div className="mt-5 pt-4 border-t border-white/10 flex justify-between items-center">
             <span className="text-[11px] font-black text-slate-600 dark:text-white/40">Total Upcoming</span>
-            <span className="text-[14px] font-black text-slate-900 dark:text-white">{formatCurrency(reminders.filter(r => r.category === 'Subscriptions' && r.status !== 'completed').reduce((sum, r) => sum + (r.amount || 0), 0))}</span>
+            <span className="text-[14px] font-black text-slate-900 dark:text-white">{formatCurrency(reminders.filter((r: any) => r.category === 'Subscriptions' && r.status !== 'completed').reduce((sum: number, r: any) => sum + (r.amount || 0), 0))}</span>
           </div>
+          <button onClick={() => { setActiveTab('All'); setSelectedDate(null); document.getElementById('active-reminders')?.scrollIntoView({ behavior: 'smooth' }); }} className="mt-4 text-[10px] font-black uppercase tracking-widest text-primary hover:text-blue-400 text-left transition-colors">View all subscriptions →</button>
         </div>
 
         {/* Savings Reminders */}
         <div className="vylos-glass-readable p-6 flex flex-col">
           <div className="flex justify-between items-center mb-5">
             <span className="text-[14px] font-black text-slate-900 dark:text-white">Savings Reminders</span>
-            <button className="text-[10px] font-bold text-blue-600 hover:text-blue-500 transition-colors" onClick={() => setActiveTab("Upcoming")}>View all</button>
           </div>
           <div className="flex flex-col gap-4 flex-1">
-            {reminders.filter(r => r.category === 'Savings' && r.status !== 'completed').slice(0, 3).map((r, i) => {
-              const iconInfo = getIcon(r.category);
+            {reminders.filter((r: any) => r.category === 'Savings' && r.status !== 'completed').slice(0, 3).map((r: any, i: number) => {
               return (
                 <div key={i} className="flex items-center justify-between group">
                   <div className="flex items-center gap-3">
@@ -221,8 +256,9 @@ export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
           </div>
           <div className="mt-5 pt-4 border-t border-white/10 flex justify-between items-center">
             <span className="text-[11px] font-black text-slate-600 dark:text-white/40">Total Upcoming</span>
-            <span className="text-[14px] font-black text-slate-900 dark:text-white">{formatCurrency(reminders.filter(r => r.category === 'Savings' && r.status !== 'completed').reduce((sum, r) => sum + (r.amount || 0), 0))}</span>
+            <span className="text-[14px] font-black text-slate-900 dark:text-white">{formatCurrency(reminders.filter((r: any) => r.category === 'Savings' && r.status !== 'completed').reduce((sum: number, r: any) => sum + (r.amount || 0), 0))}</span>
           </div>
+          <button onClick={() => { setActiveTab('All'); setSelectedDate(null); document.getElementById('active-reminders')?.scrollIntoView({ behavior: 'smooth' }); }} className="mt-4 text-[10px] font-black uppercase tracking-widest text-primary hover:text-blue-400 text-left transition-colors">View all savings →</button>
         </div>
 
       </div>
@@ -233,7 +269,7 @@ export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
         {/* All Reminders List */}
         <div className="lg:col-span-8 vylos-glass-readable p-6 flex flex-col">
           <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-            <span className="text-[16px] font-black text-slate-900 dark:text-white tracking-tight">Active Reminders</span>
+            <span id="active-reminders" className="text-[16px] font-black text-slate-900 dark:text-white tracking-tight scroll-mt-24">Active Reminders</span>
             <div className="flex items-center gap-2">
               <div className="flex bg-white/5 border border-white/10 p-1.5 rounded-2xl overflow-x-auto no-scrollbar">
                 {['All', 'Due Today', 'Overdue', 'Upcoming', 'This Week', 'Completed'].map(tab => (
@@ -250,8 +286,7 @@ export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
           </div>
           
           <div className="flex flex-col gap-2 min-h-[400px]">
-            {filteredReminders.length > 0 ? filteredReminders.map((r, i) => {
-              const iconInfo = getIcon(r.category);
+            {filteredReminders.length > 0 ? filteredReminders.map((r: any, i: number) => {
               const derivedStatus = getReminderDerivedStatus(r);
               const isToday = r.due_date === todayStr;
               const isOverdue = derivedStatus === 'overdue';
@@ -268,7 +303,7 @@ export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
                 <div key={i} className="flex items-center justify-between p-4 hover:bg-white/10 rounded-2xl transition-all cursor-pointer group border border-transparent hover:border-white/5">
                   <div className="flex items-center gap-5">
                     <button 
-                      onClick={(e) => { e.stopPropagation(); handleComplete(r.id); }}
+                      onClick={(e) => { e.stopPropagation(); handleComplete(r); }}
                       className={`w-11 h-11 rounded-[1.25rem] flex items-center justify-center shrink-0 transition-all shadow-sm ${r.status === 'completed' ? 'bg-emerald-500 text-white' : 'bg-white/5 dark:bg-white/5 border border-white/10 text-slate-400 hover:bg-primary hover:text-white hover:border-primary'}`}
                     >
                       {r.status === 'completed' ? <CheckCircle2 size={20} /> : <div className="w-5 h-5 rounded-full border-2 border-current" />}
@@ -302,7 +337,7 @@ export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
               </div>
             )}
           </div>
-          <button className="mt-8 text-[11px] font-black uppercase tracking-[0.2em] text-primary hover:text-blue-400 transition-colors text-left" onClick={() => setActiveTab("All")}>View all reminders</button>
+          <button className="mt-8 text-[11px] font-black uppercase tracking-[0.2em] text-primary hover:text-blue-400 transition-colors text-left" onClick={() => { setActiveTab("All"); setSelectedDate(null); }}>Reset Filters</button>
         </div>
 
         {/* Calendar Widget */}
@@ -315,13 +350,15 @@ export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
               </span>
               <div className="flex gap-2">
                 <button 
-                  onClick={() => setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1))}
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1)); }}
                   className="p-2 bg-white/5 border border-white/10 rounded-xl text-slate-400 hover:text-primary hover:border-primary transition-all shadow-sm"
                 >
                   <ChevronLeft size={16}/>
                 </button>
                 <button 
-                  onClick={() => setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1))}
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1)); }}
                   className="p-2 bg-white/5 border border-white/10 rounded-xl text-slate-400 hover:text-primary hover:border-primary transition-all shadow-sm"
                 >
                   <ChevronRight size={16}/>
@@ -352,11 +389,11 @@ export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
                 const isToday = dKey === todayKey;
                 const isSelected = dKey === selectedDate;
                 
-                const dayReminders = reminders.filter(r => r.due_date === dKey);
-                const hasBills = dayReminders.some(r => r.category === 'Bills');
-                const hasSubs = dayReminders.some(r => r.category === 'Subscriptions');
-                const hasRent = dayReminders.some(r => r.category === 'Rent / Housing');
-                const hasOther = dayReminders.some(r => !['Bills', 'Subscriptions', 'Rent / Housing'].includes(r.category));
+                const dayReminders = remindersByDate[dKey] || [];
+                const hasBills = dayReminders.some((r: any) => r.category === 'Bills');
+                const hasSubs = dayReminders.some((r: any) => r.category === 'Subscriptions');
+                const hasRent = dayReminders.some((r: any) => r.category === 'Rent / Housing');
+                const hasOther = dayReminders.some((r: any) => !['Bills', 'Subscriptions', 'Rent / Housing'].includes(r.category));
 
                 cells.push(
                   <div 

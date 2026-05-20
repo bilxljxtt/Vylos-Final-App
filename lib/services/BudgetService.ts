@@ -1,4 +1,4 @@
-import { AppState, Transaction, BudgetCategory, TransactionCategory } from "../store";
+import { AppState, Transaction, BudgetCategory, TransactionCategory, TRANSACTION_CATEGORIES } from "../store";
 import { getTransactionDateKey, toDateKey } from "../utils";
 
 export interface CategorySummary {
@@ -27,103 +27,75 @@ export class BudgetService {
    * Single source of truth for the Budget view.
    */
   static calculateBudgetSummary(state: AppState, selectedMonth: string): BudgetSummary {
-    const monthPrefix = selectedMonth.slice(0, 7); // YYYY-MM
-
-    // Filter transactions for the selected month
-    const monthTxs = state.transactions.filter(t => {
-      const dateKey = getTransactionDateKey(t);
-      return dateKey.startsWith(monthPrefix);
-    });
-
-    // Filter subscriptions for the selected month
-    const monthSubs = state.subscriptions.filter(s => {
-      return s.nextDue.startsWith(monthPrefix);
-    });
+    const monthPrefix = selectedMonth.slice(0, 7);
+    const incomeCategories = ["Salary", "Business Income", "Refund", "Other Income"];
 
     const normalize = (s: string) => {
       if (!s) return "Other";
       const trimmed = s.trim();
-      return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+      const match = TRANSACTION_CATEGORIES.find(c => c.toLowerCase() === trimmed.toLowerCase());
+      if (match) return match;
+      return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
     };
 
-    const incomeCategories = ["Salary", "Business Income", "Refund", "Other Income"];
-
-    // Get all unique categories
-    const allCategories = new Set([
-      ...Object.keys(state.budgets).map(normalize),
-      ...monthTxs.filter(t => t.amount < 0).map(t => normalize(t.category)), // Only negative amounts count towards spending categories
-      ...monthSubs.map(s => normalize(s.category))
-    ]);
-
-    const categories: CategorySummary[] = Array.from(allCategories)
-      .filter(cat => !incomeCategories.includes(cat))
-      .map(cat => {
-        const catTxs = monthTxs.filter(t => normalize(t.category) === cat);
-        const catSubs = monthSubs.filter(s => normalize(s.category) === cat);
-        
-        // Spent = absolute value of negative amounts + subscriptions
-        const txSpent = catTxs
-          .filter(t => t.amount < 0)
-          .reduce((sum, t) => sum + Math.abs(t.amount), 0);
-        
-        const subSpent = catSubs.reduce((sum, s) => sum + s.amount, 0);
-        const spent = txSpent + subSpent;
-
-        // Allocated = budget limit
-        // We match budget keys case-insensitively
-        const budgetKey = Object.keys(state.budgets).find(k => normalize(k) === cat);
-        const allocated = budgetKey ? (state.budgets[budgetKey]?.limit || 0) : 0;
-        
-        const remaining = allocated - spent;
-        let percentageUsed = 0;
-        
-        if (allocated > 0) {
-          percentageUsed = (spent / allocated) * 100;
-        } else if (spent > 0) {
-          percentageUsed = 100; // Over budget by definition
+    // Single pass to aggregate transaction spending by normalized category
+    const spentMap: Record<string, number> = {};
+    const txs = state.transactions;
+    for (let i = 0; i < txs.length; i++) {
+      const t = txs[i];
+      const dateKey = getTransactionDateKey(t);
+      if (dateKey.startsWith(monthPrefix) && t.amount < 0) {
+        const cat = normalize(t.category);
+        if (!incomeCategories.includes(cat)) {
+          spentMap[cat] = (spentMap[cat] || 0) + Math.abs(t.amount);
         }
+      }
+    }
 
-        let status: "safe" | "warning" | "over" = "safe";
-        if (allocated === 0 && spent > 0) status = "over";
-        else if (percentageUsed >= 100) status = "over";
-        else if (percentageUsed >= 75) status = "warning";
+    // Single pass for subscriptions
+    const subs = state.subscriptions;
+    for (let i = 0; i < subs.length; i++) {
+      const s = subs[i];
+      if (s.nextDue.startsWith(monthPrefix)) {
+        const cat = normalize(s.category);
+        if (!incomeCategories.includes(cat)) {
+          spentMap[cat] = (spentMap[cat] || 0) + s.amount;
+        }
+      }
+    }
 
-        return {
-          name: cat,
-          allocated,
-          spent,
-          remaining,
-          percentageUsed,
-          status
-        };
-      })
-      .sort((a, b) => b.spent - a.spent); // Sort by highest spend
+    // Get all unique categories from budgets and spending
+    const budgetEntries = Object.entries(state.budgets);
+    const budgetCategories = new Set(budgetEntries.map(([k]) => normalize(k)));
+    const allCategories = new Set([...budgetCategories, ...Object.keys(spentMap)]);
+
+    const categories: CategorySummary[] = Array.from(allCategories).map(cat => {
+      const spent = spentMap[cat] || 0;
+      const budgetKey = Object.keys(state.budgets).find(k => normalize(k) === cat);
+      const allocated = budgetKey ? (state.budgets[budgetKey]?.limit || 0) : 0;
+      
+      const remaining = allocated - spent;
+      const percentageUsed = allocated > 0 ? (spent / allocated) * 100 : (spent > 0 ? 100 : 0);
+
+      let status: "safe" | "warning" | "over" = "safe";
+      if (percentageUsed >= 100 || (allocated === 0 && spent > 0)) status = "over";
+      else if (percentageUsed >= 75) status = "warning";
+
+      return { name: cat, allocated, spent, remaining, percentageUsed, status };
+    }).sort((a, b) => b.spent - a.spent);
 
     const totalAllocated = categories.reduce((sum, c) => sum + c.allocated, 0);
     const totalSpent = categories.reduce((sum, c) => sum + c.spent, 0);
-    const totalRemaining = totalAllocated - totalSpent;
-    
-    let percentageUsed = 0;
-    if (totalAllocated > 0) {
-      percentageUsed = (totalSpent / totalAllocated) * 100;
-    } else if (totalSpent > 0) {
-      percentageUsed = 100;
-    }
-
-    const billsCat = categories.find(c => c.name === "Bills");
-    const billsTotal = billsCat ? billsCat.spent : 0;
-
     const monthlyIncome = state.userProfile.monthlyIncome || 0;
-    const isUnrealistic = totalAllocated > monthlyIncome && monthlyIncome > 0;
 
     return {
       totalAllocated,
       totalSpent,
-      totalRemaining,
-      percentageUsed,
+      totalRemaining: totalAllocated - totalSpent,
+      percentageUsed: totalAllocated > 0 ? (totalSpent / totalAllocated) * 100 : (totalSpent > 0 ? 100 : 0),
       categories,
-      billsTotal,
-      isUnrealistic,
+      billsTotal: categories.find(c => c.name === "Bills")?.spent || 0,
+      isUnrealistic: totalAllocated > monthlyIncome && monthlyIncome > 0,
       monthlyIncome
     };
   }

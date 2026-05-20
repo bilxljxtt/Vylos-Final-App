@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
@@ -11,11 +11,31 @@ const inter = Inter({
   weight: ["300", "400", "500", "600", "700", "800"],
 });
 
+export const viewport: Viewport = {
+  themeColor: "#2563EB",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
+
 export const metadata: Metadata = {
-  title: "Vylos — Financial Intelligence Engine",
-  description:
-    "Vylos is a financial intelligence platform. Track spending, build resilience, and get formula-based insights.",
-  keywords: ["personal finance", "budgeting", "savings", "financial engine"],
+  title: "Vylos | Your Financial Intelligence Engine",
+  description: "Take control of your financial future with Vylos. Professional-grade tracking, automated health scoring, and AI-powered financial coaching.",
+  keywords: ["personal finance", "wealth management", "budgeting app", "financial health", "savings tracker"],
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Vylos"
+  },
+  openGraph: {
+    title: "Vylos | Your Financial Intelligence Engine",
+    description: "The premium way to track, understand, and grow your wealth.",
+    url: "https://vylos.app",
+    siteName: "Vylos",
+    locale: "en_ZA",
+    type: "website",
+  },
 };
 
 import Script from "next/script";
@@ -26,7 +46,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} h-full antialiased`} suppressHydrationWarning>
+    <html lang="en" className={`${inter.variable} antialiased`} suppressHydrationWarning>
       <head>
         <Script
           id="theme-detection"

@@ -174,6 +174,33 @@ export interface Reminder {
   status: "pending" | "completed" | "overdue";
   amount?: number; // Optional amount if linked to a bill
   completed_at?: string;
+  billing_day?: number; // Day of month for recurring items
+}
+
+export interface ReminderCompletion {
+  id: string;
+  reminder_id: string;
+  user_id: string;
+  year: number;
+  month: number;
+  completed_at: string;
+}
+
+export interface BackendHealthScore {
+  score: number;
+  status: string;
+  breakdown: {
+    income_stability: number;
+    expense_control: number;
+    savings_progress: number;
+    budget_usage: number;
+    bills_risk: number;
+    monthly_income: number;
+    monthly_expenses: number;
+    expense_to_income_ratio: number;
+    top_overspending_category: string;
+  };
+  calculated_at: string;
 }
 
 import { MerchantRule } from "./services/CategorizationEngine";
@@ -184,6 +211,7 @@ export interface AppState {
   goals: Goal[];
   goalContributions: GoalContribution[];
   reminders: Reminder[];
+  reminderCompletions: ReminderCompletion[];
   merchantRules: MerchantRule[];
   budgets: Record<string, BudgetCategory>;
   userProfile: UserProfile;
@@ -192,6 +220,8 @@ export interface AppState {
   unreadNotificationCount: number;
   selectedMonth: string; // ISO format "YYYY-MM-DD"
   aiUsage: { messages_used: number; billing_month: string };
+  backendHealthScore: BackendHealthScore | null;
+  isCalculatingHealthScore: boolean;
 }
 
 export const TRANSACTION_CATEGORIES: TransactionCategory[] = [
@@ -228,6 +258,7 @@ export const initialState: AppState = {
   goals: [],
   goalContributions: [],
   reminders: [],
+  reminderCompletions: [],
   merchantRules: [],
   unreadNotificationCount: 0,
   notificationList: [],
@@ -286,6 +317,8 @@ export const initialState: AppState = {
     goalUpdates: true,
     weeklySummary: true,
   },
+  backendHealthScore: null,
+  isCalculatingHealthScore: false,
 };
 
 // ─── Derived / Computed Helpers ───────────────────────────────────────────────
@@ -384,27 +417,28 @@ export function getCurrencySymbol(countryStr?: string): string {
 }
 
 export function formatMoney(val: number, currency: string = "R"): string {
-  // Map internal currency codes to their proper symbols/locales
-  // For Vylos, we prioritize "R" (South African Rand)
-  const isZar = currency === "R" || currency === "ZAR" || currency.toLowerCase().includes("rand");
-  const currencyCode = isZar ? "ZAR" : (currency.length === 3 ? currency.toUpperCase() : "ZAR");
-  const locale = "en-US"; // Standard comma-separated format
+  // Safe handling for invalid numbers
+  if (val === null || val === undefined || isNaN(val)) return "R0";
+  if (!isFinite(val)) return "R∞";
 
-  const formatter = new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency: currencyCode,
+  // Standardize currency to R
+  const symbol = "R";
+  
+  // Use Intl.NumberFormat for robust formatting across all scales (small to billion)
+  const formatter = new Intl.NumberFormat("en-ZA", {
+    style: "decimal",
     minimumFractionDigits: 0,
     maximumFractionDigits: (Math.abs(val) < 100 && val % 1 !== 0) ? 2 : 0
   });
+
+  const formatted = formatter.format(val);
   
-  let formatted = formatter.format(val);
-  
-  // Custom cleanup for ZAR to match "R1,234" style without extra spaces
-  if (isZar) {
-    formatted = formatted.replace("ZAR", "R").replace(/\s/g, "");
+  // Handle negative values correctly (e.g. -R1,234 instead of R-1,234)
+  if (val < 0) {
+    return `-${symbol}${formatted.replace("-", "")}`;
   }
   
-  return formatted;
+  return `${symbol}${formatted}`;
 }
 
 export function generateId(): string {

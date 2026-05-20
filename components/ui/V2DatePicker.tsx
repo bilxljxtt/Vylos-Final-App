@@ -24,6 +24,7 @@ export const V2DatePicker: React.FC<V2DatePickerProps> = ({
   const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
   const [mounted, setMounted] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const portalId = React.useMemo(() => `vylos-datepicker-portal-${Math.random().toString(36).substr(2, 9)}`, []);
 
   // Calendar state
   const initialDate = value ? parseDateKey(value) : new Date();
@@ -33,7 +34,7 @@ export const V2DatePicker: React.FC<V2DatePickerProps> = ({
     setMounted(true);
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        const portalContent = document.getElementById("vylos-portal-root-datepicker");
+        const portalContent = document.getElementById(portalId);
         if (portalContent && portalContent.contains(event.target as Node)) return;
         setIsOpen(false);
       }
@@ -84,57 +85,55 @@ export const V2DatePicker: React.FC<V2DatePickerProps> = ({
     }
   };
 
-  const handleToggle = (e: React.MouseEvent) => {
+  const handleToggle = React.useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     updateCoords();
     setIsOpen(!isOpen);
-  };
+  }, [isOpen]);
 
-  const handlePrevMonth = (e: React.MouseEvent) => {
+  const handlePrevMonth = React.useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1));
-  };
+    setViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  }, []);
 
-  const handleNextMonth = (e: React.MouseEvent) => {
+  const handleNextMonth = React.useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1));
-  };
+    setViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  }, []);
 
-  const handleSelectDate = (date: Date) => {
+  const handleSelectDate = React.useCallback((date: Date) => {
     const key = toDateKey(date);
-    // Use a small timeout or immediate call to ensure the state update is processed
-    // before the component might be unmounted or closed by an outside click race
     onChange(key);
     setTimeout(() => setIsOpen(false), 10);
-  };
+  }, [onChange]);
 
-  const handleToday = (e: React.MouseEvent) => {
+  const handleToday = React.useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     const today = new Date();
     const key = toDateKey(today);
     onChange(key);
     setIsOpen(false);
-  };
+  }, [onChange]);
 
-  const handleClear = (e: React.MouseEvent) => {
+  const handleClear = React.useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     onChange("");
     setIsOpen(false);
-  };
+  }, [onChange]);
 
-  const renderCalendar = () => {
+  const days = React.useMemo(() => {
     const year = viewDate.getFullYear();
     const month = viewDate.getMonth();
     
     const firstDayOfMonth = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     
-    const days = [];
+    const cells = [];
     
     // Padding for previous month
     const prevMonthDays = new Date(year, month, 0).getDate();
     for (let i = firstDayOfMonth - 1; i >= 0; i--) {
-      days.push({
+      cells.push({
         day: prevMonthDays - i,
         month: month - 1,
         year,
@@ -144,7 +143,7 @@ export const V2DatePicker: React.FC<V2DatePickerProps> = ({
     
     // Current month days
     for (let i = 1; i <= daysInMonth; i++) {
-      days.push({
+      cells.push({
         day: i,
         month,
         year,
@@ -154,16 +153,20 @@ export const V2DatePicker: React.FC<V2DatePickerProps> = ({
     
     // Padding for next month
     const totalCells = 42; // 6 rows
-    const nextPadding = totalCells - days.length;
+    const nextPadding = totalCells - cells.length;
     for (let i = 1; i <= nextPadding; i++) {
-      days.push({
+      cells.push({
         day: i,
         month: month + 1,
         year,
         currentMonth: false
       });
     }
+    return cells;
+  }, [viewDate]);
 
+  const calendarContent = React.useMemo(() => {
+    const year = viewDate.getFullYear();
     const monthName = viewDate.toLocaleString("default", { month: "long" });
     const todayKey = toDateKey(new Date());
 
@@ -172,7 +175,7 @@ export const V2DatePicker: React.FC<V2DatePickerProps> = ({
         <div className="flex items-center justify-between mb-8">
           <button 
             type="button" 
-            onClick={handlePrevMonth}
+            onClick={(e) => { e.preventDefault(); handlePrevMonth(e); }}
             className="p-3 text-slate-400 hover:text-blue-500 hover:bg-white/10 rounded-2xl transition-all shadow-sm"
           >
             <ChevronLeft size={24} />
@@ -182,7 +185,7 @@ export const V2DatePicker: React.FC<V2DatePickerProps> = ({
           </div>
           <button 
             type="button" 
-            onClick={handleNextMonth}
+            onClick={(e) => { e.preventDefault(); handleNextMonth(e); }}
             className="p-3 text-slate-400 hover:text-blue-500 hover:bg-white/10 rounded-2xl transition-all shadow-sm"
           >
             <ChevronRight size={24} />
@@ -208,6 +211,7 @@ export const V2DatePicker: React.FC<V2DatePickerProps> = ({
                 type="button"
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
+                  e.preventDefault();
                   e.stopPropagation();
                   handleSelectDate(date);
                 }}
@@ -232,14 +236,14 @@ export const V2DatePicker: React.FC<V2DatePickerProps> = ({
         <div className="mt-10 pt-8 border-t border-white/10 flex items-center justify-between gap-4">
           <button 
             type="button"
-            onClick={handleClear}
+            onClick={(e) => { e.preventDefault(); handleClear(e); }}
             className="flex-1 py-4 text-[10px] font-black text-slate-400 hover:text-red-500 transition-colors uppercase tracking-[0.3em] bg-white/5 rounded-2xl"
           >
             Reset
           </button>
           <button 
             type="button"
-            onClick={handleToday}
+            onClick={(e) => { e.preventDefault(); handleToday(e); }}
             className="flex-[1.5] py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] hover:bg-blue-500 transition-all shadow-xl active:scale-95"
           >
             Today
@@ -247,7 +251,7 @@ export const V2DatePicker: React.FC<V2DatePickerProps> = ({
         </div>
       </div>
     );
-  };
+  }, [viewDate, days, value, handleNextMonth, handlePrevMonth, handleSelectDate, handleClear, handleToday]);
 
   const displayValue = value ? formatDate(value) : placeholder;
 
@@ -278,7 +282,7 @@ export const V2DatePicker: React.FC<V2DatePickerProps> = ({
 
       {isOpen && mounted && createPortal(
         <div 
-          id="vylos-portal-root-datepicker"
+          id={portalId}
           className="fixed animate-in fade-in zoom-in-95 duration-200 z-[10001]"
           style={{
             top: `${coords.top}px`,
@@ -286,7 +290,7 @@ export const V2DatePicker: React.FC<V2DatePickerProps> = ({
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          {renderCalendar()}
+          {calendarContent}
         </div>,
         document.body
       )}

@@ -6,7 +6,7 @@ import {
   LogOut, ChevronRight, Globe, Moon, Sun,
   Smartphone, Mail, User, Phone, CheckCircle2,
   UserCircle, Palette, Zap, CreditCard, Shield,
-  ExternalLink, ChevronDown
+  ExternalLink, ChevronDown, MessageCircle
 } from "lucide-react";
 import { useAppStore } from "@/lib/AppContext";
 import { AppState, UserProfile, NotificationPrefs } from "@/lib/store";
@@ -22,6 +22,7 @@ interface SettingsViewProps {
   setDark: (val: boolean) => void;
   setPage: (val: string) => void;
   onUpgrade: (title: string) => void;
+  onShowFeedback: () => void;
 }
 
 export function SettingsView({ 
@@ -31,7 +32,8 @@ export function SettingsView({
   dark, 
   setDark, 
   setPage, 
-  onUpgrade 
+  onUpgrade,
+  onShowFeedback
 }: SettingsViewProps) {
   const { updateNotifications } = useAppStore();
   const supabase = createClient();
@@ -108,17 +110,17 @@ export function SettingsView({
   );
 
   return (
-    <div className="flex flex-col gap-8 w-full max-w-[1200px] mx-auto pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="flex flex-col gap-8 w-full max-w-[1200px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
       
       {/* ─── Header Section ─── */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 mb-3">
              <Zap size={12} className="text-primary" />
-             <span className="text-[10px] font-black text-primary uppercase tracking-widest">Configuration Console</span>
+             <span className="text-[10px] font-black text-primary uppercase tracking-widest">App Settings</span>
           </div>
           <h2 className="text-5xl font-black text-text-main tracking-tighter leading-none">Settings</h2>
-          <p className="text-sm font-bold text-text-muted mt-2 opacity-60">Manage your Vylos identity and platform preferences.</p>
+          <p className="text-sm font-bold text-text-muted mt-2 opacity-60">Manage your profile settings and platform preferences.</p>
         </div>
         <button 
           type="button"
@@ -184,20 +186,20 @@ export function SettingsView({
 
           {/* Security & Actions */}
           <div className="vylos-glass-panel p-8 flex flex-col gap-4">
-            <h4 className="text-xs font-black text-text-muted uppercase tracking-[0.3em] mb-4 px-4 opacity-40">Account Integrity</h4>
+            <h4 className="text-xs font-black text-text-muted uppercase tracking-[0.3em] mb-4 px-4 opacity-40">Account Security</h4>
             
             <button 
               type="button"
-              onClick={() => showToast("Security link dispatched to email.", "info")}
+              onClick={() => showToast("Change password link sent to email.", "info")}
               className="flex items-center justify-between w-full p-5 bg-white/5 hover:bg-white/10 rounded-[2rem] transition-all group vylos-focus border border-white/10"
             >
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-primary/10 rounded-2xl text-primary"><Lock size={20} /></div>
-                <span className="text-sm font-black text-text-main">Rotate Password</span>
+                <span className="text-sm font-black text-text-main">Change Password</span>
               </div>
               <ChevronRight size={18} className="text-text-muted group-hover:translate-x-1 transition-transform" />
             </button>
-
+ 
             <button 
               type="button"
               onClick={handleLogout}
@@ -205,9 +207,21 @@ export function SettingsView({
             >
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-red-500/10 rounded-2xl text-red-500"><LogOut size={20} /></div>
-                <span className="text-sm font-black text-red-600">Terminate Session</span>
+                <span className="text-sm font-black text-red-600">Sign Out</span>
               </div>
               <ChevronRight size={18} className="text-red-400 group-hover:translate-x-1 transition-transform" />
+            </button>
+
+            <button 
+              type="button"
+              onClick={onShowFeedback}
+              className="flex items-center justify-between w-full p-5 bg-primary/5 hover:bg-primary/10 rounded-[2rem] transition-all group border border-primary/10 vylos-focus"
+            >
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-primary/10 rounded-2xl text-primary"><MessageCircle size={20} /></div>
+                <span className="text-sm font-black text-text-main">Submit Feedback</span>
+              </div>
+              <ChevronRight size={18} className="text-primary group-hover:translate-x-1 transition-transform" />
             </button>
           </div>
 
@@ -271,7 +285,7 @@ export function SettingsView({
               </div>
 
               <div className="flex flex-col gap-3">
-                <label className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] ml-2">Fiscal Currency</label>
+                <label className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] ml-2">Default Currency</label>
                 <div className="relative">
                   <Globe size={20} className="absolute left-5 top-1/2 -translate-y-1/2 text-text-muted opacity-40" />
                   <select 
@@ -279,10 +293,10 @@ export function SettingsView({
                     onChange={e => setProfile({...profile, currency: e.target.value})}
                     className="w-full vylos-glass-input rounded-[2rem] pl-14 pr-12 py-5 text-sm font-black text-text-main outline-none transition-all appearance-none cursor-pointer vylos-focus"
                   >
-                    <option value="R">ZAR (R)</option>
-                    <option value="USD">USD ($)</option>
-                    <option value="EUR">EUR (€)</option>
-                    <option value="GBP">GBP (£)</option>
+                    <option value="R" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">ZAR (R)</option>
+                    <option value="USD" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">USD ($)</option>
+                    <option value="EUR" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">EUR (€)</option>
+                    <option value="GBP" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">GBP (£)</option>
                   </select>
                   <ChevronDown size={18} className="absolute right-5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
                 </div>
@@ -333,21 +347,21 @@ export function SettingsView({
               </div>
             </div>
 
-            {/* Neural Notifications */}
+            {/* Notifications */}
             <div className="vylos-glass-panel p-10 flex flex-col">
               <div className="flex items-center gap-4 mb-10">
                 <div className="p-3.5 bg-emerald-500 rounded-3xl text-white shadow-2xl shadow-emerald-500/30">
                   <Bell size={24} />
                 </div>
-                <h4 className="text-xl font-black text-text-main tracking-tight">Intelligence Alerts</h4>
+                <h4 className="text-xl font-black text-text-main tracking-tight">Alerts & Notifications</h4>
               </div>
 
               <div className="flex flex-col gap-6">
                 {[
-                  { k: 'budgetAlerts', t: 'Budget Guard', d: 'Alert at 80% limit' },
-                  { k: 'billReminders', t: 'Payment Engine', d: 'Upcoming bill alerts' },
-                  { k: 'goalUpdates', t: 'Milestone Pulse', d: 'Goal achievement pings' },
-                  { k: 'securityAlerts', t: 'Shield Alerts', d: 'Login & auth changes' },
+                  { k: 'budgetAlerts', t: 'Budget Alerts', d: 'Alert at 80% limit' },
+                  { k: 'billReminders', t: 'Bill Reminders', d: 'Upcoming bill alerts' },
+                  { k: 'goalUpdates', t: 'Goal Updates', d: 'Goal achievement pings' },
+                  { k: 'securityAlerts', t: 'Security Alerts', d: 'Login & auth changes' },
                 ].map((item) => (
                   <div key={item.k} className="flex justify-between items-center">
                     <div className="flex flex-col">

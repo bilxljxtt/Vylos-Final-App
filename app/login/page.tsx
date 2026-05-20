@@ -24,7 +24,13 @@ export default function LoginPage() {
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const { error, data } = await supabase.auth.signInWithPassword({ email, password });
+    
+    // For "Remember Me", we re-initialize the client with the desired persistence
+    const authClient = createClient({ persistSession: rememberMe });
+    const { error, data } = await authClient.auth.signInWithPassword({ 
+      email, 
+      password 
+    });
     
     if (error) { 
       toast(error.message, "error"); 
@@ -35,6 +41,41 @@ export default function LoginPage() {
     if (data.user) {
         toast("Welcome back to Vylos", "success");
         router.push("/"); 
+    }
+  }
+
+  async function handleGoogleLogin() {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      if (error) throw error;
+    } catch (err: any) {
+      toast(err.message || "Failed to connect with Google", "error");
+    }
+  }
+
+  async function handleForgotPassword() {
+    if (!email) {
+      toast("Please enter your email address first", "info");
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+      });
+      
+      if (error) throw error;
+      toast("Password reset email sent. Please check your inbox.", "success");
+    } catch (err: any) {
+      toast(err.message || "Failed to send reset email", "error");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -87,7 +128,7 @@ export default function LoginPage() {
                         <TrendingUp size={16} className="text-emerald-400" />
                     </div>
                 </div>
-                <div className="text-4xl font-black text-white mb-2">$1,842<span className="text-white/40 text-2xl">.32</span></div>
+                <div className="text-4xl font-black text-white mb-2">R1,842<span className="text-white/40 text-2xl">.32</span></div>
                 <div className="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
                     <span className="text-[10px] text-emerald-400 font-black">↓ 8.8%</span>
                 </div>
@@ -166,7 +207,7 @@ export default function LoginPage() {
               <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-600/10 to-blue-400/5 backdrop-blur-2xl border border-blue-600/20 shadow-2xl transition-all duration-500 group-hover:scale-110 group-hover:border-blue-500/40 group-hover:shadow-blue-500/20" />
               <div className="absolute inset-2 rounded-full bg-gradient-to-tr from-blue-500/10 to-transparent blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
               <div className="absolute inset-0 rounded-full border border-white/5 pointer-events-none" />
-              <img src="/vylos-logo-final.png" alt="Logo" className="select-none relative z-10 transform group-hover:scale-105 group-hover:rotate-3 transition-all duration-700 ease-out" style={{ width: "52px", height: "52px", objectFit: "contain", filter: "drop-shadow(0 8px 16px rgba(0,0,0,0.2))" }} draggable={false} />
+              <img src="/vylos-logo-final.png" alt="Logo" className="select-none relative z-10 transform group-hover:scale-105 group-hover:rotate-3 transition-all duration-700 ease-out" style={{ width: "48px", height: "48px", objectFit: "contain" }} draggable={false} />
             </div>
             <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">Welcome back</h2>
             <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-2 max-w-[280px]">
@@ -236,7 +277,8 @@ export default function LoginPage() {
               <button 
                 type="button"
                 className="text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors"
-                onClick={() => toast("Reset password feature coming soon", "info")}
+                onClick={handleForgotPassword}
+                disabled={loading}
               >
                 Forgot password?
               </button>
@@ -260,6 +302,7 @@ export default function LoginPage() {
 
             <button 
               type="button"
+              onClick={handleGoogleLogin}
               className="w-full py-5 bg-white dark:bg-white/5 border-2 border-slate-100 dark:border-white/10 rounded-[22px] flex items-center justify-center gap-4 hover:bg-slate-50 dark:hover:bg-white/10 transition-all active:scale-95 shadow-sm"
             >
                 <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center p-1 shadow-sm">

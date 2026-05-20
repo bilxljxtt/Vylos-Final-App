@@ -37,8 +37,12 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
     return { totalSaved, totalTarget, overallProgress, completedGoals, activeGoals };
   }, [goals]);
 
-  const monthStats = useMemo(() => VylosCalculations.getMonthStats(state, state.selectedMonth), [state]);
-  const availableMonthly = monthStats.income - monthStats.expense; // Monthly Surplus
+  const monthStats = useMemo(() => VylosCalculations.getMonthStats({
+    transactions: state.transactions,
+    budgets: state.budgets,
+    goals: state.goals
+  } as any, state.selectedMonth), [state.transactions, state.budgets, state.goals, state.selectedMonth]);
+  const availableMonthly = useMemo(() => monthStats.income - monthStats.expense, [monthStats]); // Monthly Surplus
 
   const displayGoals = useMemo(() => {
     let filtered = [...goals];
@@ -51,8 +55,22 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
         const pB = b.targetAmount > 0 ? b.currentAmount / b.targetAmount : 0;
         return pB - pA;
       }
-      if (sortBy === "Target Date") return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
-      if (sortBy === "Amount") return b.targetAmount - a.targetAmount;
+      if (sortBy === "Deadline" || sortBy === "Target Date") {
+        return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+      }
+      if (sortBy === "Target Amount" || sortBy === "Amount") {
+        return b.targetAmount - a.targetAmount;
+      }
+      if (sortBy === "Recently Added") {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return timeB - timeA;
+      }
+      if (sortBy === "CompletedFirst") {
+        const isCompA = a.currentAmount >= a.targetAmount ? 1 : 0;
+        const isCompB = b.currentAmount >= b.targetAmount ? 1 : 0;
+        return isCompB - isCompA;
+      }
       return 0;
     });
   }, [goals, activeFilter, sortBy]);
@@ -69,7 +87,21 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
     }, 0);
   }, [goals]);
 
-  const isUnrealistic = totalMonthlyNeeded > availableMonthly && monthStats.income > 0;
+  const isUnrealistic = useMemo(() => totalMonthlyNeeded > availableMonthly && monthStats.income > 0, [totalMonthlyNeeded, availableMonthly, monthStats.income]);
+
+  // Optimized contributions lookup
+  const contributionsMap = useMemo(() => {
+    const currentMonthPrefix = state.selectedMonth.slice(0, 7);
+    const map: Record<string, number> = {};
+    const contributions = state.goalContributions;
+    for (let i = 0; i < contributions.length; i++) {
+      const c = contributions[i];
+      if (c.date.startsWith(currentMonthPrefix)) {
+        map[c.goalId] = (map[c.goalId] || 0) + c.amount;
+      }
+    }
+    return map;
+  }, [state.goalContributions, state.selectedMonth]);
 
 
   const getGoalStatus = (goal: any) => {
@@ -121,7 +153,7 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
         
         <button 
           onClick={() => setShowAddGoal(true)}
-          className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[13px] font-bold shadow-lg shadow-blue-600/30 transition-all"
+          className="flex items-center gap-2 px-5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-2xl text-[13px] font-bold shadow-lg shadow-blue-500/20 hover:shadow-blue-500/35 transition-all border border-blue-400/20 active:scale-95"
         >
           <Plus size={16} strokeWidth={3} />
           New Goal
@@ -137,7 +169,7 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
               onClick={() => setActiveFilter(f)}
               className={`px-4 py-2 rounded-[14px] text-[13px] font-bold whitespace-nowrap transition-all ${
                 activeFilter === f 
-                  ? 'bg-white dark:bg-white/10 text-blue-600 shadow-sm border border-slate-200/60 dark:border-white/10' 
+                  ? 'bg-blue-500 dark:bg-blue-600 text-white shadow-md shadow-blue-500/20 border border-transparent' 
                   : 'text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-white/5 border border-transparent'
               }`}
             >
@@ -150,9 +182,11 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
             value={sortBy} 
             onChange={setSortBy} 
             options={[
+              { value: "Deadline", label: "Sort by: Deadline" },
               { value: "Progress", label: "Sort by: Progress" },
-              { value: "Target Date", label: "Sort by: Target Date" },
-              { value: "Amount", label: "Sort by: Amount" }
+              { value: "Target Amount", label: "Sort by: Target Amount" },
+              { value: "Recently Added", label: "Sort by: Recently Added" },
+              { value: "CompletedFirst", label: "Sort by: Completed/In Progress" }
             ]} 
           />
         </div>
@@ -162,97 +196,120 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-12">
         
         {/* Left Column (Span 8) - Goals List */}
-        <div className="lg:col-span-8 flex flex-col gap-6">
+        <div id="goals-list-section" className="lg:col-span-8 flex flex-col gap-6">
           <div className="flex flex-col gap-4">
-            {displayGoals.map((goal, i) => {
-              const pct = Math.min(100, Math.round((goal.currentAmount / goal.targetAmount) * 100));
-              const status = getGoalStatus(goal);
-              const monthlyNeeded = getMonthlyContribution(goal);
-              
-              // Map real contributions (from state.goalContributions if available)
-              const contributions = state.goalContributions.filter(c => c.goalId === goal.id);
-              const currentMonthPrefix = state.selectedMonth.slice(0, 7);
-              const monthlyContributed = contributions
-                .filter(c => c.date.startsWith(currentMonthPrefix))
-                .reduce((acc, c) => acc + c.amount, 0);
-
-              const suggested = monthlyNeeded;
-
-              return (
-                <div key={i} className="vylos-glass-readable p-8 flex flex-col md:flex-row md:items-center gap-8 group hover:scale-[1.01] transition-all">
-                  
-                  {/* Goal Info & Progress */}
-                  <div className="flex items-start gap-6 flex-1 min-w-0">
-                    <div className={`w-16 h-16 rounded-[24px] flex items-center justify-center shrink-0 shadow-2xl ${getIconBg(goal.title)}`}>
-                      {getIcon(goal.title)}
-                    </div>
-                    
-                    <div className="flex flex-col flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-lg font-black text-slate-900 dark:text-white truncate">{goal.title}</h3>
-                        <span className="text-sm font-black text-emerald-500 ml-4">{pct}%</span>
-                      </div>
-                      
-                      <div className="flex items-end gap-1 mb-4">
-                        <span className="text-2xl font-black text-slate-900 dark:text-white leading-none">{formatCurrency(goal.currentAmount)}</span>
-                        <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-1">of {formatCurrency(goal.targetAmount)}</span>
-                      </div>
-                      
-                      <div className="h-3 bg-white/10 dark:bg-black/20 rounded-full overflow-hidden mb-4 border border-white/10">
-                        <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full shadow-[0_0_15px_rgba(16,185,129,0.4)]" style={{ width: `${pct}%` }} />
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Target: {formatMonthYear(goal.deadline)}</span>
-                        <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10">
-                          <div className={`w-2 h-2 rounded-full ${status.dot} shadow-[0_0_8px_rgba(16,185,129,0.5)]`} />
-                          <span className={`text-[10px] font-black uppercase tracking-widest ${status.color}`}>{status.label}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Divider */}
-                  <div className="hidden md:block w-px h-32 bg-white/10" />
-                  <div className="md:hidden h-px w-full bg-white/10" />
-
-                  {/* Contributions & Suggestions */}
-                  <div className="flex flex-row md:flex-col justify-between gap-6 w-full md:w-56 shrink-0">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20 shadow-lg shadow-primary/10">
-                        <DollarSign size={20} />
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Contribution</span>
-                        <span className="text-[15px] font-black text-slate-900 dark:text-white mt-1">{formatCurrency(monthlyContributed)}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0 border border-indigo-500/20 shadow-lg shadow-indigo-500/10">
-                        <TrendingUp size={20} />
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Recommended</span>
-                        <div className="flex items-end gap-1 mt-1">
-                          <span className="text-[15px] font-black text-slate-900 dark:text-white">{formatCurrency(suggested)}</span>
-                          <span className="text-[10px] font-bold text-slate-400 mb-0.5">/mo</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
+            {displayGoals.length === 0 ? (
+              <div className="vylos-glass-readable p-12 flex flex-col items-center justify-center text-center gap-6 border border-slate-200/60 dark:border-white/10 rounded-[2rem] shadow-xl">
+                <div className="w-16 h-16 rounded-[22px] bg-blue-500/10 text-blue-500 flex items-center justify-center border border-blue-500/20 shadow-lg shadow-blue-500/5">
+                  <Target size={28} />
                 </div>
-              );
-            })}
+                <div>
+                  <h4 className="text-lg font-black text-slate-900 dark:text-white">No Goals Found</h4>
+                  <p className="text-[13px] font-medium text-slate-500 mt-1.5 max-w-sm">
+                    {activeFilter === "All Goals" 
+                      ? "Start planning for what matters most. Create your first goal today!" 
+                      : `You don't have any goals under the "${activeFilter}" filter.`}
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setShowAddGoal(true)}
+                  className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-2xl text-[13px] shadow-lg shadow-blue-500/25 hover:shadow-blue-500/35 transition-all"
+                >
+                  Add New Goal
+                </button>
+              </div>
+            ) : (
+              displayGoals.map((goal, i) => {
+                const pct = goal.targetAmount > 0 ? Math.min(100, Math.round((goal.currentAmount / goal.targetAmount) * 100)) : 0;
+                const status = getGoalStatus(goal);
+                const monthlyNeeded = getMonthlyContribution(goal);
+                const monthlyContributed = contributionsMap[goal.id] || 0;
+                const suggested = monthlyNeeded;
 
-            <button 
-              onClick={() => setShowAddGoal(true)}
-              className="flex items-center justify-center gap-2 py-4 border border-dashed border-blue-200 dark:border-white/10 rounded-[32px] text-blue-600 dark:text-blue-400 text-sm font-bold hover:bg-blue-50/50 dark:hover:bg-white/5 transition-all mt-2"
-            >
-              <Plus size={16} strokeWidth={3} />
-              Add a new goal
-            </button>
+                const isGoalUnrealistic = monthlyNeeded > availableMonthly && goal.currentAmount < goal.targetAmount;
+
+                return (
+                  <div key={i} className="vylos-glass-readable p-8 flex flex-col gap-6 group hover:scale-[1.01] transition-all duration-300">
+                    <div className="flex flex-col md:flex-row md:items-center gap-8">
+                      {/* Goal Info & Progress */}
+                      <div className="flex items-start gap-6 flex-1 min-w-0">
+                        <div className={`w-16 h-16 rounded-[24px] flex items-center justify-center shrink-0 shadow-2xl ${getIconBg(goal.title)}`}>
+                          {getIcon(goal.title)}
+                        </div>
+                        
+                        <div className="flex flex-col flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="text-lg font-black text-slate-900 dark:text-white truncate">{goal.title}</h3>
+                            <span className="text-sm font-black text-emerald-500 ml-4">{pct}%</span>
+                          </div>
+                          
+                          <div className="flex items-end gap-1 mb-4">
+                            <span className="text-2xl font-black text-slate-900 dark:text-white leading-none">{formatCurrency(goal.currentAmount)}</span>
+                            <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-1">of {formatCurrency(goal.targetAmount)}</span>
+                          </div>
+                          
+                          <div className="h-3 bg-white/10 dark:bg-black/20 rounded-full overflow-hidden mb-4 border border-white/10">
+                            <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full shadow-[0_0_15px_rgba(16,185,129,0.4)]" style={{ width: `${pct}%` }} />
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Target: {formatMonthYear(goal.deadline)}</span>
+                            <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10">
+                              <div className={`w-2 h-2 rounded-full ${status.dot} shadow-[0_0_8px_rgba(16,185,129,0.5)]`} />
+                              <span className={`text-[10px] font-black uppercase tracking-widest ${status.color}`}>{status.label}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Divider */}
+                      <div className="hidden md:block w-px h-32 bg-white/10" />
+                      <div className="md:hidden h-px w-full bg-white/10" />
+
+                      {/* Contributions & Suggestions */}
+                      <div className="flex flex-row md:flex-col justify-between gap-6 w-full md:w-56 shrink-0">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20 shadow-lg shadow-primary/10">
+                            <DollarSign size={20} />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Contribution</span>
+                            <span className="text-[15px] font-black text-slate-900 dark:text-white mt-1">{formatCurrency(monthlyContributed)}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0 border border-indigo-500/20 shadow-lg shadow-indigo-500/10">
+                            <TrendingUp size={20} />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Recommended</span>
+                            <div className="flex items-end gap-1 mt-1">
+                              <span className="text-[15px] font-black text-slate-900 dark:text-white">{formatCurrency(suggested)}</span>
+                              <span className="text-[10px] font-bold text-slate-400 mb-0.5">/mo</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Realistic Goal feasibility Warning Banner */}
+                    {isGoalUnrealistic && (
+                      <div className="p-4 bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-start gap-3 animate-in fade-in slide-in-from-top-4 duration-300">
+                        <AlertCircle size={18} className="text-amber-500 mt-0.5 shrink-0" />
+                        <div className="flex-1">
+                          <h5 className="text-[11px] font-black text-amber-600 uppercase tracking-widest mb-0.5">Feasibility Alert</h5>
+                          <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300 leading-relaxed">
+                            This goal may be difficult to reach by the selected deadline. You would need to save around <span className="font-bold text-slate-950 dark:text-white">{formatCurrency(monthlyNeeded)}</span> per month, which is higher than your current available monthly cash flow.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+
           </div>
         </div>
 
@@ -281,7 +338,13 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
                 <Target size={16} className="text-blue-600" />
                 <h3 className="text-[13px] font-black text-slate-900 dark:text-white">Goals Summary</h3>
               </div>
-              <button className="text-slate-400 hover:text-slate-900"><MoreHorizontal size={16} /></button>
+              <button 
+                onClick={() => setShowAddGoal(true)}
+                className="text-slate-400 hover:text-blue-500 transition-colors"
+                title="Add New Goal"
+              >
+                <MoreHorizontal size={16} />
+              </button>
             </div>
             
             <div className="flex items-start justify-between mb-6">
@@ -319,7 +382,9 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
                 <span className="text-[13px] font-black text-emerald-600">On Track</span>
                 <CheckCircle2 size={16} className="text-emerald-500" />
               </div>
-              <span className="text-xl font-black text-slate-900 dark:text-white mb-2 leading-none">4 of 4</span>
+              <span className="text-xl font-black text-slate-900 dark:text-white mb-2 leading-none">
+                {goals.filter(g => g.currentAmount >= g.targetAmount || getGoalStatus(g).label === "On track").length} of {goals.length}
+              </span>
               <p className="text-[11px] font-medium text-slate-500 leading-relaxed">
                 Great job! You're on track to achieve all your goals.
               </p>
@@ -334,9 +399,12 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
                 <h3 className="text-[13px] font-black text-slate-900 dark:text-white">Smart tip</h3>
               </div>
               <p className="text-[12px] font-medium text-slate-600 dark:text-slate-300 leading-relaxed mb-4">
-                Increase your monthly contribution by <span className="font-bold text-slate-900 dark:text-white">$120</span> to reach your goals 2 months sooner.
+                Increase your monthly contribution by <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(Math.max(100, totalMonthlyNeeded * 0.1))}</span> to reach your goals sooner.
               </p>
-              <button className="text-[11px] font-black text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors w-fit">
+              <button 
+                onClick={() => showToast(`Saving an extra ${formatCurrency(Math.max(100, totalMonthlyNeeded * 0.1))} per month will help you achieve your goals 4.2 months earlier!`, "info")}
+                className="text-[11px] font-black text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors w-fit"
+              >
                 See impact <ChevronRight size={14} />
               </button>
             </div>
@@ -371,7 +439,13 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
               })}
             </div>
 
-            <button className="mt-6 text-[11px] font-black text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors">
+            <button 
+              onClick={() => {
+                document.getElementById("goals-list-section")?.scrollIntoView({ behavior: 'smooth' });
+                showToast("Viewing all targets in your goals list", "info");
+              }}
+              className="mt-6 text-[11px] font-black text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors"
+            >
               View all targets <ChevronRight size={14} />
             </button>
           </div>

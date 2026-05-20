@@ -107,7 +107,7 @@ export const DashboardV3: React.FC<DashboardV3Props> = ({
   const insight = getPersonalizedInsight();
 
   return (
-    <main className="flex-1 w-full max-w-[1400px] mx-auto flex flex-col gap-6 md:gap-8 pb-32 relative z-10">
+    <div className="flex-1 w-full max-w-[1400px] mx-auto flex flex-col gap-6 md:gap-8 relative z-10">
       
       {/* Personalized Welcome Banner */}
       <div className="vylos-glass-readable !p-6 !rounded-[2rem] border-white/20 shadow-xl flex items-center gap-6 animate-in fade-in slide-in-from-top-4 duration-1000">
@@ -169,11 +169,13 @@ export const DashboardV3: React.FC<DashboardV3Props> = ({
         <BudgetControlWidget 
           summary={budgetSummary}
           formatCurrency={formatCurrency}
+          onViewAll={() => setPage("budget")}
         />
         <SavingsGoalsWidget 
           goals={goals}
           formatCurrency={formatCurrency}
           onAddGoal={() => setPage("goals")}
+          onViewAll={() => setPage("goals")}
         />
         {canUseAI && (
           <AIAdvisorWidget 
@@ -184,6 +186,6 @@ export const DashboardV3: React.FC<DashboardV3Props> = ({
         )}
       </div>
 
-    </main>
+    </div>
   );
 };

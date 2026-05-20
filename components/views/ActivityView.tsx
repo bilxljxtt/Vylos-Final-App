@@ -28,7 +28,7 @@ export function ActivityView() {
     });
   }, [notifications, filter, search]);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = useMemo(() => notifications.filter(n => !n.read).length, [notifications]);
 
   const handleMarkAllRead = async () => {
     try {
