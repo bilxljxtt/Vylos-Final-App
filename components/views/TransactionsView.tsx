@@ -15,7 +15,6 @@ import Chart from "chart.js/auto";
 import { TransactionIcon } from "@/components/ui/TransactionIcon";
 import { ImportTransactionsModal } from "@/components/modals/ImportTransactionsModal";
 import { ExportTransactionsModal } from "@/components/modals/ExportTransactionsModal";
-import { ScanReceiptModal } from "@/components/modals/ScanReceiptModal";
 
 interface TransactionsViewProps {
   transactions: any[];
@@ -36,54 +35,6 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [dateRange, setDateRange] = useState({ start: "", end: "" });
   const [showExportModal, setShowExportModalLocal] = useState(false);
-  const [showScanReceiptModal, setShowScanReceiptModal] = useState(false);
-  const [selectedTransactionId, setSelectedTransactionId] = useState<string | undefined>(undefined);
-
-  // Receipts State & Fetcher
-  const [receipts, setReceipts] = useState<any[]>([]);
-  const [loadingReceipts, setLoadingReceipts] = useState(false);
-
-  const fetchReceipts = async () => {
-    setLoadingReceipts(true);
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("receipts")
-        .select("*")
-        .order("created_at", { ascending: false });
-      
-      if (!error && data) {
-        setReceipts(data);
-      }
-    } catch (err) {
-      console.error("Failed to fetch receipts:", err);
-    } finally {
-      setLoadingReceipts(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchReceipts();
-  }, []);
-
-  const handleViewReceipt = async (filePath: string) => {
-    try {
-      const res = await fetch("/api/receipt-upload/signed-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filePath })
-      });
-      const data = await res.json();
-      
-      if (res.ok && data.success && data.signedUrl) {
-        window.open(data.signedUrl, "_blank");
-      } else {
-        alert(data.error || "Failed to generate secure URL.");
-      }
-    } catch (err) {
-      console.error("Error viewing receipt:", err);
-    }
-  };
   const donutRef = useRef<HTMLCanvasElement | null>(null);
   const donutInst = useRef<any>(null);
 
@@ -242,17 +193,6 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
           
           <div className="flex items-center gap-2 ml-auto">
             <button 
-              onClick={() => {
-                setSelectedTransactionId(undefined);
-                setShowScanReceiptModal(true);
-              }}
-              className="px-4 h-11 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl flex items-center gap-2 text-blue-600 hover:border-blue-500 shadow-sm transition-all shrink-0"
-              title="Upload Receipt"
-            >
-              <Upload size={18} />
-              <span className="text-[11px] font-black uppercase tracking-widest">Upload Receipt</span>
-            </button>
-            <button 
               onClick={() => setPage("import")}
               className="px-4 h-11 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl flex items-center gap-2 text-blue-600 hover:border-blue-500 shadow-sm transition-all shrink-0"
               title="Import Transactions"
@@ -294,8 +234,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
                     <th className="text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest pb-4">Merchant</th>
                     <th className="text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest pb-4">Category</th>
                     <th className="text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest pb-4">Date</th>
-                    <th className="text-right text-[11px] font-bold text-slate-400 uppercase tracking-widest pb-4">Amount</th>
-                    <th className="text-right text-[11px] font-bold text-slate-400 uppercase tracking-widest pb-4 pr-4">Receipt</th>
+                    <th className="text-right text-[11px] font-bold text-slate-400 uppercase tracking-widest pb-4 pr-4">Amount</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -333,43 +272,13 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
                             <span className="text-[10px] font-medium text-slate-500 mt-0.5">{timeLabel}</span>
                           </div>
                         </td>
-                        <td className="py-4 text-right">
+                        <td className="py-4 text-right pr-4">
                           <div className="flex flex-col items-end">
                             <span className={`text-[13px] font-black ${isIncome ? 'text-emerald-600' : 'text-slate-900 dark:text-white'}`}>
                               {isIncome ? '+' : ''}{formatCurrency(tx.amount)}
                             </span>
                             <span className="text-[10px] font-bold text-slate-400 mt-0.5">{isIncome ? 'Inflow' : 'Outflow'}</span>
                           </div>
-                        </td>
-                        <td className="py-4 text-right pr-4">
-                          {(() => {
-                            const matched = receipts.find(r => r.transaction_id === tx.id);
-                            if (matched) {
-                              return (
-                                <button
-                                  onClick={() => handleViewReceipt(matched.file_path)}
-                                  className="p-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-xl transition-all shadow-sm shrink-0 inline-flex items-center justify-center gap-1.5 group/btn"
-                                  title="View Linked Receipt"
-                                >
-                                  <FileText size={14} className="group-hover/btn:scale-110 transition-transform" />
-                                  <span className="text-[9px] font-black uppercase tracking-widest hidden sm:inline">View</span>
-                                </button>
-                              );
-                            }
-                            return (
-                              <button
-                                onClick={() => {
-                                  setSelectedTransactionId(tx.id);
-                                  setShowScanReceiptModal(true);
-                                }}
-                                className="p-2 bg-white/5 border border-slate-200 dark:border-white/10 hover:border-blue-500/50 hover:bg-blue-500/5 text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 rounded-xl transition-all inline-flex items-center justify-center gap-1.5 group/btn"
-                                title="Attach Receipt"
-                              >
-                                <Plus size={14} className="group-hover/btn:scale-110 transition-transform" />
-                                <span className="text-[9px] font-black uppercase tracking-widest hidden sm:inline">Link</span>
-                              </button>
-                            );
-                          })()}
                         </td>
                       </tr>
                     );
@@ -528,59 +437,6 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
             </div>
           </div>
 
-          {/* Recent Receipts Panel */}
-          <div className="vylos-glass-readable p-6 flex flex-col">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-[13px] font-black text-slate-900 dark:text-white">Recent Receipts</h3>
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 dark:bg-white/5 px-2 py-1 rounded-md">
-                {receipts.length} Captured
-              </span>
-            </div>
-            
-            <div className="flex flex-col gap-3 max-h-64 overflow-y-auto no-scrollbar">
-              {loadingReceipts ? (
-                <div className="py-6 flex items-center justify-center text-text-muted gap-2 text-xs font-bold">
-                  <Loader2 size={14} className="animate-spin" />
-                  <span>Syncing...</span>
-                </div>
-              ) : receipts.length === 0 ? (
-                <div className="py-8 text-center text-xs font-bold text-slate-400 border border-dashed border-slate-200 dark:border-white/5 rounded-2xl">
-                  No captured receipts yet. Use the Scan Receipt button to scan!
-                </div>
-              ) : (
-                receipts.map((rec: any) => (
-                  <div 
-                    key={rec.id} 
-                    onClick={() => handleViewReceipt(rec.file_path)}
-                    className="p-3 bg-slate-50 hover:bg-slate-100 dark:bg-white/5 dark:hover:bg-white/10 rounded-2xl border border-slate-100 dark:border-white/5 flex items-center justify-between cursor-pointer transition-all active:scale-[0.98] group"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:scale-105 transition-transform">
-                        <FileText size={18} />
-                      </div>
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-[12px] font-black text-slate-900 dark:text-white truncate">
-                          {rec.merchant_name || "Captured Receipt"}
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-400">
-                          {new Date(rec.created_at).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end">
-                      <span className="text-[12px] font-black text-blue-600 dark:text-blue-400">
-                        View
-                      </span>
-                      <span className="text-[9px] font-bold text-slate-400">
-                        {(rec.file_size / (1024 * 1024)).toFixed(2)} MB
-                      </span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
         </div>
 
       </div>
@@ -589,13 +445,6 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
         isOpen={showExportModal} 
         onClose={() => setShowExportModalLocal(false)} 
         data={fullFilteredTxs}
-      />
-
-      <ScanReceiptModal
-        isOpen={showScanReceiptModal}
-        onClose={() => setShowScanReceiptModal(false)}
-        onUploadSuccess={fetchReceipts}
-        transactionId={selectedTransactionId}
       />
     </div>
   );

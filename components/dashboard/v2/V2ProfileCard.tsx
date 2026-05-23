@@ -48,10 +48,10 @@ export const V2ProfileCard: React.FC<V2ProfileCardProps> = ({
       <div className="flex flex-col gap-6 relative z-10">
         <button 
           onClick={onUpgrade}
-          className="w-full py-4 bg-white/10 dark:bg-white/5 backdrop-blur-md text-white rounded-[20px] font-black text-[11px] uppercase tracking-[0.2em] flex items-center justify-center gap-3 border border-white/20 shadow-2xl shadow-black/20 hover:bg-white/20 transition-all active:scale-[0.98] group/btn"
+          className="w-full py-4 bg-slate-900/10 dark:bg-white/5 backdrop-blur-md text-slate-900 dark:text-white rounded-[20px] font-black text-[11px] uppercase tracking-[0.2em] flex items-center justify-center gap-3 border border-slate-900/20 dark:border-white/20 shadow-2xl shadow-black/5 dark:shadow-black/20 hover:bg-slate-900/20 dark:hover:bg-white/10 transition-all active:scale-[0.98] group/btn"
         >
           <span>{isFree ? 'Upgrade to Vylos Pro' : `${tier.charAt(0).toUpperCase() + tier.slice(1)} Plan`}</span>
-          <div className="w-6 h-6 rounded-lg bg-blue-500/30 flex items-center justify-center text-white border border-white/30 shadow-lg group-hover/btn:rotate-12 transition-transform">
+          <div className="w-6 h-6 rounded-lg bg-blue-600 dark:bg-blue-500/30 flex items-center justify-center text-white border border-blue-500/30 dark:border-white/30 shadow-lg group-hover/btn:rotate-12 transition-transform">
             <Trophy size={12} fill="currentColor" />
           </div>
         </button>

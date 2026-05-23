@@ -89,13 +89,20 @@ export function SettingsView({
     }
   };
 
-  const handleThemeChange = (newTheme: string) => {
+  const handleThemeChange = async (newTheme: string) => {
     setProfile(prev => ({ ...prev, theme: newTheme as any }));
     if (newTheme === "Dark") setDark(true);
     else if (newTheme === "Light") setDark(false);
     else {
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       setDark(prefersDark);
+    }
+
+    try {
+      await updateProfile({ theme: newTheme as any });
+      localStorage.setItem('vylos-theme', newTheme === "System Default" ? "" : (newTheme === "Dark" ? "dark" : "light"));
+    } catch (err: any) {
+      showToast("Failed to save theme settings: " + err.message, "error");
     }
   };
 

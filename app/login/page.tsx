@@ -25,8 +25,7 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     
-    // For "Remember Me", we re-initialize the client with the desired persistence
-    const authClient = createClient({ persistSession: rememberMe });
+    const authClient = createClient();
     const { error, data } = await authClient.auth.signInWithPassword({ 
       email, 
       password 

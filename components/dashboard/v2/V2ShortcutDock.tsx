@@ -64,7 +64,7 @@ export const V2ShortcutDock: React.FC<V2ShortcutDockProps> = ({ onPageChange, cu
                 </div>
 
                 {/* Permanent Label below icon */}
-                <span className={`text-[10px] font-bold mt-1 transition-colors ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white'}`}>
+                <span className={`text-[10px] font-bold mt-1 transition-colors ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white'}`}>
                   {shortcut.label}
                 </span>
               </button>
