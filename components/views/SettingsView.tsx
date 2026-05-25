@@ -46,6 +46,20 @@ export function SettingsView({
     theme: state.userProfile.theme || (dark ? "Dark" : "Light")
   });
 
+  const onboarding = state.userProfile.onboardingAnswers || {};
+  const [bluePrint, setBluePrint] = useState<any>({
+    takeHomePay: onboarding.takeHomePay || String(state.userProfile.monthlyIncome || "0"),
+    survivalBaseline: onboarding.survivalBaseline || "0",
+    age: onboarding.age || String(state.userProfile.age || "0"),
+    budgetTarget: onboarding.budgetTarget || "individual",
+    trackingMethod: onboarding.trackingMethod || "none",
+    kids: onboarding.householdBreakdown?.kids || "0",
+    teens: onboarding.householdBreakdown?.teens || "0",
+    youngAdults: onboarding.householdBreakdown?.youngAdults || "0",
+    adults: onboarding.householdBreakdown?.adults || "1",
+    elders: onboarding.householdBreakdown?.elders || "0",
+  });
+
   const [toggles, setToggles] = useState<NotificationPrefs>({
     budgetAlerts: state.notifications.budgetAlerts,
     goalUpdates: state.notifications.goalUpdates,
@@ -64,15 +78,43 @@ export function SettingsView({
   const handleSave = async () => {
     setSaving(true);
     try {
+      const updatedHouseholdSize = bluePrint.budgetTarget === "individual" ? 1 : (
+        parseInt(bluePrint.kids || "0") +
+        parseInt(bluePrint.teens || "0") +
+        parseInt(bluePrint.youngAdults || "0") +
+        parseInt(bluePrint.adults || "0") +
+        parseInt(bluePrint.elders || "0")
+      );
+
+      const updatedOnboardingAnswers = {
+        ...onboarding,
+        takeHomePay: String(bluePrint.takeHomePay),
+        survivalBaseline: String(bluePrint.survivalBaseline),
+        age: String(bluePrint.age),
+        budgetTarget: bluePrint.budgetTarget,
+        trackingMethod: bluePrint.trackingMethod,
+        householdBreakdown: {
+          kids: String(bluePrint.kids),
+          teens: String(bluePrint.teens),
+          youngAdults: String(bluePrint.youngAdults),
+          adults: String(bluePrint.adults),
+          elders: String(bluePrint.elders),
+        }
+      };
+
       await updateProfile({
         name: profile.name,
         email: profile.email,
         phone: profile.phone,
         currency: profile.currency,
-        theme: profile.theme as any
+        theme: profile.theme as any,
+        monthlyIncome: parseFloat(bluePrint.takeHomePay || "0"),
+        age: parseInt(bluePrint.age || "0"),
+        householdSize: updatedHouseholdSize,
+        onboardingAnswers: updatedOnboardingAnswers
       });
       await updateNotifications(toggles);
-      showToast("Settings updated successfully!", "success");
+      showToast("Settings and Financial Blueprint updated!", "success");
     } catch (err: any) {
       showToast("Error saving settings: " + err.message, "error");
     } finally {
@@ -197,7 +239,22 @@ export function SettingsView({
             
             <button 
               type="button"
-              onClick={() => showToast("Change password link sent to email.", "info")}
+              onClick={async () => {
+                const password = prompt("Enter your new password (minimum 6 characters):");
+                if (password === null) return;
+                if (password.length < 6) {
+                  showToast("Password must be at least 6 characters long.", "error");
+                  return;
+                }
+                try {
+                  const { error } = await supabase.auth.updateUser({ password });
+                  if (error) throw error;
+                  showToast("Password updated successfully!", "success");
+                } catch (err: any) {
+                  console.error("Failed to update password:", err);
+                  showToast("Failed to update password: " + err.message, "error");
+                }
+              }}
               className="flex items-center justify-between w-full p-5 bg-white/5 hover:bg-white/10 rounded-[2rem] transition-all group vylos-focus border border-white/10"
             >
               <div className="flex items-center gap-4">
@@ -309,6 +366,125 @@ export function SettingsView({
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Financial Blueprint Section */}
+          <div className="vylos-glass-panel p-10 flex flex-col">
+            <div className="flex items-center gap-4 mb-10">
+              <div className="p-3.5 bg-blue-600 rounded-3xl text-white shadow-2xl shadow-blue-600/30">
+                <Zap size={24} />
+              </div>
+              <div>
+                <h4 className="text-2xl font-black text-text-main tracking-tighter">Financial Blueprint</h4>
+                <p className="text-xs font-bold text-text-muted opacity-60">Manage your take-home pay, living baseline, and household variables.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="flex flex-col gap-3">
+                <label className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] ml-2">Take-Home Pay</label>
+                <div className="relative">
+                  <span className="absolute left-5 top-1/2 -translate-y-1/2 font-black text-sm text-text-muted opacity-60">R</span>
+                  <input 
+                    type="number" 
+                    value={bluePrint.takeHomePay} 
+                    onChange={e => setBluePrint({...bluePrint, takeHomePay: e.target.value})}
+                    placeholder="0"
+                    className="w-full vylos-glass-input rounded-[2rem] pl-10 pr-6 py-5 text-sm font-black text-text-main outline-none transition-all appearance-none vylos-focus"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <label className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] ml-2">Survival Baseline Essentials</label>
+                <div className="relative">
+                  <span className="absolute left-5 top-1/2 -translate-y-1/2 font-black text-sm text-text-muted opacity-60">R</span>
+                  <input 
+                    type="number" 
+                    value={bluePrint.survivalBaseline} 
+                    onChange={e => setBluePrint({...bluePrint, survivalBaseline: e.target.value})}
+                    placeholder="0"
+                    className="w-full vylos-glass-input rounded-[2rem] pl-10 pr-6 py-5 text-sm font-black text-text-main outline-none transition-all appearance-none vylos-focus"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <label className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] ml-2">Age</label>
+                <input 
+                  type="number" 
+                  value={bluePrint.age} 
+                  onChange={e => setBluePrint({...bluePrint, age: e.target.value})}
+                  placeholder="e.g. 25"
+                  className="w-full vylos-glass-input rounded-[2rem] px-6 py-5 text-sm font-black text-text-main outline-none transition-all vylos-focus"
+                />
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <label className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] ml-2">Budget Target Scope</label>
+                <div className="relative">
+                  <select 
+                    value={bluePrint.budgetTarget}
+                    onChange={e => setBluePrint({...bluePrint, budgetTarget: e.target.value})}
+                    className="w-full vylos-glass-input rounded-[2rem] px-6 py-5 text-sm font-black text-text-main outline-none transition-all appearance-none cursor-pointer vylos-focus"
+                  >
+                    <option value="individual" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Individual</option>
+                    <option value="household" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Household / Family</option>
+                    <option value="business" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Company / Business</option>
+                    <option value="both" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Personal + Business</option>
+                  </select>
+                  <ChevronDown size={18} className="absolute right-5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <label className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] ml-2">Prior Tracking Method</label>
+                <div className="relative">
+                  <select 
+                    value={bluePrint.trackingMethod}
+                    onChange={e => setBluePrint({...bluePrint, trackingMethod: e.target.value})}
+                    className="w-full vylos-glass-input rounded-[2rem] px-6 py-5 text-sm font-black text-text-main outline-none transition-all appearance-none cursor-pointer vylos-focus"
+                  >
+                    <option value="none" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">I do not track yet</option>
+                    <option value="bank_app" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">I use my banking app</option>
+                    <option value="spreadsheet" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">I use a spreadsheet</option>
+                    <option value="notes" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">I use notes on my phone</option>
+                    <option value="budget_app" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">I use another budgeting app</option>
+                    <option value="envelopes" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">I use cash/envelopes</option>
+                    <option value="mental" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">I track mentally</option>
+                    <option value="other_person" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Someone else manages it</option>
+                    <option value="other" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Other</option>
+                  </select>
+                  <ChevronDown size={18} className="absolute right-5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+                </div>
+              </div>
+            </div>
+
+            {bluePrint.budgetTarget !== "individual" && (
+              <div className="mt-8 pt-8 border-t border-white/10 space-y-4">
+                <label className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] ml-2">Household Age Breakdown</label>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                  {[
+                    { k: "kids", label: "👶 Kids (<13)" },
+                    { k: "teens", label: "🎒 Teens (13-18)" },
+                    { k: "youngAdults", label: "Youth (18-30)" },
+                    { k: "adults", label: "Adults (30-60)" },
+                    { k: "elders", label: "Elders (60+)" }
+                  ].map(field => (
+                    <div key={field.k} className="flex flex-col gap-1">
+                      <span className="text-[8px] font-black text-text-muted uppercase tracking-widest">{field.label}</span>
+                      <input 
+                        type="number" 
+                        min="0"
+                        value={bluePrint[field.k]} 
+                        onChange={e => setBluePrint({...bluePrint, [field.k]: e.target.value})}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl py-2 text-center text-xs font-black text-text-main focus:outline-none"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

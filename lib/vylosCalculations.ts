@@ -69,6 +69,13 @@ export class VylosCalculations {
 
     for (let i = 0; i < txs.length; i++) {
       const t = txs[i];
+      if (!index) {
+        const txDateKey = getTransactionDateKey(t);
+        if (!txDateKey.startsWith(currentMonthPrefix)) {
+          continue;
+        }
+      }
+
       if (!this.isBudgetRecord(t.merchant)) {
         if (investmentCategories.includes(t.category)) {
           investmentSpend += Math.abs(t.amount);
@@ -103,10 +110,61 @@ export class VylosCalculations {
     const spendMap: Record<string, number> = {};
     const txs = index ? index.monthMap[currentMonthPrefix] || [] : state.transactions;
 
+    const normalizeCategory = (cat: string): string => {
+      const c = (cat || "").trim().toLowerCase();
+      if (c === "eating out" || c === "eat out" || c === "dining out" || c === "dining" || c === "restaurants") {
+        return "Eating Out";
+      }
+      if (c === "groceries" || c === "grocery" || c === "supermarket") {
+        return "Groceries";
+      }
+      if (c === "rent" || c === "housing" || c === "rent / housing") {
+        return "Rent / Housing";
+      }
+      if (c === "bills" || c === "utilities" || c === "insurance") {
+        return "Bills";
+      }
+      if (c === "transport" || c === "fuel" || c === "car") {
+        return "Transport";
+      }
+      if (c === "sub" || c === "subscriptions" || c === "subscription") {
+        return "Subscriptions";
+      }
+      if (c === "debt" || c === "debt payments" || c === "debt payment") {
+        return "Debt Payments";
+      }
+      if (c === "savings" || c === "saving" || c === "investing" || c === "investment") {
+        return "Savings";
+      }
+      if (c === "education" || c === "studies") {
+        return "Education";
+      }
+      if (c === "health" || c === "medical") {
+        return "Health";
+      }
+      
+      const standardCategories = [
+        "Groceries", "Eating Out", "Transport", "Bills", "Rent / Housing", "Shopping", "Health", 
+        "Education", "Entertainment", "Subscriptions", "Debt Payments", "Savings", "Other"
+      ];
+      const found = standardCategories.find(s => s.toLowerCase() === c);
+      if (found) return found;
+
+      return "Other";
+    };
+
     for (let i = 0; i < txs.length; i++) {
       const t = txs[i];
+      if (!index) {
+        const txDateKey = getTransactionDateKey(t);
+        if (!txDateKey.startsWith(currentMonthPrefix)) {
+          continue;
+        }
+      }
+
       if (t.amount < 0 && !this.isBudgetRecord(t.merchant)) {
-        spendMap[t.category] = (spendMap[t.category] || 0) + Math.abs(t.amount);
+        const normalized = normalizeCategory(t.category);
+        spendMap[normalized] = (spendMap[normalized] || 0) + Math.abs(t.amount);
       }
     }
 

@@ -16,6 +16,7 @@ interface V2SelectProps {
   label?: string;
   placeholder?: string;
   className?: string;
+  buttonClassName?: string;
 }
 
 export const V2Select: React.FC<V2SelectProps> = ({ 
@@ -24,7 +25,8 @@ export const V2Select: React.FC<V2SelectProps> = ({
   options, 
   label, 
   placeholder = "Select option",
-  className = ""
+  className = "",
+  buttonClassName = "py-4"
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
@@ -38,7 +40,7 @@ export const V2Select: React.FC<V2SelectProps> = ({
     setMounted(true);
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        const portalContent = document.getElementById("vylos-portal-root");
+        const portalContent = document.getElementById("vylos-select-portal-menu");
         if (portalContent && portalContent.contains(event.target as Node)) return;
         setIsOpen(false);
       }
@@ -102,11 +104,11 @@ export const V2Select: React.FC<V2SelectProps> = ({
         type="button"
         onClick={handleToggle}
         className={`
-          flex items-center justify-between px-6 py-4 rounded-2xl border transition-all text-sm font-bold vylos-focus
+          flex items-center justify-between px-6 rounded-2xl border transition-all text-sm font-bold vylos-focus
           ${isOpen 
-            ? "bg-white/10 border-primary ring-4 ring-primary/10 shadow-xl" 
-            : "bg-white/5 border-white/10 hover:border-white/20"}
-          text-text-main shadow-lg shadow-black/5
+            ? "bg-white dark:bg-slate-900/50 border-primary ring-4 ring-primary/10 shadow-xl" 
+            : "bg-white dark:bg-slate-900/50 border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20"}
+          text-text-main shadow-lg shadow-black/5 ${buttonClassName}
         `}
       >
         <span className={selectedOption ? "opacity-100" : "opacity-40"}>
@@ -117,7 +119,7 @@ export const V2Select: React.FC<V2SelectProps> = ({
 
       {isOpen && mounted && createPortal(
         <div 
-          id="vylos-portal-root"
+          id="vylos-select-portal-menu"
           className="fixed glass-menu animate-in fade-in zoom-in-95 duration-200 z-[10001] shadow-2xl"
           style={{
             top: `${coords.top}px`,

@@ -10,6 +10,7 @@ import { useToast } from "@/components/Toast";
 import { V2Select } from "../ui/V2Select";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
+import { VylosLoadingScreen } from "@/components/ui/VylosLoadingScreen";
 
 interface ImportTransactionsModalProps {
   isOpen: boolean;
@@ -408,10 +409,7 @@ export function ImportTransactionsModal({ isOpen, onClose }: ImportTransactionsM
                 </div>
 
                 {loading && (
-                  <div className="flex items-center gap-3 text-blue-600 font-black text-sm animate-pulse">
-                    <Loader2 className="animate-spin" size={18} />
-                    Reading file...
-                  </div>
+                  <VylosLoadingScreen variant="inline" text="Reading file..." />
                 )}
 
                 {error && (
@@ -677,13 +675,7 @@ export function ImportTransactionsModal({ isOpen, onClose }: ImportTransactionsM
             )}
 
             {step === "processing" && (
-              <div className="p-20 flex flex-col items-center justify-center text-center space-y-6">
-                <div className="w-20 h-20 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
-                <div>
-                  <h3 className="text-xl font-black text-text-main mb-2">Syncing Data</h3>
-                  <p className="text-sm font-bold text-text-muted">Please wait while we secure your transactions to Supabase.</p>
-                </div>
-              </div>
+              <VylosLoadingScreen variant="inline" text="Syncing your finances to Supabase..." />
             )}
           </div>
 

@@ -9,6 +9,7 @@ import { V2Popover } from "@/components/ui/V2Popover";
 import { useAppStore } from "@/lib/AppContext";
 import { useToast } from "@/components/Toast";
 import { createClient } from "@/utils/supabase/client";
+import { VylosLogo } from "@/components/ui/VylosLogo";
 
 interface V2HeaderProps {
   firstName: string;
@@ -42,8 +43,13 @@ export const V2Header: React.FC<V2HeaderProps> = ({ firstName, avatarUrl, onPage
     }
   };
 
-  const handleNotificationClick = (notif: any) => {
-    toast(`Viewing: ${notif.title}`, "info");
+  const handleNotificationClick = async (notif: any) => {
+    try {
+      await deleteNotification(notif.id);
+      toast(`Cleared notification: ${notif.title}`, "info");
+    } catch (err) {
+      console.error("Failed to clear notification on click:", err);
+    }
   };
 
   return (
@@ -51,40 +57,9 @@ export const V2Header: React.FC<V2HeaderProps> = ({ firstName, avatarUrl, onPage
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 lg:px-8 flex items-center justify-between">
         {/* Left: Branding */}
         <div className="flex flex-col items-start -ml-2 md:-ml-4">
-          {/* Vylos Icon Badge with Premium Liquid Glass Background */}
-          <div className="flex items-center justify-center relative group transition-all duration-700" style={{ width: "96px", height: "96px" }}>
-            {/* Multi-layered glow and glass effects */}
-            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/20 to-white/5 backdrop-blur-2xl border border-white/20 shadow-2xl transition-all duration-500 group-hover:scale-110 group-hover:border-primary/40 group-hover:shadow-primary/20" />
-            <div className="absolute inset-2 rounded-full bg-gradient-to-tr from-primary/10 to-transparent blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-            
-            {/* Inner "Liquid" border effect */}
-            <div className="absolute inset-0 rounded-full border border-white/5 pointer-events-none" />
-            
-            <img
-              src="/vylos-logo-final.png"
-              alt="Vylos"
-              className="select-none relative z-10 transform group-hover:scale-105 group-hover:rotate-3 transition-all duration-700 ease-out"
-              style={{
-                width: "60px",
-                height: "60px",
-                objectFit: "contain",
-                display: "block",
-                filter: "drop-shadow(0 8px 16px rgba(0,0,0,0.2))"
-              }}
-              draggable={false}
-            />
+          <div className="select-none relative z-10 transform group-hover:scale-105 transition-all duration-500 ease-out drop-shadow-2xl">
+            <VylosLogo size="large" />
           </div>
-          
-          {/* Tagline */}
-          <span 
-            className="text-[10px] font-black uppercase tracking-[0.5em] text-left pl-1"
-            style={{
-              marginTop: "16px",
-              color: "rgba(255, 255, 255, 0.7)"
-            }}
-          >
-            Track. Understand. Improve. Grow.
-          </span>
         </div>
 
         {/* Right: Actions Bar */}

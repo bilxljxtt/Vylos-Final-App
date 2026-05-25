@@ -1,13 +1,14 @@
 "use client";
 
 import React from "react";
+import { VylosLogo } from "../ui/VylosLogo";
 
 export function TermsAndConditions() {
   return (
     <div className="space-y-8 text-text-main leading-relaxed">
       <div className="flex flex-col items-center text-center gap-4 mb-12">
-        <div className="w-20 h-20 rounded-full border border-primary/20 flex items-center justify-center overflow-hidden mb-2">
-          <img src="/vylos-logo-final.png" alt="Vylos Logo" className="w-full h-full object-cover" />
+        <div className="mb-2">
+          <VylosLogo iconOnly size="large" />
         </div>
         <h1 className="text-4xl font-black tracking-tighter">Vylos</h1>
         <p className="text-sm font-bold text-primary uppercase tracking-widest">Track. Understand. Improve. Grow.</p>
@@ -16,8 +17,8 @@ export function TermsAndConditions() {
       <section className="space-y-4">
         <h2 className="text-2xl font-black tracking-tight text-text-main border-l-4 border-primary pl-4">VYLOS TERMS AND CONDITIONS</h2>
         <div className="grid grid-cols-2 gap-4 text-xs font-bold text-text-muted uppercase tracking-wider bg-card p-4 rounded-2xl border border-border-main">
-          <div>Effective Date: May 8, 2024</div>
-          <div>Last Updated: May 8, 2024</div>
+          <div>Effective Date: May 26, 2026</div>
+          <div>Last Updated: May 26, 2026</div>
         </div>
       </section>
 

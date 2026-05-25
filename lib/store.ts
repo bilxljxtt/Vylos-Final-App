@@ -141,6 +141,7 @@ export interface UserProfile {
   lastConsistencyDate?: string;
   lastLoginXpDate?: string;
   dismissed_notifications?: string[];
+  onboardingAnswers?: any;
 }
 
 export interface NotificationPrefs {
@@ -284,7 +285,7 @@ export const initialState: AppState = {
     termsAccepted: false,
     termsAcceptedAt: "",
     termsVersion: "v1.0",
-    termsLastUpdated: "2024-05-08",
+    termsLastUpdated: "2026-05-26",
     onboardingCompleted: false,
     onboardingCompletedAt: "",
     userType: "",
@@ -308,7 +309,8 @@ export const initialState: AppState = {
     longestStreak: 0,
     dailyConsistencyScore: 0,
     lastConsistencyDate: "",
-    lastLoginXpDate: ""
+    lastLoginXpDate: "",
+    onboardingAnswers: {}
   },
   notifications: {
     budgetAlerts: true,

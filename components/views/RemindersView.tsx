@@ -112,12 +112,25 @@ export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
         </div>
         
         <div className="flex items-center gap-2">
-          <button 
-            type="button"
-            className="flex items-center gap-2 px-4 py-2.5 vylos-glass-readable backdrop-blur-md rounded-xl text-[12px] font-bold text-slate-700 dark:text-slate-200 shadow-sm hover:bg-white/10 dark:hover:bg-slate-800 transition-colors !rounded-xl !p-2.5"
-          >
-            This Month <ChevronRight size={14} className="rotate-90" />
-          </button>
+          <div className="flex items-center bg-white dark:bg-white/5 rounded-xl shadow-sm border border-slate-200/60 dark:border-white/10 p-1">
+            <button 
+              type="button"
+              onClick={() => setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1))} 
+              className="p-1.5 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-colors"
+            >
+              <ChevronLeft size={14} className="text-slate-600 dark:text-slate-400" />
+            </button>
+            <span className="w-28 text-center text-xs font-bold text-slate-900 dark:text-white">
+              {calendarViewDate.toLocaleString('default', { month: 'short', year: 'numeric' })}
+            </span>
+            <button 
+              type="button"
+              onClick={() => setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1))} 
+              className="p-1.5 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-colors"
+            >
+              <ChevronRight size={14} className="text-slate-600 dark:text-slate-400" />
+            </button>
+          </div>
           <button 
             type="button"
             onClick={() => setShowAddReminder(true)}

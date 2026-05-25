@@ -12,7 +12,7 @@ import { HealthScoreWidget } from "./v2/HealthScoreWidget";
 import { V2ShortcutDock } from "./v2/V2ShortcutDock";
 import { 
   Rocket, Target, Shield, Sparkles, 
-  ChevronRight, ArrowRight, Activity 
+  ChevronRight, ArrowRight, Activity, BarChart3 
 } from "lucide-react";
 import { useToast } from "@/components/Toast";
 import { Permissions } from "@/lib/permissions";
@@ -98,7 +98,7 @@ export const DashboardV3: React.FC<DashboardV3Props> = ({
       };
     }
     return {
-      title: "Vylos Intelligence",
+      title: canUseAI ? "Vylos Intelligence" : "Financial Overview",
       message: `Welcome ${firstName}! Start by importing your first transaction to see your personalized health score grow.`,
       icon: <Sparkles size={20} className="text-blue-500" />
     };
@@ -119,12 +119,13 @@ export const DashboardV3: React.FC<DashboardV3Props> = ({
           <p className="text-[11px] font-bold text-slate-600 dark:text-white/60 leading-relaxed">{insight.message}</p>
         </div>
         <button 
-          onClick={() => setPage("ai")}
+          onClick={() => setPage(canUseAI ? "ai" : "pricing")}
           className="px-6 py-3 bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 font-black text-[10px] uppercase tracking-widest rounded-xl transition-all border border-blue-600/20"
         >
-          Ask AI
+          {canUseAI ? "Ask AI" : "Upgrade"}
         </button>
       </div>
+
       {/* Top Row: Profile & Overview Mega-Card */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8 items-stretch h-full">
         
@@ -170,6 +171,7 @@ export const DashboardV3: React.FC<DashboardV3Props> = ({
           summary={budgetSummary}
           formatCurrency={formatCurrency}
           onViewAll={() => setPage("budget")}
+          selectedMonth={selectedMonth}
         />
         <SavingsGoalsWidget 
           goals={goals}

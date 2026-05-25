@@ -47,6 +47,7 @@ type Action =
   | { type: "ADD_CONTRIBUTION"; payload: GoalContribution }
   | { type: "UPDATE_BUDGET_LIMIT"; payload: { category: string; limit: number } }
   | { type: "UPDATE_BUDGETS"; payload: Record<string, number> }
+  | { type: "SET_BUDGETS"; payload: Record<string, BudgetCategory> }
   | { type: "UPDATE_PROFILE"; payload: Partial<UserProfile> }
   | { type: "UPDATE_NOTIFICATIONS"; payload: Partial<NotificationPrefs> }
   | { type: "SET_UNREAD_COUNT"; payload: number }
@@ -158,6 +159,11 @@ function reducer(state: AppState, action: Action): AppState {
             }
           }), {})
         },
+      };
+    case "SET_BUDGETS":
+      return {
+        ...state,
+        budgets: action.payload,
       };
     case "UPDATE_PROFILE":
       return { ...state, userProfile: { ...state.userProfile, ...action.payload } };
@@ -329,18 +335,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (updates.lastConsistencyDate !== undefined) pgUpdates.last_consistency_date = updates.lastConsistencyDate;
       if (updates.lastLoginXpDate !== undefined) pgUpdates.last_login_xp_date = updates.lastLoginXpDate;
       if (updates.dismissed_notifications !== undefined) pgUpdates.dismissed_notifications = updates.dismissed_notifications;
+      if (updates.onboardingAnswers !== undefined) pgUpdates.onboarding_answers = updates.onboardingAnswers;
 
       try {
-        const { error } = await supabase.from('user_profiles').update(pgUpdates).eq('id', sessionUser.id);
+        let { error } = await supabase.from('user_profiles').update(pgUpdates).eq('id', sessionUser.id);
+        
+        // If the update fails due to the onboarding_answers column missing, use local storage fallback and retry
+        if (error && (error.code === 'PGRST204' || error.message.includes('onboarding_answers'))) {
+          console.warn("Warning: 'onboarding_answers' column is missing in user_profiles table. Onboarding answers have been saved to local storage as a fallback. Please run the migration: ALTER TABLE public.user_profiles ADD COLUMN IF NOT EXISTS onboarding_answers jsonb DEFAULT '{}'::jsonb;");
+          
+          if (typeof window !== 'undefined' && updates.onboardingAnswers) {
+            localStorage.setItem('vylos_onboarding_answers_fallback', JSON.stringify(updates.onboardingAnswers));
+          }
+          
+          const retriedUpdates = { ...pgUpdates };
+          delete retriedUpdates.onboarding_answers;
+          
+          const { error: retryError } = await supabase.from('user_profiles').update(retriedUpdates).eq('id', sessionUser.id);
+          error = retryError;
+        }
+
         if (error) { 
-          console.error("Supabase Profile Update Error:", error);
+          console.error("Supabase Profile Update Error:", {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
+          });
           dispatch({ type: "UPDATE_PROFILE", payload: previousProfile }); 
           throw new Error(error.message); 
         }
       } catch (err: any) {
         if (err.message === "Failed to fetch") {
           console.error("Network Error in updateProfile. Retrying in 1s...");
-          // Optional: implement retry logic or show a specific toast
         }
         throw err;
       }
@@ -876,20 +903,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       );
 
       if (existing) {
-        // Unmark as completed
-        const { error } = await supabase
-          .from('reminder_completions')
-          .delete()
-          .eq('id', existing.id)
-          .eq('user_id', sessionUser.id);
-          
-        if (!error) {
-          dispatch({ type: "DELETE_REMINDER_COMPLETION", payload: { reminder_id: reminderId, year, month } });
+        // Optimistic delete
+        dispatch({ type: "DELETE_REMINDER_COMPLETION", payload: { reminder_id: reminderId, year, month } });
+        triggerHealthScoreRecalculation();
+
+        try {
+          const { error } = await supabase
+            .from('reminder_completions')
+            .delete()
+            .eq('id', existing.id)
+            .eq('user_id', sessionUser.id);
+            
+          if (error) {
+            throw error;
+          }
+        } catch (err: any) {
+          console.error("Supabase Reminder Completion Delete Error (rolling back):", err);
+          // Roll back optimistic delete
+          dispatch({ type: "ADD_REMINDER_COMPLETION", payload: existing });
           triggerHealthScoreRecalculation();
+          throw err;
         }
       } else {
-        // Mark as completed
+        // Optimistic add with temporary id
+        const tempId = `temp-${Date.now()}`;
         const payload = {
+          id: tempId,
           reminder_id: reminderId,
           user_id: sessionUser.id,
           year,
@@ -897,19 +936,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           completed_at: new Date().toISOString()
         };
         
-        const { data, error } = await supabase
-          .from('reminder_completions')
-          .insert([payload])
-          .select()
-          .single();
-          
-        if (!error && data) {
-          dispatch({ type: "ADD_REMINDER_COMPLETION", payload: data });
-          
-          // XP Bonus for paying a bill
-          const { XP_CONFIG } = await import("./services/XPService");
-          await awardXP("COMPLETE_REMINDER", XP_CONFIG.UPDATE_GOAL_PROGRESS.xp, `Completed bill for ${month}/${year}`);
+        dispatch({ type: "ADD_REMINDER_COMPLETION", payload });
+        triggerHealthScoreRecalculation();
+
+        try {
+          const { data, error } = await supabase
+            .from('reminder_completions')
+            .insert([{
+              reminder_id: reminderId,
+              user_id: sessionUser.id,
+              year,
+              month,
+              completed_at: payload.completed_at
+            }])
+            .select()
+            .single();
+            
+          if (error) {
+            throw error;
+          }
+
+          if (data) {
+            // Replace the temporary ID in state
+            dispatch({ type: "DELETE_REMINDER_COMPLETION", payload: { reminder_id: reminderId, year, month } });
+            dispatch({ type: "ADD_REMINDER_COMPLETION", payload: data });
+            
+            // XP Bonus for paying a bill
+            const { XP_CONFIG } = await import("./services/XPService");
+            await awardXP("COMPLETE_REMINDER", XP_CONFIG.UPDATE_GOAL_PROGRESS.xp, `Completed bill for ${month}/${year}`);
+            triggerHealthScoreRecalculation();
+          }
+        } catch (err: any) {
+          console.error("Supabase Reminder Completion Insert Error (rolling back):", err);
+          // Roll back optimistic add
+          dispatch({ type: "DELETE_REMINDER_COMPLETION", payload: { reminder_id: reminderId, year, month } });
           triggerHealthScoreRecalculation();
+          throw err;
         }
       }
     },
@@ -975,7 +1037,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     ]);
 
     const [profRes, txsRes, subsRes, gpsRes, contribsRes, budgetsRes, notifyRes, remRes, compRes, rulesRes, usageRes, scoreRes] = results;
-    const prof = profRes.data;
+    let prof = profRes.data;
+    if (!prof && user) {
+      // Auto-create default user profile row in database if missing (e.g. on Google OAuth signup)
+      const defaultProf = {
+        id: user.id,
+        name: user.user_metadata?.full_name || user.email?.split('@')[0] || "User",
+        email: user.email || "",
+        avatar_url: user.user_metadata?.avatar_url || "",
+        theme: "System Default",
+        language: "en",
+        currency: "R",
+        monthly_income: 0,
+        country: "ZA",
+        onboarding_completed: false,
+        terms_accepted: false,
+        total_xp: 0,
+        current_rank: "Scout Analyst",
+        xp_multiplier: 1.0,
+        current_streak: 0,
+        longest_streak: 0,
+        daily_consistency_score: 0,
+        subscription_tier: 'free',
+        subscription_status: 'active',
+        role: 'user',
+        is_internal_user: false
+      };
+      
+      const { data: newProf, error: insertErr } = await supabase
+        .from('user_profiles')
+        .insert([defaultProf])
+        .select()
+        .single();
+        
+      if (insertErr) {
+        console.error("Failed to auto-create user profile during hydration:", insertErr);
+      } else {
+        prof = newProf;
+      }
+    }
     const txs = txsRes.data;
     const subs = subsRes.data;
     const gps = gpsRes.data;
@@ -1081,7 +1181,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           termsAccepted: prof.terms_accepted || false,
           termsAcceptedAt: prof.terms_accepted_at || "",
           termsVersion: prof.terms_version || "v1.0",
-          termsLastUpdated: prof.terms_last_updated || "2024-05-08",
+          termsLastUpdated: prof.terms_last_updated || "2026-05-26",
           totalXp: parseFloat(prof.total_xp || "0"),
           currentRank: prof.current_rank || "Scout Analyst",
           xpMultiplier: parseFloat(prof.xp_multiplier || "1.0"),
@@ -1091,7 +1191,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           lastConsistencyDate: prof.last_consistency_date || "",
           lastLoginXpDate: prof.last_login_xp_date || "",
           dismissed_notifications: prof.dismissed_notifications || [],
-        } : initialState.userProfile,
+          onboardingAnswers: prof.onboarding_answers || (typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('vylos_onboarding_answers_fallback') || '{}') : {}),
+        } : {
+          ...initialState.userProfile,
+          id: user.id,
+          name: user.user_metadata?.full_name || user.email?.split('@')[0] || "User",
+          email: user.email || "",
+          avatarUrl: user.user_metadata?.avatar_url || "",
+        },
         notifications: prof?.notifications ? (prof.notifications as any) : initialState.notifications,
         notificationList: notifyRes?.data || [],
         unreadNotificationCount: (notifyRes?.data || []).filter((n: any) => !n.read).length,
@@ -1126,6 +1233,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     let goalsChannel: any = null;
     let contribChannel: any = null;
     let remChannel: any = null;
+    let budgetsChannel: any = null;
 
     supabase.auth.getUser().then(({ data: { user } }: { data: { user: any } }) => {
       if (user) {
@@ -1195,6 +1303,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               dispatch({ type: "UPDATE_BACKEND_HEALTH_SCORE", payload: payload.new });
             }
           }).subscribe();
+
+        budgetsChannel = supabase.channel('public:budgets')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'budgets', filter: `user_id=eq.${user.id}` }, async () => {
+            const { data: budgets } = await supabase.from('budgets').select('*').eq('user_id', user.id);
+            const budgetsObj: Record<string, BudgetCategory> = {};
+            if (budgets) {
+              budgets.forEach((b: any) => {
+                budgetsObj[b.category] = { limit: parseFloat(b.limit), type: b.type as any };
+              });
+            }
+            dispatch({ type: "SET_BUDGETS", payload: budgetsObj });
+            setLastSynced(new Date());
+          }).subscribe();
       }
     });
 
@@ -1204,6 +1325,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (goalsChannel) supabase.removeChannel(goalsChannel);
       if (contribChannel) supabase.removeChannel(contribChannel);
       if (remChannel) supabase.removeChannel(remChannel);
+      if (budgetsChannel) supabase.removeChannel(budgetsChannel);
     };
   }, [supabase, hydrateCloudState]);
 

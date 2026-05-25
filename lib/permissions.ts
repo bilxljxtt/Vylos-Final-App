@@ -124,10 +124,33 @@ export class Permissions {
   }
 
   /**
+   * Helper for general AI access gating (subscription & rules)
+   */
+  static canUseAI(user: UserProfile): boolean {
+    // Admin/developer/internal testing users: AI access allowed
+    if (this.isPrivileged(user) || user.role === 'tester') {
+      return true;
+    }
+
+    // Free trial users: no AI access unless explicitly allowed by admin rule
+    if (user.subscription_status === 'trialing') {
+      return !!user.onboardingAnswers?.allowTrialAI || !!(user as any).allow_trial_ai;
+    }
+
+    // Free users: no AI access
+    if (user.subscription_tier === 'free') {
+      return false;
+    }
+
+    // Paid users: AI access allowed
+    return user.subscription_status === 'active';
+  }
+
+  /**
    * Helper for AI Advisor access
    */
   static canUseAIAdvisor(user: UserProfile): boolean {
-    return this.hasFeature(user, 'ai_advisor');
+    return this.canUseAI(user);
   }
 
   /**

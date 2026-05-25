@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { VylosLogo } from "@/components/ui/VylosLogo";
 import { createClient } from "@/utils/supabase/client";
 import { useToast } from "@/components/Toast";
 
@@ -85,18 +86,10 @@ export default function SignupPage() {
 
       {/* ─── Header Overlay ─── */}
       <div className="p-8 lg:px-16 flex items-center justify-between z-50">
-            <div className="flex flex-col items-start gap-8">
-                <div className="flex items-center justify-center relative group transition-all duration-700" style={{ width: "96px", height: "96px" }}>
-                  <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/20 to-white/5 backdrop-blur-2xl border border-white/20 shadow-2xl transition-all duration-500 group-hover:scale-110 group-hover:border-blue-400/40" />
-                  <div className="absolute inset-2 rounded-full bg-gradient-to-tr from-blue-500/20 to-transparent blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-                  <div className="absolute inset-0 rounded-full border border-white/5 pointer-events-none" />
-                  <img src="/vylos-logo-final.png" alt="Vylos Logo" className="select-none relative z-10 transform group-hover:scale-105 group-hover:rotate-3 transition-all duration-700 ease-out" style={{ width: "64px", height: "64px", objectFit: "contain", filter: "drop-shadow(0 8px 16px rgba(0,0,0,0.3))" }} draggable={false} />
+            <div className="flex flex-col items-start">
+                <div className="flex items-center justify-center relative group transition-all duration-700">
+                  <VylosLogo size="large" className="transform group-hover:scale-105 group-hover:rotate-3 transition-all duration-700 ease-out" />
                 </div>
-                
-                {/* Tagline */}
-                <span className="text-[11px] font-black text-blue-100/40 uppercase tracking-[1em] ml-8 leading-none whitespace-nowrap">
-                    Track. Understand. Improve. Grow.
-                </span>
             </div>
         <div className="hidden md:flex items-center gap-8">
             <span className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em]">Built for the modern builder</span>
@@ -154,11 +147,8 @@ export default function SignupPage() {
             <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
             
             <div className="flex flex-col items-center text-center mb-12">
-                <div className="flex items-center justify-center relative group transition-all duration-700 mb-10" style={{ width: "128px", height: "128px" }}>
-                  <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-600/10 to-blue-400/5 backdrop-blur-2xl border border-blue-600/20 shadow-2xl transition-all duration-500 group-hover:scale-110 group-hover:border-blue-500/40 group-hover:shadow-blue-500/30" />
-                  <div className="absolute inset-2 rounded-full bg-gradient-to-tr from-blue-500/20 to-transparent blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-                  <div className="absolute inset-0 rounded-full border border-white/5 pointer-events-none" />
-                  <img src="/vylos-logo-final.png" alt="Logo" className="select-none relative z-10 transform group-hover:scale-105 group-hover:rotate-3 transition-all duration-700 ease-out" style={{ width: "80px", height: "80px", objectFit: "contain", filter: "drop-shadow(0 12px 24px rgba(0,0,0,0.3))" }} draggable={false} />
+                <div className="flex items-center justify-center relative group transition-all duration-700 mb-10">
+                  <VylosLogo size="large" className="transform group-hover:scale-105 group-hover:rotate-3 transition-all duration-700 ease-out" />
                 </div>
                 <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter leading-tight">Create account</h2>
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-2">

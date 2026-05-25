@@ -10,10 +10,16 @@ import { useAppStore } from "@/lib/AppContext";
 import { UserProfile, computeHealthScoreMetrics } from "@/lib/store";
 import { Permissions } from "@/lib/permissions";
 import { VylosCalculations } from "@/lib/vylosCalculations";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 export interface Message {
+  id?: string;
   role: "user" | "assistant";
   content: string;
+  timestamp?: string;
+  source?: string;
+  layer?: number;
 }
 
 interface AIAdvisorViewProps {
@@ -29,7 +35,7 @@ interface AIAdvisorViewProps {
 }
 
 export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
-  aiMessages, aiInput, setAiInput, sendAI, aiLoading, userProfile, setPage
+  aiMessages, aiInput, setAiInput, sendAI, aiLoading, userProfile, setPage, setAiMessages
 }) => {
   const { state } = useAppStore();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -63,44 +69,52 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
   const insights = useMemo(() => VylosCalculations.getRecentInsights(state), [state]);
 
   // Visual Mockup specific messages if none exist (for design demonstration)
-  const displayMessages = aiMessages.length > 0 ? aiMessages : [
-    { role: "assistant", content: `Hello ${userProfile.name || 'there'}! I'm your Vylos AI Advisor. How can I help you with your finances today?` },
+  const displayMessages: Message[] = aiMessages.length > 0 ? aiMessages : [
+    { 
+      id: "initial-assistant-msg",
+      role: "assistant", 
+      content: `Hello ${userProfile.name || 'there'}! I'm your Vylos AI Advisor. How can I help you with your finances today?`,
+      timestamp: new Date().toISOString()
+    },
   ];
 
   if (!hasAccess) {
     return null;
   }
 
-  const renderMessageContent = (content: string) => {
-    // Regex to match [Button Text|pageName]
-    const linkRegex = /\[([^\|]+)\|([^\]]+)\]/g;
-    const parts = [];
-    let lastIndex = 0;
-    let match;
+  const preprocessContent = (text: string) => {
+    return text.replace(/\[([^\|\]]+)\|([^\]]+)\]/g, "[$1](vylos-page://$2)");
+  };
 
-    while ((match = linkRegex.exec(content)) !== null) {
-      if (match.index > lastIndex) {
-        parts.push(<span key={lastIndex}>{content.substring(lastIndex, match.index)}</span>);
-      }
-      const label = match[1];
-      const targetPage = match[2];
-      parts.push(
-        <button 
-          key={match.index}
-          onClick={() => setPage(targetPage)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 mx-1 mt-2 mb-1 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/40 text-[12px] font-black uppercase tracking-widest text-white rounded-lg transition-all active:scale-95"
-        >
-          {label} <ArrowRight size={14} />
-        </button>
-      );
-      lastIndex = linkRegex.lastIndex;
-    }
-    
-    if (lastIndex < content.length) {
-      parts.push(<span key={lastIndex}>{content.substring(lastIndex)}</span>);
-    }
-
-    return parts.length > 0 ? parts : content;
+  const MarkdownRenderer = ({ content }: { content: string }) => {
+    const preprocessed = preprocessContent(content);
+    return (
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          a: ({ href, children, ...props }: any) => {
+            if (href?.startsWith("vylos-page://")) {
+              const targetPage = href.replace("vylos-page://", "");
+              return (
+                <button 
+                  onClick={() => setPage(targetPage)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 mx-1 mt-2 mb-1 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/40 text-[12px] font-black uppercase tracking-widest text-white rounded-lg transition-all active:scale-95"
+                >
+                  {children} <ArrowRight size={14} />
+                </button>
+              );
+            }
+            return (
+              <a href={href} {...props} className="text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">
+                {children}
+              </a>
+            );
+          }
+        }}
+      >
+        {preprocessed}
+      </ReactMarkdown>
+    );
   };
 
   return (
@@ -113,7 +127,15 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
           <p className="text-[13px] font-medium text-slate-500 dark:text-slate-400 mt-1">Your AI financial assistant. Ask questions, get insights, and plan your future.</p>
         </div>
         
-        <button className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-white/5 border border-slate-200/60 dark:border-white/10 hover:border-blue-500 text-blue-600 rounded-2xl text-[13px] font-bold shadow-sm transition-all">
+        <button 
+          onClick={() => setAiMessages([{
+            id: "initial-assistant-msg",
+            role: "assistant",
+            content: `Hello ${userProfile.name || 'there'}! I'm your Vylos AI Advisor. How can I help you with your finances today?`,
+            timestamp: new Date().toISOString()
+          }])}
+          className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-white/5 border border-slate-200/60 dark:border-white/10 hover:border-blue-500 text-blue-600 rounded-2xl text-[13px] font-bold shadow-sm transition-all"
+        >
           <Plus size={16} strokeWidth={3} />
           New Chat
         </button>
@@ -130,16 +152,29 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
             {displayMessages.map((msg, i) => {
               const isUser = msg.role === "user";
               return (
-                <div key={i} className={`flex gap-5 max-w-[85%] ${isUser ? 'ml-auto flex-row-reverse' : ''}`}>
+                <div key={msg.id || i} className={`flex gap-5 max-w-[85%] ${isUser ? 'ml-auto flex-row-reverse' : ''}`}>
                   <div className={`w-12 h-12 rounded-[1.25rem] flex items-center justify-center shrink-0 shadow-lg border border-white/10
                     ${isUser ? 'bg-primary text-white shadow-primary/20' : 'bg-white/5 text-slate-600 dark:text-white/60'}`}>
                     {isUser ? <User size={24} /> : <Bot size={24} />}
                   </div>
-                  <div className={`p-5 rounded-[1.75rem] text-[14px] font-bold leading-relaxed shadow-xl
-                    ${isUser 
-                      ? 'bg-primary text-white rounded-tr-sm' 
-                      : 'bg-white/5 border border-white/10 text-slate-900 dark:text-white/80 rounded-tl-sm whitespace-pre-wrap'}`}>
-                    {renderMessageContent(msg.content)}
+                  <div className="flex flex-col gap-1.5">
+                    <div className={`p-5 rounded-[1.75rem] text-[14px] font-bold leading-relaxed shadow-xl
+                      ${isUser 
+                        ? 'bg-primary text-white rounded-tr-sm' 
+                        : 'bg-white/5 border border-white/10 text-slate-900 dark:text-white/80 rounded-tl-sm markdown-content'}`}>
+                      {isUser ? (
+                        msg.content
+                      ) : (
+                        <MarkdownRenderer content={msg.content} />
+                      )}
+                    </div>
+                    {!isUser && (msg.source || msg.layer !== undefined) && (
+                      <div className="flex items-center gap-2 px-1 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 opacity-60">
+                        {msg.layer !== undefined && <span>Layer {msg.layer}</span>}
+                        {msg.source && msg.layer !== undefined && <span>•</span>}
+                        {msg.source && <span>Source: {msg.source.replace(/_/g, ' ')}</span>}
+                      </div>
+                    )}
                   </div>
                 </div>
               )
@@ -149,10 +184,13 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
                 <div className="w-12 h-12 rounded-[1.25rem] bg-white/5 text-slate-600 dark:text-white/60 flex items-center justify-center shrink-0 border border-white/10">
                   <Bot size={24} className="animate-pulse" />
                 </div>
-                <div className="px-6 py-5 rounded-[1.75rem] bg-white/5 border border-white/10 text-slate-700 dark:text-white/60 rounded-tl-sm flex items-center gap-2 shadow-sm">
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" />
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
+                <div className="px-6 py-5 rounded-[1.75rem] bg-white/5 border border-white/10 text-slate-700 dark:text-white/60 rounded-tl-sm flex items-center gap-3 shadow-sm">
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce" />
+                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
+                  </div>
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Thinking...</span>
                 </div>
               </div>
             )}

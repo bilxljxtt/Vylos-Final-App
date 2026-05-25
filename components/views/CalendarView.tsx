@@ -11,6 +11,85 @@ interface CalendarViewProps {
   setPage: (page: string) => void;
 }
 
+function generateSubscriptionOccurrences(
+  subscriptions: any[],
+  year: number,
+  month: number // 0-indexed month (0-11)
+): any[] {
+  const occurrences: any[] = [];
+  const monthStart = createLocalDate(year, month, 1);
+  const monthEnd = createLocalDate(year, month + 1, 0);
+  
+  subscriptions.forEach(sub => {
+    if (!sub.nextDue) return;
+    
+    // Parse nextDue as a local date
+    const [ny, nm, nd] = sub.nextDue.split('T')[0].split('-').map(Number);
+    const nextDueDate = createLocalDate(ny, nm - 1, nd);
+    
+    if (sub.frequency === "Weekly") {
+      let current = createLocalDate(ny, nm - 1, nd);
+      if (current > monthEnd) return;
+      
+      while (current < monthStart) {
+        current.setDate(current.getDate() + 7);
+      }
+      
+      while (current >= monthStart && current <= monthEnd) {
+        occurrences.push({
+          id: `${sub.id}-${toDateKey(current)}`,
+          title: sub.name,
+          category: sub.category || "Subscriptions",
+          amount: sub.amount,
+          due_date: toDateKey(current),
+          type: "subscription"
+        });
+        current = createLocalDate(current.getFullYear(), current.getMonth(), current.getDate() + 7);
+      }
+    } else if (sub.frequency === "Monthly" || sub.frequency === "monthly") {
+      if (year < ny || (year === ny && month < nm - 1)) {
+        return;
+      }
+      
+      const day = nd;
+      const lastDay = new Date(year, month + 1, 0).getDate();
+      const targetDay = Math.min(day, lastDay);
+      const occurrenceDate = createLocalDate(year, month, targetDay);
+      
+      occurrences.push({
+        id: `${sub.id}-${toDateKey(occurrenceDate)}`,
+        title: sub.name,
+        category: sub.category || "Subscriptions",
+        amount: sub.amount,
+        due_date: toDateKey(occurrenceDate),
+        type: "subscription"
+      });
+    } else if (sub.frequency === "Annual" || sub.frequency === "yearly") {
+      if (year < ny || (year === ny && month < nm - 1)) {
+        return;
+      }
+      
+      if (month === nm - 1) {
+        const day = nd;
+        const lastDay = new Date(year, month + 1, 0).getDate();
+        const targetDay = Math.min(day, lastDay);
+        const occurrenceDate = createLocalDate(year, month, targetDay);
+        
+        occurrences.push({
+          id: `${sub.id}-${toDateKey(occurrenceDate)}`,
+          title: sub.name,
+          category: sub.category || "Subscriptions",
+          amount: sub.amount,
+          due_date: toDateKey(occurrenceDate),
+          type: "subscription"
+        });
+      }
+    }
+  });
+  
+  return occurrences;
+}
+
 export const CalendarView: React.FC<CalendarViewProps> = ({ setPage }) => {
   const { state, setSelectedMonth, formatCurrency } = useAppStore();
   const [activeTab, setActiveTab] = useState<"month" | "week" | "list">("month");
@@ -91,7 +170,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ setPage }) => {
     return reminders;
   }, [state.reminders, state.reminderCompletions, viewDate]);
 
-  // Map state.transactions and visibleReminders to calendar events
+  // Map state.transactions, visibleReminders and projected subscriptions to calendar events
   const calendarEvents = useMemo(() => {
     const events: Record<string, any[]> = {};
 
@@ -120,8 +199,21 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ setPage }) => {
       });
     });
 
+    const subOccurrences = generateSubscriptionOccurrences(state.subscriptions || [], year, month);
+    subOccurrences.forEach(sub => {
+      const key = sub.due_date;
+      if (!events[key]) events[key] = [];
+      events[key].push({
+        title: sub.title,
+        subtitle: sub.category,
+        amount: sub.amount ? formatCurrency(-Math.abs(sub.amount)) : '',
+        type: 'subscription',
+        dot: 'bg-cyan-500'
+      });
+    });
+
     return events;
-  }, [state.transactions, visibleReminders, formatCurrency]);
+  }, [state.transactions, visibleReminders, state.subscriptions, year, month, formatCurrency]);
 
   const weekDays = useMemo(() => {
     const startOfWeek = new Date(selectedDay);

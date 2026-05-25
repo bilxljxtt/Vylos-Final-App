@@ -589,3 +589,279 @@ input, textarea, [contenteditable="true"], .selectable-text {
 .animate-shimmer {
   animation: shimmer 1.5s infinite;
 }
+
+@keyframes money-fall {
+  0% {
+    transform: translateY(-50px) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.8;
+  }
+  90% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(105vh) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+.animate-money-fall {
+  animation: money-fall linear infinite;
+}
+
+/* ─── Logo Branding & Loading Animations ─────────────────────────────────── */
+@keyframes soft-pulse {
+  0% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.03); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.85; }
+}
+
+.animate-soft-pulse {
+  animation: soft-pulse 3s ease-in-out infinite;
+}
+
+.vylos-logo-glass-glow {
+  position: relative;
+}
+
+.vylos-logo-glass-glow::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 140%;
+  height: 140%;
+  background: radial-gradient(circle, rgba(96, 165, 250, 0.25) 0%, rgba(219, 234, 254, 0.1) 40%, transparent 70%);
+  filter: blur(15px);
+  z-index: -1;
+  border-radius: 50%;
+  animation: soft-pulse 3s ease-in-out infinite;
+}
+
+.vylos-wordmark {
+  background: linear-gradient(
+    135deg,
+    #ffffff 0%,
+    #eff6ff 28%,
+    #dbeafe 55%,
+    #bfdbfe 78%,
+    #ffffff 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+
+  filter:
+    drop-shadow(0 2px 5px rgba(15, 23, 42, 0.22))
+    drop-shadow(0 0 12px rgba(219, 234, 254, 0.24));
+
+  opacity: 0.96;
+  letter-spacing: -0.045em;
+  font-weight: 800;
+
+  line-height: 1.15;
+  padding-bottom: 0.08em;
+}
+
+.vylos-wordmark-glass {
+  position: relative;
+  overflow: visible;
+}
+
+.vylos-wordmark-glass::after {
+  content: "";
+  position: absolute;
+  left: 4%;
+  top: 8%;
+  width: 70%;
+  height: 35%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.45),
+    rgba(255, 255, 255, 0.05)
+  );
+  border-radius: 999px;
+  pointer-events: none;
+  opacity: 0.28;
+}
+
+/* ─── Loading Screen & Falling Money ────────────────────────────────────── */
+.vylos-bg-loading {
+  background: radial-gradient(circle at 20% 20%, rgba(147,197,253,0.55), transparent 35%), 
+              linear-gradient(135deg, #60a5fa 0%, #2563eb 45%, #1e3a8a 100%);
+}
+
+@keyframes money-drift-left {
+  0% {
+    transform: translateY(-20vh) rotate(-10deg) scale(0.9);
+    opacity: 0;
+  }
+  10% {
+    opacity: var(--max-opacity, 0.12);
+  }
+  90% {
+    opacity: var(--max-opacity, 0.12);
+  }
+  100% {
+    transform: translateY(120vh) rotate(15deg) scale(0.9);
+    opacity: 0;
+  }
+}
+
+@keyframes money-drift-right {
+  0% {
+    transform: translateY(-20vh) rotate(15deg) scale(1.1);
+    opacity: 0;
+  }
+  10% {
+    opacity: var(--max-opacity, 0.08);
+  }
+  90% {
+    opacity: var(--max-opacity, 0.08);
+  }
+  100% {
+    transform: translateY(120vh) rotate(-10deg) scale(1.1);
+    opacity: 0;
+  }
+}
+
+@keyframes money-drift-straight {
+  0% {
+    transform: translateY(-20vh) rotate(0deg) scale(1);
+    opacity: 0;
+  }
+  10% {
+    opacity: var(--max-opacity, 0.18);
+  }
+  90% {
+    opacity: var(--max-opacity, 0.18);
+  }
+  100% {
+    transform: translateY(120vh) rotate(5deg) scale(1);
+    opacity: 0;
+  }
+}
+
+.animate-money-left {
+  animation: money-drift-left var(--dur, 12s) linear infinite;
+}
+
+.animate-money-right {
+  animation: money-drift-right var(--dur, 15s) linear infinite;
+}
+
+.animate-money-straight {
+  animation: money-drift-straight var(--dur, 10s) linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-money-left,
+  .animate-money-right,
+  .animate-money-straight {
+    animation: none !important;
+    opacity: 0 !important;
+    display: none !important;
+  }
+}
+
+/* ─── Markdown Content Styling inside Chat bubbles ─── */
+.markdown-content p {
+  margin-bottom: 0.75rem;
+  line-height: 1.6;
+}
+.markdown-content p:last-child {
+  margin-bottom: 0;
+}
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4 {
+  font-weight: 800;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  color: inherit;
+  letter-spacing: -0.02em;
+}
+.markdown-content h1 { font-size: 1.25rem; }
+.markdown-content h2 { font-size: 1.15rem; }
+.markdown-content h3 { font-size: 1.05rem; }
+.markdown-content h4 { font-size: 0.95rem; }
+.markdown-content ul {
+  list-style-type: disc;
+  margin-left: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+.markdown-content ol {
+  list-style-type: decimal;
+  margin-left: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+.markdown-content li {
+  margin-bottom: 0.25rem;
+}
+.markdown-content strong {
+  font-weight: 800;
+  color: inherit;
+}
+.markdown-content code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.85em;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 0.15rem 0.3rem;
+  border-radius: 4px;
+  color: inherit;
+}
+.dark .markdown-content code {
+  background: rgba(255, 255, 255, 0.1);
+}
+.markdown-content pre {
+  background: rgba(0, 0, 0, 0.08);
+  padding: 1rem;
+  border-radius: 12px;
+  overflow-x: auto;
+  margin-bottom: 0.75rem;
+}
+.dark .markdown-content pre {
+  background: rgba(255, 255, 255, 0.05);
+}
+.markdown-content pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+.markdown-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 0.75rem;
+  font-size: 13px;
+}
+.markdown-content th,
+.markdown-content td {
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  padding: 8px 12px;
+  text-align: left;
+}
+.dark .markdown-content th,
+.dark .markdown-content td {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+.markdown-content th {
+  background: rgba(0, 0, 0, 0.02);
+  font-weight: 800;
+}
+.dark .markdown-content th {
+  background: rgba(255, 255, 255, 0.05);
+}
+.markdown-content blockquote {
+  border-left: 3px solid var(--primary);
+  padding-left: 1rem;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-bottom: 0.75rem;
+}
+
+

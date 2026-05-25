@@ -302,15 +302,8 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
             onClick={() => setShowNewBudget(true)}
             className="flex items-center gap-2 px-5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-2xl text-[13px] font-bold shadow-md shadow-blue-500/25 transition-all"
           >
-            <Plus size={16} strokeWidth={3} />
-            New Budget
-          </button>
-          <button 
-            onClick={() => setShowNewBudget(true)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-white/5 border border-slate-200/60 dark:border-white/10 hover:border-blue-500 text-slate-700 dark:text-slate-200 rounded-2xl text-[13px] font-bold shadow-sm transition-all"
-          >
             <Sparkles size={16} />
-            Edit Limits
+            Manage Budgets
           </button>
         </div>
       </div>
@@ -323,13 +316,13 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
           
           {/* Realistic Warning Banner */}
           {budgetSummary.isUnrealistic && (
-            <div className="vylos-glass-readable p-6 border-amber-500/20 bg-amber-500/5 flex items-start gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="vylos-glass-soft p-6 border border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/10 flex items-start gap-4 animate-in fade-in slide-in-from-top-4 duration-500 text-slate-700 dark:text-slate-200">
               <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0 border border-amber-500/20 shadow-lg shadow-amber-500/5">
                 <Divide size={24} className="rotate-45" />
               </div>
               <div className="flex-1">
                 <h4 className="text-[13px] font-black text-amber-600 uppercase tracking-widest mb-1">Over-Allocation Warning</h4>
-                <p className="text-[12px] font-medium text-slate-600 dark:text-slate-300 leading-relaxed">
+                <p className="text-[12px] font-medium text-slate-700 dark:text-slate-200 leading-relaxed">
                   Your total budget allocation (<span className="font-bold text-slate-900 dark:text-white">{formatCurrency(budgetSummary.totalAllocated)}</span>) exceeds your monthly income (<span className="font-bold text-slate-900 dark:text-white">{formatCurrency(budgetSummary.monthlyIncome)}</span>). This setup may lead to debt accumulation. Consider reducing your limits.
                 </p>
               </div>
@@ -491,13 +484,6 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
                 </div>
               ))}
             </div>
-
-            <button 
-              onClick={() => setShowHealthDetail?.(true)}
-              className="text-[12px] font-bold text-blue-600 hover:text-blue-700 transition-colors flex items-center gap-1"
-            >
-              View full analysis <ChevronRight size={14} />
-            </button>
           </div>
 
           {/* Vylos Insights Card */}
@@ -626,12 +612,7 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
               })}
             </div>
           </div>
-          <button 
-            onClick={() => document.getElementById('budget-by-category-table')?.scrollIntoView({ behavior: 'smooth' })}
-            className="mt-4 text-[11px] font-black text-blue-600 hover:text-blue-700 transition-colors text-left w-fit"
-          >
-            View full breakdown
-          </button>
+
         </div>
 
         {/* Budget Actions */}
@@ -679,12 +660,7 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
             </div>
           </div>
 
-          <button 
-            onClick={() => setShowNewBudget(true)}
-            className="mt-2 text-[12px] font-black text-blue-600 hover:text-blue-700 transition-colors flex items-center gap-1"
-          >
-            View all actions <ChevronRight size={14} />
-          </button>
+
         </div>
 
       </div>

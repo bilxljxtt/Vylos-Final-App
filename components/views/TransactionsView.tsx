@@ -171,23 +171,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
                 { value: "All", label: "All Categories" },
                 ...Object.keys(CATEGORY_METADATA).map(cat => ({ value: cat, label: cat }))
               ]} 
-              label="Category Filter"
-            />
-          </div>
-          <div className="flex items-center gap-2 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-1 shadow-sm">
-            <Calendar size={16} className="text-slate-400" />
-            <input 
-              type="date" 
-              value={dateRange.start}
-              onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-              className="bg-transparent text-[11px] font-bold text-slate-700 dark:text-slate-300 focus:outline-none"
-            />
-            <span className="text-slate-400 text-[11px]">-</span>
-            <input 
-              type="date" 
-              value={dateRange.end}
-              onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-              className="bg-transparent text-[11px] font-bold text-slate-700 dark:text-slate-300 focus:outline-none"
+              buttonClassName="h-11 py-0 px-6 text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-300"
             />
           </div>
           
@@ -421,20 +405,12 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
                     </div>
                   </div>
                   <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden w-full">
-                    <div className={`h-full ${cat.color} rounded-full`} style={{ width: `${cat.pct * 2}%` }} />
+                    <div className={`h-full ${cat.color} rounded-full`} style={{ width: `${cat.pct}%` }} />
                   </div>
                 </div>
               ))}
             </div>
 
-            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-white/5 flex justify-center">
-              <button 
-                onClick={() => setPage("analytics")}
-                className="text-[12px] font-black text-blue-600 hover:text-blue-700 transition-colors"
-              >
-                View full breakdown
-              </button>
-            </div>
           </div>
 
         </div>

@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { VylosLogo } from "./VylosLogo";
 
 export function LandingPage() {
   const [scrolled, setScrolled] = useState(false);
@@ -25,10 +26,10 @@ export function LandingPage() {
         <div className="max-w-7xl mx-auto px-6">
           <div className={`flex items-center justify-between transition-all duration-500 ${scrolled ? 'bg-white/10 backdrop-blur-2xl border border-white/20 rounded-full px-8 py-3 shadow-2xl' : ''}`}>
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center overflow-hidden shadow-2xl">
-                <img src="/vylos-logo-final.png" alt="Vylos Logo" className="w-full h-full object-cover p-1.5 bg-white" />
+              <div className="flex items-center justify-center shadow-2xl drop-shadow-xl">
+                <VylosLogo iconOnly size="medium" />
               </div>
-              <span className="text-2xl font-black tracking-tighter text-white leading-none">Vylos</span>
+              <span className="text-2xl font-black tracking-tighter leading-tight overflow-visible pb-1 vylos-wordmark">Vylos</span>
             </div>
 
             <div className="hidden md:flex items-center gap-8">
@@ -280,10 +281,10 @@ export function LandingPage() {
       <footer className="py-12 px-6 border-t border-white/5">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
             <div className="flex items-center gap-4">
-                <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center overflow-hidden border border-white/20">
-                    <img src="/vylos-logo-final.png" alt="Logo" className="w-full h-full object-cover p-1.5 bg-white" />
+                <div className="flex items-center justify-center drop-shadow-xl">
+                    <VylosLogo iconOnly size="small" />
                 </div>
-                <span className="text-xl font-black tracking-tighter text-white">Vylos</span>
+                <span className="text-xl font-black tracking-tighter leading-tight overflow-visible pb-1 vylos-wordmark">Vylos</span>
             </div>
             <div className="flex gap-8">
                 <Link href="/terms" className="text-[10px] font-black text-white/40 hover:text-white uppercase tracking-[0.2em]">Terms</Link>
@@ -292,7 +293,7 @@ export function LandingPage() {
             </div>
             <div className="flex flex-col items-center md:items-end gap-2">
                 <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.4em]">Track. Understand. Improve. Grow.</span>
-                <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">© 2024 Vylos Intelligence. All rights reserved.</p>
+                <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">© 2026 Vylos Intelligence. All rights reserved.</p>
             </div>
         </div>
       </footer>

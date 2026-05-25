@@ -22,9 +22,14 @@ interface GoalsViewProps {
 export const GoalsView: React.FC<GoalsViewProps> = ({ 
   goals, setShowAddGoal, deleteGoal, showToast
 }) => {
-  const { state, formatCurrency } = useAppStore();
+  const { state, formatCurrency, addGoalContribution } = useAppStore();
   const [activeFilter, setActiveFilter] = useState("All Goals");
   const [sortBy, setSortBy] = useState("Progress");
+
+  const [activePanel, setActivePanel] = useState<string | null>(null);
+  const [amountInput, setAmountInput] = useState("");
+  const [notesInput, setNotesInput] = useState("");
+  const [panelLoading, setPanelLoading] = useState(false);
 
   const filters = ["All Goals", "In Progress", "Completed"];
 
@@ -266,40 +271,159 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
                       <div className="hidden md:block w-px h-32 bg-white/10" />
                       <div className="md:hidden h-px w-full bg-white/10" />
 
-                      {/* Contributions & Suggestions */}
-                      <div className="flex flex-row md:flex-col justify-between gap-6 w-full md:w-56 shrink-0">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20 shadow-lg shadow-primary/10">
-                            <DollarSign size={20} />
+                      {/* Stats & Actions Container */}
+                      <div className="flex flex-col gap-4 w-full md:w-56 shrink-0">
+                        {/* Contributions & Suggestions */}
+                        <div className="flex flex-row md:flex-col justify-between gap-4 w-full">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20 shadow-lg shadow-primary/10">
+                              <DollarSign size={16} />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Contributed</span>
+                              <span className="text-[13px] font-black text-slate-900 dark:text-white mt-0.5">{formatCurrency(monthlyContributed)}</span>
+                            </div>
                           </div>
-                          <div className="flex flex-col">
-                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Contribution</span>
-                            <span className="text-[15px] font-black text-slate-900 dark:text-white mt-1">{formatCurrency(monthlyContributed)}</span>
+
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0 border border-indigo-500/20 shadow-lg shadow-indigo-500/10">
+                              <TrendingUp size={16} />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Recommended</span>
+                              <div className="flex items-end gap-0.5 mt-0.5">
+                                <span className="text-[13px] font-black text-slate-900 dark:text-white">{formatCurrency(suggested)}</span>
+                                <span className="text-[9px] font-bold text-slate-400 mb-0.5">/mo</span>
+                              </div>
+                            </div>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0 border border-indigo-500/20 shadow-lg shadow-indigo-500/10">
-                            <TrendingUp size={20} />
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Recommended</span>
-                            <div className="flex items-end gap-1 mt-1">
-                              <span className="text-[15px] font-black text-slate-900 dark:text-white">{formatCurrency(suggested)}</span>
-                              <span className="text-[10px] font-bold text-slate-400 mb-0.5">/mo</span>
-                            </div>
-                          </div>
+                        {/* Inline Actions */}
+                        <div className="flex gap-2 w-full mt-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActivePanel(activePanel === `${goal.id}-add` ? null : `${goal.id}-add`);
+                              setAmountInput("");
+                              setNotesInput("");
+                            }}
+                            className="flex-1 py-2 bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-600 hover:text-white text-emerald-600 dark:text-emerald-400 dark:hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 text-center"
+                          >
+                            + Add
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActivePanel(activePanel === `${goal.id}-sub` ? null : `${goal.id}-sub`);
+                              setAmountInput("");
+                              setNotesInput("");
+                            }}
+                            className="flex-1 py-2 bg-rose-500/10 border border-rose-500/30 hover:bg-rose-600 hover:text-white text-rose-600 dark:text-rose-400 dark:hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 text-center"
+                          >
+                            - Subtract
+                          </button>
                         </div>
                       </div>
                     </div>
 
+                    {/* Inline Contribution Form Panel */}
+                    {activePanel && activePanel.startsWith(goal.id) && (
+                      <div className="p-5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl animate-in slide-in-from-top-2 duration-200">
+                        <h4 className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest mb-4">
+                          {activePanel.endsWith("-add") ? "Add Contribution to Goal" : "Subtract Contribution from Goal"}
+                        </h4>
+                        <form
+                          onSubmit={async (e) => {
+                            e.preventDefault();
+                            const amt = parseFloat(amountInput);
+                            if (isNaN(amt) || amt <= 0) {
+                              showToast("Please enter a valid positive amount", "error");
+                              return;
+                            }
+                            setPanelLoading(true);
+                            try {
+                              const finalAmt = activePanel.endsWith("-add") ? amt : -amt;
+                              await addGoalContribution({
+                                goalId: goal.id,
+                                amount: finalAmt,
+                                date: new Date().toISOString().split("T")[0],
+                                notes: notesInput || (activePanel.endsWith("-add") ? "Manual addition" : "Manual subtraction")
+                              });
+                              showToast(
+                                activePanel.endsWith("-add") 
+                                  ? "Added contribution successfully!" 
+                                  : "Subtracted contribution successfully!",
+                                "success"
+                              );
+                              setActivePanel(null);
+                              setAmountInput("");
+                              setNotesInput("");
+                            } catch (err: any) {
+                              console.error("Failed to add contribution:", err);
+                              showToast(err.message || "Failed to add contribution", "error");
+                            } finally {
+                              setPanelLoading(false);
+                            }
+                          }}
+                          className="flex flex-col sm:flex-row gap-4 items-end"
+                        >
+                          <div className="flex-1 flex flex-col gap-2 w-full">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Amount (R)</label>
+                            <input
+                              required
+                              type="number"
+                              step="0.01"
+                              min="0.01"
+                              placeholder="0.00"
+                              value={amountInput}
+                              onChange={(e) => setAmountInput(e.target.value)}
+                              className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl text-[13px] font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500 shadow-sm"
+                            />
+                          </div>
+                          
+                          <div className="flex-[2] flex flex-col gap-2 w-full">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Notes / Description (Optional)</label>
+                            <input
+                              type="text"
+                              placeholder="e.g., Monthly bonus, unexpected expense"
+                              value={notesInput}
+                              onChange={(e) => setNotesInput(e.target.value)}
+                              className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl text-[13px] font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500 shadow-sm"
+                            />
+                          </div>
+
+                          <div className="flex gap-2 w-full sm:w-auto">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActivePanel(null);
+                                setAmountInput("");
+                                setNotesInput("");
+                              }}
+                              className="px-4 py-3 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="submit"
+                              disabled={panelLoading}
+                              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[11px] font-black uppercase tracking-widest shadow-md transition-all disabled:opacity-50"
+                            >
+                              {panelLoading ? "Saving..." : "Confirm"}
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+                    )}
+
                     {/* Realistic Goal feasibility Warning Banner */}
                     {isGoalUnrealistic && (
-                      <div className="p-4 bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-start gap-3 animate-in fade-in slide-in-from-top-4 duration-300">
+                      <div className="vylos-glass-soft p-4 border border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/10 rounded-2xl flex items-start gap-3 animate-in fade-in slide-in-from-top-4 duration-300 text-slate-700 dark:text-slate-200">
                         <AlertCircle size={18} className="text-amber-500 mt-0.5 shrink-0" />
                         <div className="flex-1">
                           <h5 className="text-[11px] font-black text-amber-600 uppercase tracking-widest mb-0.5">Feasibility Alert</h5>
-                          <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300 leading-relaxed">
+                          <p className="text-[11px] font-medium text-slate-700 dark:text-slate-200 leading-relaxed">
                             This goal may be difficult to reach by the selected deadline. You would need to save around <span className="font-bold text-slate-950 dark:text-white">{formatCurrency(monthlyNeeded)}</span> per month, which is higher than your current available monthly cash flow.
                           </p>
                         </div>
@@ -318,13 +442,13 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
           
           {/* Realistic Warning Banner */}
           {isUnrealistic && (
-            <div className="vylos-glass-readable p-6 border-amber-500/20 bg-amber-500/5 flex items-start gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="vylos-glass-soft p-6 border border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/10 flex items-start gap-4 animate-in fade-in slide-in-from-top-4 duration-500 text-slate-700 dark:text-slate-200">
               <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0 border border-amber-500/20 shadow-lg shadow-amber-500/5">
                 <AlertCircle size={24} />
               </div>
               <div className="flex-1">
                 <h4 className="text-[13px] font-black text-amber-600 uppercase tracking-widest mb-1">Realistic Projection Warning</h4>
-                <p className="text-[12px] font-medium text-slate-600 dark:text-slate-300 leading-relaxed">
+                <p className="text-[12px] font-medium text-slate-700 dark:text-slate-200 leading-relaxed">
                   Your combined goals require <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(totalMonthlyNeeded)}</span> per month, but your current surplus is <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(availableMonthly)}</span>. Consider extending deadlines or reducing target amounts to maintain financial stability.
                 </p>
               </div>

@@ -45,7 +45,7 @@ export function XPHistoryTable() {
   return (
     <div className="space-y-4">
       {events.map((event) => (
-        <div 
+        <div
           key={event.id}
           className="flex items-center justify-between p-6 bg-card border border-border-main rounded-2xl hover:border-primary/30 transition-all group"
         >

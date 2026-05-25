@@ -6,6 +6,7 @@ import { createClient } from "@/utils/supabase/client";
 import { useToast } from "@/components/Toast";
 import { Lock, ArrowRight, Shield, Sparkles, ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { VylosLogo } from "@/components/ui/VylosLogo";
 
 export default function ResetPassword() {
   const router = useRouter();
@@ -68,11 +69,8 @@ export default function ResetPassword() {
         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
         
         <div className="flex flex-col items-center text-center mb-8">
-          <div className="flex items-center justify-center relative group transition-all duration-700 mb-6" style={{ width: "88px", height: "88px" }}>
-            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-600/10 to-blue-400/5 backdrop-blur-2xl border border-blue-600/20 shadow-2xl transition-all duration-500 group-hover:scale-110 group-hover:border-blue-500/40 group-hover:shadow-blue-500/20" />
-            <div className="absolute inset-2 rounded-full bg-gradient-to-tr from-blue-500/10 to-transparent blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-            <div className="absolute inset-0 rounded-full border border-white/5 pointer-events-none" />
-            <img src="/vylos-logo-final.png" alt="Logo" className="select-none relative z-10" style={{ width: "48px", height: "48px", objectFit: "contain" }} draggable={false} />
+          <div className="flex items-center justify-center relative group transition-all duration-700 mb-6">
+            <VylosLogo size="large" />
           </div>
           <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">Secure Account</h2>
           <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-2 max-w-[280px]">

@@ -22,6 +22,7 @@ import { TransactionsView } from "@/components/views/TransactionsView";
 import { BudgetView } from "@/components/views/BudgetView";
 import { GoalsView } from "@/components/views/GoalsView";
 import { AIAdvisorView, Message } from "@/components/views/AIAdvisorView";
+import { VylosAIService } from "@/lib/services/VylosAIService";
 import { ImportView } from "@/components/views/ImportView";
 import { SettingsView } from "@/components/views/SettingsView";
 import { AnalyticsView } from "@/components/views/AnalyticsView";
@@ -43,6 +44,9 @@ import { FeedbackModal } from "@/components/modals/FeedbackModal";
 import { XPSystemModal } from "@/components/modals/XPSystemModal";
 import { ComingSoonModal } from "@/components/modals/ComingSoonModal";
 import { useToast } from "@/components/Toast";
+import { createClient } from "@/utils/supabase/client";
+import { VylosLogo } from "@/components/ui/VylosLogo";
+import { VylosLoadingScreen } from "@/components/ui/VylosLoadingScreen";
 
 // Register Chart.js
 Chart.register(...registerables);
@@ -51,7 +55,7 @@ const ACCENT = "#00D8A5";
 
 
 export default function App() {
-  const { state, addTransaction, deleteTransaction, addGoal, deleteGoal, updateBudgetLimit, updateBudgets, updateProfile, awardXP, updateDailyConsistency, sessionUser, isAuthLoaded, formatCurrency, categorizeTransaction, setSelectedMonth } = useAppStore();
+  const { state, addTransaction, deleteTransaction, addGoal, deleteGoal, updateBudgetLimit, updateBudgets, updateProfile, awardXP, updateDailyConsistency, sessionUser, isAuthLoaded, formatCurrency, categorizeTransaction, setSelectedMonth, refreshData } = useAppStore();
   const { toast: showToast } = useToast();
   
   const [dark, setDark] = useState(() => {
@@ -251,7 +255,12 @@ export default function App() {
   const [filterCat, setFilterCat] = useState("All");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiMessages, setAiMessages] = useState<Message[]>([
-    {role:"assistant",content:"👋 Hi! I've analyzed your financial situation. Ask me anything — budget tips, savings advice, or what your numbers mean."}
+    {
+      id: "initial-assistant-msg",
+      role: "assistant",
+      content: "👋 Hi! I've analyzed your financial situation. Ask me anything — budget tips, savings advice, or what your numbers mean.",
+      timestamp: new Date().toISOString()
+    }
   ]);
   const [aiInput, setAiInput] = useState("");
   
@@ -263,26 +272,125 @@ export default function App() {
   async function handleOnboardingComplete(answers: any) {
     try {
       if (!sessionUser) return;
+      
+      const takeHomePay = parseFloat(answers.takeHomePay || "0");
+      const age = parseInt(answers.age || "0");
+      const householdSize = answers.budgetTarget === "individual" ? 1 : (
+        parseInt(answers.householdBreakdown.kids || "0") +
+        parseInt(answers.householdBreakdown.teens || "0") +
+        parseInt(answers.householdBreakdown.youngAdults || "0") +
+        parseInt(answers.householdBreakdown.adults || "0") +
+        parseInt(answers.householdBreakdown.elders || "0")
+      );
 
       const updates = {
         userType: answers.userType,
-        reason_for_using_vylos: answers.reason_for_using_vylos,
-        moneyConfidence: answers.moneyConfidence,
-        first_tracking_focus: answers.first_tracking_focus,
-        currentTrackingMethod: answers.currentTrackingMethod,
-        biggest_money_challenge: answers.biggest_money_challenge,
-        monthly_income_range: answers.monthly_income_range,
-        main_money_goal: answers.main_money_goal,
-        review_frequency: answers.review_frequency,
-        communication_preference: answers.communication_preference,
         onboardingCompleted: true,
-        onboardingCompletedAt: new Date().toISOString()
+        onboardingCompletedAt: new Date().toISOString(),
+        monthlyIncome: takeHomePay,
+        age: age,
+        householdSize: householdSize,
+        onboardingAnswers: answers
       };
 
       await updateProfile(updates);
+
+      const supabase = createClient();
+
+      // 1. Generate starter budgets (combining imported budget + onboarding recommendation defaults)
+      const budgetsToInsert: any[] = [];
+
+      if (answers.wantsBudgetImport && answers.importedBudgetUploaded && answers.importedBudgetData) {
+        answers.importedBudgetData.forEach((item: any) => {
+          if (item.category && item.limit > 0) {
+            budgetsToInsert.push({
+              category: item.category,
+              user_id: sessionUser.id,
+              limit: item.limit,
+              spent: 0,
+              type: "limit"
+            });
+          }
+        });
+      }
+
+      const hasCategory = (catName: string) => 
+        budgetsToInsert.some(b => b.category.toLowerCase() === catName.toLowerCase());
+
+      const housingLimit = parseFloat(answers.infrastructure?.rentBond || "0") +
+                           parseFloat(answers.infrastructure?.residence || "0") +
+                           parseFloat(answers.infrastructure?.householdContribution || "0") +
+                           parseFloat(answers.infrastructure?.ratesLevies || "0");
+
+      const transportLimit = parseFloat(answers.infrastructure?.fuel || "0") +
+                             parseFloat(answers.infrastructure?.publicTransport || "0") +
+                             parseFloat(answers.infrastructure?.uberBolt || "0") +
+                             parseFloat(answers.infrastructure?.carRepayment || "0") +
+                             parseFloat(answers.infrastructure?.carInsurance || "0") +
+                             parseFloat(answers.infrastructure?.carMaintenance || "0");
+
+      const billsLimit = parseFloat(answers.utilities || "0") + parseFloat(answers.data || "0");
+      const groceriesLimit = parseFloat(answers.groceries || "0");
+      const wantsLimit = parseFloat(answers.hobbiesSpend || "0");
       
+      const debtLimit = answers.debts ? answers.debts.reduce((sum: number, d: any) => sum + parseFloat(d.repayment || "0"), 0) : 0;
+      const otherLimit = parseFloat(answers.otherEssentials || "0");
+
+      if (housingLimit > 0 && !hasCategory("Rent / Housing")) {
+        budgetsToInsert.push({ category: "Rent / Housing", user_id: sessionUser.id, limit: housingLimit, spent: 0, type: "limit" });
+      }
+      if (transportLimit > 0 && !hasCategory("Transport")) {
+        budgetsToInsert.push({ category: "Transport", user_id: sessionUser.id, limit: transportLimit, spent: 0, type: "limit" });
+      }
+      if (billsLimit > 0 && !hasCategory("Bills")) {
+        budgetsToInsert.push({ category: "Bills", user_id: sessionUser.id, limit: billsLimit, spent: 0, type: "limit" });
+      }
+      if (groceriesLimit > 0 && !hasCategory("Groceries")) {
+        budgetsToInsert.push({ category: "Groceries", user_id: sessionUser.id, limit: groceriesLimit, spent: 0, type: "limit" });
+      }
+      if (wantsLimit > 0 && !hasCategory("Entertainment")) {
+        budgetsToInsert.push({ category: "Entertainment", user_id: sessionUser.id, limit: wantsLimit, spent: 0, type: "limit" });
+      }
+      if (debtLimit > 0 && !hasCategory("Debt Payments")) {
+        budgetsToInsert.push({ category: "Debt Payments", user_id: sessionUser.id, limit: debtLimit, spent: 0, type: "limit" });
+      }
+      if (takeHomePay > 0 && !hasCategory("Savings")) {
+        budgetsToInsert.push({ category: "Savings", user_id: sessionUser.id, limit: Math.round(takeHomePay * 0.20), spent: 0, type: "limit" });
+      }
+      if (otherLimit > 0 && !hasCategory("Other")) {
+        budgetsToInsert.push({ category: "Other", user_id: sessionUser.id, limit: otherLimit, spent: 0, type: "limit" });
+      }
+
+      if (budgetsToInsert.length > 0) {
+        const { error: budgetError } = await supabase.from('budgets').upsert(budgetsToInsert, { onConflict: "user_id,category" });
+        if (budgetError) console.error("Error creating starter budgets:", budgetError);
+      }
+
+      // 2. Generate starter goals based on configured goal details or selected missions
+      if (answers.goalsDetails && answers.goalsDetails.length > 0) {
+        const goalsToInsert = answers.goalsDetails.map((g: any) => ({
+          user_id: sessionUser.id,
+          title: g.title,
+          target_amount: parseFloat(g.target_amount) || 0,
+          current_amount: parseFloat(g.current_amount) || 0,
+          deadline: g.deadline,
+          category: g.category || "Savings",
+          status: "On Track",
+          notes: `Created during onboarding config`,
+          icon: g.icon || "🎯",
+          color: g.color || "#00D8A5",
+          created_at: new Date().toISOString()
+        }));
+
+        if (goalsToInsert.length > 0) {
+          const { error: goalsError } = await supabase.from('goals').insert(goalsToInsert);
+          if (goalsError) console.error("Error creating onboarding goals:", goalsError);
+        }
+      }
+
       const { XP_CONFIG } = await import("@/lib/services/XPService");
       await awardXP("ONBOARDING_COMPLETE", XP_CONFIG.ONBOARDING_COMPLETE.xp, "Completed Onboarding Questionnaire");
+      await refreshData();
       
       showToast(`Welcome to Vylos! +${XP_CONFIG.ONBOARDING_COMPLETE.xp} XP earned for personalizing your profile.`, "success");
     } catch (e: any) {
@@ -506,23 +614,68 @@ export default function App() {
 
   async function sendAI() {
     if(!aiInput.trim()) return;
+
+    if (!Permissions.canUseAI(state.userProfile)) {
+      showToast("You do not have permission to access this AI feature.", "error");
+      return;
+    }
+
     const userMsg = aiInput.trim();
-    setAiMessages(prev=>[...prev,{role:"user",content:userMsg}]);
+    const userMsgId = `msg-user-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const assistantMsgId = `msg-assistant-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+
+    const newUserMessage: Message = {
+      id: userMsgId,
+      role: "user",
+      content: userMsg,
+      timestamp: new Date().toISOString()
+    };
+
+    setAiMessages(prev => [...prev, newUserMessage]);
     setAiInput("");
     setAiLoading(true);
 
     try {
-      const res = await fetch("/api/ai/advisor", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: [...aiMessages, {role: "user", content: userMsg}] })
-      });
-      const data = await res.json();
-      setAiMessages(prev=>[...prev,{role:"assistant",content:data.reply}]);
-    } catch(e) {
-      setAiMessages(prev=>[...prev,{role:"assistant",content:"Connection issue. Please try again."}]);
+      const response = await VylosAIService.askVylosAI(userMsg);
+      
+      const newAssistantMessage: Message = {
+        id: assistantMsgId,
+        role: "assistant",
+        content: response.answer,
+        timestamp: new Date().toISOString(),
+        source: response.source,
+        layer: response.layer
+      };
+      setAiMessages(prev => [...prev, newAssistantMessage]);
+    } catch (e: any) {
+      let errorMessage = "AI service connection failed. Please check the backend connection.";
+      
+      if (process.env.NODE_ENV === "development") {
+        console.error("[Vylos AI Error]", e);
+      }
+
+      if (e.message === "UNAUTHORIZED") {
+        errorMessage = "Your session has expired. Please log in again.";
+      } else if (e.message === "FORBIDDEN") {
+        errorMessage = "You do not have permission to access this AI feature.";
+      } else if (e.message === "RATE_LIMITED") {
+        errorMessage = "You’ve reached the AI message limit for now. Please try again later.";
+      } else if (e.message === "BACKEND_ERROR") {
+        errorMessage = "Vylos AI is temporarily unavailable. Please try again shortly.";
+      }
+
+      const errorAssistantMessage: Message = {
+        id: assistantMsgId,
+        role: "assistant",
+        content: `❌ **Error:** ${errorMessage}`,
+        timestamp: new Date().toISOString()
+      };
+      
+      setAiMessages(prev => [...prev, errorAssistantMessage]);
+      showToast(errorMessage, "error");
+    } finally {
+      setAiLoading(false);
     }
-    setAiLoading(false);
   }
 
   function handleImportResults(txs: ExtractedTransaction[]) {
@@ -586,20 +739,7 @@ export default function App() {
   const firstName = state.userProfile.name?.split(" ")[0] || "User";
 
   if (!isAuthLoaded) return (
-    <div className="vylos-bg-premium h-screen w-full flex flex-col items-center justify-center">
-      <div className="relative">
-        <div className="w-24 h-24 rounded-3xl bg-white/10 backdrop-blur-3xl border border-white/20 flex items-center justify-center animate-pulse shadow-2xl">
-          <img src="/vylos-logo-final.png" alt="Vylos" className="w-12 h-12 object-contain bg-white rounded-lg p-1" />
-        </div>
-        <div className="absolute -inset-4 bg-blue-400/20 rounded-[40px] blur-2xl animate-pulse -z-10" />
-      </div>
-      <div className="mt-8 flex flex-col items-center gap-2">
-        <span className="text-white font-black text-xl tracking-tighter animate-pulse">Vylos</span>
-        <div className="w-48 h-1 bg-white/10 rounded-full overflow-hidden">
-          <div className="h-full bg-white/40 rounded-full animate-loading-bar" />
-        </div>
-      </div>
-    </div>
+    <VylosLoadingScreen variant="fullscreen" text="Syncing your finances..." />
   );
 
   if (!sessionUser) return <LandingPage />;
@@ -612,7 +752,7 @@ export default function App() {
             termsAccepted: true, 
             termsAcceptedAt: new Date().toISOString(),
             termsVersion: "v1.0",
-            termsLastUpdated: "2024-05-08"
+            termsLastUpdated: "2026-05-26"
           });
           const { XP_CONFIG } = await import("@/lib/services/XPService");
           await awardXP("TERMS_ACCEPTANCE", XP_CONFIG.TERMS_ACCEPTANCE.xp, "Accepted Terms and Conditions");
@@ -645,7 +785,7 @@ export default function App() {
             expense={expense}
             netWorth={netWorth}
             savingsRate={savingsRate}
-            transactions={filteredTransactions}
+            transactions={state.transactions.slice().sort((a, b) => getTransactionDateKey(b).localeCompare(getTransactionDateKey(a)))}
             goals={state.goals}
             healthScore={engineOutput.healthScore}
             userName={state.userProfile.name}
@@ -662,7 +802,7 @@ export default function App() {
 
         {page === "transactions" && (
           <TransactionsView 
-            transactions={filteredTransactions} filterCat={filterCat} setFilterCat={setFilterCat} 
+            transactions={state.transactions} filterCat={filterCat} setFilterCat={setFilterCat} 
             setShowAddTx={setShowAddTx} deleteTx={handleDeleteTx} setPage={setPage}
             setShowExportModal={setShowExportModal}
             trends={trends}

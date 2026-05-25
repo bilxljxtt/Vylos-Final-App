@@ -20,15 +20,26 @@ interface BudgetControlWidgetProps {
   };
   formatCurrency: (val: number) => string;
   onViewAll?: () => void;
+  selectedMonth?: string;
 }
 
 export const BudgetControlWidget: React.FC<BudgetControlWidgetProps> = ({ 
-  summary, formatCurrency, onViewAll
+  summary, formatCurrency, onViewAll, selectedMonth
 }) => {
   const topCategories = summary?.categories.slice(0, 3) || [];
   const totalLimit = summary?.totalAllocated || 0;
   const expense = summary?.totalSpent || 0;
   const overallPct = Math.min(100, Math.round(summary?.percentageUsed || 0));
+
+  const monthLabel = React.useMemo(() => {
+    if (!selectedMonth) return new Date().toLocaleString('default', { month: 'short' }).toUpperCase();
+    const parts = selectedMonth.split('-');
+    if (parts.length < 2) return new Date().toLocaleString('default', { month: 'short' }).toUpperCase();
+    const y = parseInt(parts[0]);
+    const m = parseInt(parts[1]);
+    const d = new Date(y, m - 1, 1);
+    return d.toLocaleString('default', { month: 'short' }).toUpperCase();
+  }, [selectedMonth]);
 
   return (
     <GlassCard p="p-8" className="flex flex-col">
@@ -44,7 +55,7 @@ export const BudgetControlWidget: React.FC<BudgetControlWidgetProps> = ({
             </button>
           )}
           <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest bg-blue-500/10 px-2 py-1 rounded-lg">
-            {new Date().toLocaleString('default', { month: 'short' }).toUpperCase()}
+            {monthLabel}
           </span>
         </div>
       </div>

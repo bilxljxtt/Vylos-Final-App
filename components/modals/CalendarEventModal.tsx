@@ -71,7 +71,7 @@ const RECURRING_OPTIONS = [
 ];
 
 export function CalendarEventModal({ isOpen, onClose, editingEvent }: CalendarEventModalProps) {
-  const { addReminder, updateReminder } = useAppStore();
+  const { addReminder, updateReminder, deleteReminder } = useAppStore();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -171,6 +171,22 @@ export function CalendarEventModal({ isOpen, onClose, editingEvent }: CalendarEv
     }
   };
 
+  const handleDelete = async () => {
+    if (!editingEvent) return;
+    if (!confirm("Are you sure you want to delete this event?")) return;
+    setLoading(true);
+    try {
+      await deleteReminder(editingEvent.id);
+      toast("Event deleted successfully", "success");
+      onClose();
+    } catch (err: any) {
+      console.error("Failed to delete event:", err);
+      toast(err.message || "Failed to delete event", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   return (
     <Portal>
@@ -204,7 +220,7 @@ export function CalendarEventModal({ isOpen, onClose, editingEvent }: CalendarEv
               <X size={28} />
             </button>
           </div>
-
+ 
           {/* Modal Body */}
           <div className="flex-1 overflow-y-auto custom-scrollbar p-10">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
@@ -260,6 +276,7 @@ export function CalendarEventModal({ isOpen, onClose, editingEvent }: CalendarEv
                       onChange={val => setFormData({...formData, due_time: val})}
                     />
                   </div>
+
                 </div>
               </div>
 
@@ -322,6 +339,16 @@ export function CalendarEventModal({ isOpen, onClose, editingEvent }: CalendarEv
 
           {/* Modal Footer */}
           <div className="px-10 py-8 bg-border-main/10 border-t border-border-main flex flex-col sm:flex-row gap-5 shrink-0">
+            {editingEvent && (
+              <button 
+                type="button"
+                onClick={handleDelete}
+                disabled={loading}
+                className="flex-1 py-5 bg-red-600/10 border border-red-500/30 text-red-600 font-black rounded-2xl hover:bg-red-600 hover:text-white transition-all active:scale-[0.98] uppercase tracking-[0.2em] text-xs flex items-center justify-center gap-2"
+              >
+                Delete Event
+              </button>
+            )}
             <button 
               type="button"
               onClick={onClose}

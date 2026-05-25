@@ -71,7 +71,25 @@ export async function POST(req: NextRequest) {
       - Keep answers short, simple, practical, and supportive.
     `;
 
+    const onboarding = profile.onboarding_answers || {};
+    const hasOnboarding = onboarding && Object.keys(onboarding).length > 0;
+    const onboardingSummary = hasOnboarding ? `
+      User Profile Context (Onboarding Answers):
+      - User Type: ${profile.user_type || onboarding.userType || "N/A"}
+      - Age: ${profile.age || onboarding.age || "N/A"}
+      - Budget Target Scope: ${onboarding.budgetTarget || "N/A"}
+      - Prior Tracking Method: ${onboarding.trackingMethod || "N/A"}
+      - Take-Home Monthly Income: ${context.currency}${parseFloat(onboarding.takeHomePay || "0").toLocaleString()}
+      - Selected Hobbies & Outings: ${onboarding.hobbies ? onboarding.hobbies.join(", ") : "None"}
+      - Monthly Outings Spend: ${context.currency}${parseFloat(onboarding.hobbiesSpend || "0").toLocaleString()}
+      - Active Investing types: ${onboarding.investingTypes ? onboarding.investingTypes.join(", ") : "None"}
+      - Survival Baseline essentials: ${context.currency}${parseFloat(onboarding.survivalBaseline || "0").toLocaleString()}
+      - Debts/ Freedom Blockers: ${onboarding.debts && onboarding.debts.length > 0 ? onboarding.debts.map((d: any) => `${d.name} (${d.type}): Repayment ${context.currency}${parseFloat(d.repayment).toLocaleString()}/mo, Balance ${context.currency}${parseFloat(d.balance).toLocaleString()}`).join("; ") : "None"}
+    ` : "";
+
     const summarisedData = `
+      ${onboardingSummary}
+
       Current Month (${context.monthName}):
       - Income: ${context.currency}${context.income.toLocaleString()}
       - Expenses: ${context.currency}${context.expenses.toLocaleString()}
