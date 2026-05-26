@@ -8,6 +8,7 @@ import { ToastType } from "../Toast";
 import { ViewContainer } from "../ui/ViewContainer";
 import { ParserService, RawParsedData } from "@/lib/services/import/ParserService";
 import { ImportService, ColumnMapping, ImportPreviewTransaction } from "@/lib/services/import/ImportService";
+import { TransactionIcon } from "@/components/ui/TransactionIcon";
 
 interface ImportViewProps {
   showToast: (msg: string, type?: ToastType) => void;
@@ -305,7 +306,17 @@ export const ImportView: React.FC<ImportViewProps> = ({
                 className={`w-10 h-10 sm:w-12 sm:h-12 rounded-[1rem] sm:rounded-2xl flex items-center justify-center text-lg sm:text-2xl shadow-inner transition-transform shrink-0 ${!tx.isDuplicate && 'group-hover:scale-105'}`}
                 style={{ backgroundColor: `${CATEGORY_METADATA[tx.cat as TransactionCategory]?.color || '#888'}15` }}
               >
-                {tx.isDuplicate ? <AlertCircle size={20} className="text-amber-500 sm:hidden" /> : (CATEGORY_METADATA[tx.cat as TransactionCategory]?.icon || "📦")}
+                {tx.isDuplicate ? (
+                  <AlertCircle size={20} className="text-amber-500 sm:hidden" />
+                ) : (
+                  <TransactionIcon 
+                    merchant={tx.desc} 
+                    category={tx.cat} 
+                    type={tx.amount > 0 ? "income" : "expense"} 
+                    size="sm" 
+                    className="!w-full !h-full bg-transparent !shadow-none border-0" 
+                  />
+                )}
                 {tx.isDuplicate ? <AlertCircle size={24} className="text-amber-500 hidden sm:block" /> : null}
               </div>
               <div className="flex-1 min-w-0">

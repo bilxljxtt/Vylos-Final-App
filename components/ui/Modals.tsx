@@ -5,6 +5,7 @@ import { V2Select } from "./V2Select";
 import { V2DatePicker } from "./V2DatePicker";
 import { Portal } from "./Portal";
 import { TransactionIcon } from "./TransactionIcon";
+import { GoalIcon } from "./GoalIcon";
 
 export function TransactionModal({ txForm, setTxForm, setShowAddTx, handleAddTransaction, autocat }: any) {
   useEffect(() => {
@@ -151,7 +152,7 @@ export function GoalModal({ goalForm, setGoalForm, setShowAddGoal, handleAddGoal
     handleAddGoal();
   };
 
-  const icons = ["🎯", "🛡️", "🚗", "🏠", "🏝️", "🎓", "💍", "🍼", "🚀"];
+  const icons = ["Target", "Shield", "Car", "Home", "Plane", "GraduationCap", "Heart", "Baby", "Rocket"];
   const colors = ["#00D8A5", "#3B82F6", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899"];
 
   return (
@@ -239,9 +240,9 @@ export function GoalModal({ goalForm, setGoalForm, setShowAddGoal, handleAddGoal
                               key={icon}
                               type="button"
                               onClick={() => setGoalForm((f: any) => ({ ...f, icon }))}
-                              className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl transition-all vylos-focus ${goalForm.icon === icon ? 'bg-primary/20 border-2 border-primary' : 'bg-white/5 border border-white/10'}`}
+                              className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all vylos-focus ${goalForm.icon === icon ? 'bg-primary/10 border border-primary text-primary' : 'bg-black/5 dark:bg-white/5 border border-white/10 text-text-muted'}`}
                           >
-                              {icon}
+                              <GoalIcon iconName={icon} size={20} className={goalForm.icon === icon ? "text-primary" : "text-text-muted"} />
                           </button>
                       ))}
                   </div>

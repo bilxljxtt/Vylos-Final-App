@@ -3,6 +3,7 @@
 import React from "react";
 import { Plus, Target } from "lucide-react";
 import { GlassCard } from "./GlassCard";
+import { GoalIcon } from "../../ui/GoalIcon";
 
 interface SavingsGoalsWidgetProps {
   goals: any[];
@@ -43,8 +44,8 @@ export const SavingsGoalsWidget: React.FC<SavingsGoalsWidgetProps> = ({
           const pct = goal.targetAmount > 0 ? Math.min(100, Math.round((goal.currentAmount / goal.targetAmount) * 100)) : 0;
           return (
             <div key={i} className="flex gap-5 group cursor-pointer">
-              <div className="w-14 h-14 rounded-2xl bg-white dark:bg-white/10 shadow-xl flex items-center justify-center text-3xl shrink-0 group-hover:scale-110 transition-transform">
-                {goal.icon || "💰"}
+              <div className="w-14 h-14 rounded-2xl bg-white dark:bg-white/10 shadow-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                <GoalIcon iconName={goal.icon || "Target"} size={28} className="text-blue-500" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-start mb-1">

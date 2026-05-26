@@ -14,6 +14,7 @@ import { useAppStore } from "@/lib/AppContext";
 import { VylosAvatar } from "../ui/VylosAvatar";
 import { VylosLogo } from "../ui/VylosLogo";
 import { VylosLoadingScreen } from "../ui/VylosLoadingScreen";
+import { GoalIcon } from "../ui/GoalIcon";
 
 interface OnboardingViewProps {
   userName: string;
@@ -22,43 +23,43 @@ interface OnboardingViewProps {
 
 // 100 Hobby / Outings options
 const HOBBY_OPTIONS = [
-  "🎮 Gaming", "🎬 Movies", "🍿 Cinema", "🍔 Eating out", "☕ Coffee shops", "🏋️ Gym",
-  "⚽ Football", "🏀 Basketball", "🏏 Cricket", "🏎️ Cars", "🏍️ Motorbikes", "🎵 Music",
-  "🎤 Concerts", "🎧 DJ events", "🛍️ Shopping", "✈️ Travel", "🏖️ Beach trips", "⛰️ Hiking",
-  "🚴 Cycling", "🏃 Running", "🎨 Art", "📸 Photography", "📚 Reading", "👕 Fashion",
-  "💅 Beauty", "🧴 Skincare", "🍳 Cooking", "🍰 Baking", "🐶 Pets", "🎣 Fishing",
-  "🕹️ Arcades", "🎲 Board games", "🧩 Puzzles", "🏕️ Camping", "🧘 Wellness", "🥊 Boxing",
-  "🏊 Swimming", "🎳 Bowling", "🎱 Pool", "🏌️ Golf", "🛹 Skateboarding", "🎭 Theatre",
-  "🖥️ Tech", "📱 Gadgets", "💻 Coding", "🪴 Gardening", "🍷 Fine dining", "🧋 Bubble tea",
-  "🍕 Takeaways", "🛒 Grocery exploring", "🏟️ Sports events", "🧳 Weekend getaways",
-  "🚗 Road trips", "🎯 Paintball", "🔫 Airsoft", "🧗 Rock climbing", "🛶 Kayaking",
-  "🧠 Learning", "📝 Writing", "🎥 Content creation", "📺 Streaming", "🐎 Horse riding",
-  "🧵 Crafts", "🪡 Sewing", "🪙 Collecting", "🎁 Gifts", "🏡 Home decor", "🛠️ DIY",
-  "🧑‍🤝‍🧑 Socialising", "🍻 Nightlife", "🎂 Parties", "💃 Dancing", "🕺 Clubs", "🎡 Festivals",
-  "🧺 Picnics", "🏞️ Parks", "🐠 Aquarium visits", "🦁 Zoo visits", "🛥️ Boat rides",
-  "🎿 Adventure sports", "🧗‍♀️ Outdoor adventures", "🎓 Courses", "💼 Networking events",
-  "🛐 Church/community", "🤝 Volunteering", "🏆 Competitions", "👟 Sneakers", "💍 Jewellery",
-  "🧸 Collectibles", "🍜 Food markets", "🧃 Cafes", "🥗 Health foods", "🚘 Car meets",
-  "🏁 Motorsport", "🧪 Science/experiments", "🪐 Astronomy", "🗺️ Exploring new places",
-  "🧳 Staycations", "🧑‍🍳 Restaurants", "🎙️ Podcasts", "📰 News/current affairs",
-  "💸 Side hustles", "📈 Trading/investing interest", "🏠 Family time", "❤️ Date nights"
+  "Gaming", "Movies", "Cinema", "Eating out", "Coffee shops", "Gym",
+  "Football", "Basketball", "Cricket", "Cars", "Motorbikes", "Music",
+  "Concerts", "DJ events", "Shopping", "Travel", "Beach trips", "Hiking",
+  "Cycling", "Running", "Art", "Photography", "Reading", "Fashion",
+  "Beauty", "Skincare", "Cooking", "Baking", "Pets", "Fishing",
+  "Arcades", "Board games", "Puzzles", "Camping", "Wellness", "Boxing",
+  "Swimming", "Bowling", "Pool", "Golf", "Skateboarding", "Theatre",
+  "Tech", "Gadgets", "Coding", "Gardening", "Fine dining", "Bubble tea",
+  "Takeaways", "Grocery exploring", "Sports events", "Weekend getaways",
+  "Road trips", "Paintball", "Airsoft", "Rock climbing", "Kayaking",
+  "Learning", "Writing", "Content creation", "Streaming", "Horse riding",
+  "Crafts", "Sewing", "Collecting", "Gifts", "Home decor", "DIY",
+  "Socialising", "Nightlife", "Parties", "Dancing", "Clubs", "Festivals",
+  "Picnics", "Parks", "Aquarium visits", "Zoo visits", "Boat rides",
+  "Adventure sports", "Outdoor adventures", "Courses", "Networking events",
+  "Church/community", "Volunteering", "Competitions", "Sneakers", "Jewellery",
+  "Collectibles", "Food markets", "Cafes", "Health foods", "Car meets",
+  "Motorsport", "Science/experiments", "Astronomy", "Exploring new places",
+  "Staycations", "Restaurants", "Podcasts", "News/current affairs",
+  "Side hustles", "Trading/investing interest", "Family time", "Date nights"
 ];
 
 // 50 Goal options
 const GOAL_OPTIONS = [
-  "🚗 Buy a car", "🏠 Buy a house", "🏢 Rent my own place", "🎓 Pay for studies",
-  "💳 Pay off debt", "🛟 Build emergency fund", "📈 Start investing", "💼 Start a business",
-  "🧾 Save for tax", "✈️ Travel overseas", "🏖️ Go on holiday", "💍 Save for wedding",
-  "👶 Prepare for a child", "👨‍👩‍👧 Support family", "🧓 Save for retirement", "💻 Buy a laptop",
-  "📱 Buy a phone", "🛋️ Buy furniture", "🏋️ Improve health", "🧠 Learn a new skill",
-  "📚 Buy books/courses", "🏦 Build credit score", "🧾 Track spending better", "💸 Stop overspending",
-  "🧺 Improve grocery planning", "🚕 Reduce transport costs", "🏡 Home renovation", "🛠️ Car maintenance",
-  "🧑‍💼 Career growth", "💰 Increase income", "🧾 Create a monthly budget", "🧘 Reduce financial stress",
-  "📊 Understand net worth", "📉 Cut subscriptions", "🛒 Save on groceries", "💵 Save R1,000",
-  "💵 Save R5,000", "💵 Save R10,000", "💵 Save R50,000", "💵 Save R100,000", "🏦 Open savings account",
-  "📈 Invest monthly", "🛡️ Get insurance", "🧑‍⚖️ Prepare legal/financial documents", "🏪 Grow business revenue",
-  "👥 Manage household spending", "🧾 Separate personal/business money", "🎁 Save for gifts",
-  "🚘 Save for fuel", "📆 Plan future expenses", "🔐 Become financially secure"
+  "Buy a car", "Buy a house", "Rent my own place", "Pay for studies",
+  "Pay off debt", "Build emergency fund", "Start investing", "Start a business",
+  "Save for tax", "Travel overseas", "Go on holiday", "Save for wedding",
+  "Prepare for a child", "Support family", "Save for retirement", "Buy a laptop",
+  "Buy a phone", "Buy furniture", "Improve health", "Learn a new skill",
+  "Buy books/courses", "Build credit score", "Track spending better", "Stop overspending",
+  "Improve grocery planning", "Reduce transport costs", "Home renovation", "Car maintenance",
+  "Career growth", "Increase income", "Create a monthly budget", "Reduce financial stress",
+  "Understand net worth", "Cut subscriptions", "Save on groceries", "Save R1,000",
+  "Save R5,000", "Save R10,000", "Save R50,000", "Save R100,000", "Open savings account",
+  "Invest monthly", "Get insurance", "Prepare legal/financial documents", "Grow business revenue",
+  "Manage household spending", "Separate personal/business money", "Save for gifts",
+  "Save for fuel", "Plan future expenses", "Become financially secure"
 ];
 
 export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComplete }) => {
@@ -374,26 +375,26 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
         if (existing) return existing;
         
         let category = "Savings";
-        let icon = "🎯";
+        let icon = "Target";
         let color = "#00D8A5";
         
-        if (mission.includes("car")) { icon = "🚗"; color = "#7C4DFF"; }
-        else if (mission.includes("house")) { icon = "🏠"; color = "#795548"; }
-        else if (mission.includes("place")) { icon = "🏢"; color = "#0091EA"; }
-        else if (mission.includes("studies")) { icon = "🎓"; color = "#3F51B5"; }
-        else if (mission.includes("debt")) { icon = "💳"; color = "#FF1744"; category = "Debt Payments"; }
-        else if (mission.includes("emergency")) { icon = "🛟"; color = "#00C853"; }
-        else if (mission.includes("investing")) { icon = "📈"; color = "#00BFA5"; }
-        else if (mission.includes("business")) { icon = "💼"; color = "#FFA000"; }
-        else if (mission.includes("overseas")) { icon = "✈️"; color = "#00BCD4"; }
-        else if (mission.includes("holiday")) { icon = "🏖️"; color = "#FFB300"; }
-        else if (mission.includes("wedding")) { icon = "💍"; color = "#EC407A"; }
-        else if (mission.includes("child")) { icon = "👶"; color = "#AB47BC"; }
-        else if (mission.includes("family")) { icon = "👪"; color = "#26A69A"; }
-        else if (mission.includes("retirement")) { icon = "🧓"; color = "#78909C"; }
-        else if (mission.includes("laptop")) { icon = "💻"; color = "#26C6DA"; }
-        else if (mission.includes("phone")) { icon = "📱"; color = "#82B1FF"; }
-        else if (mission.includes("furniture")) { icon = "🛋️"; color = "#8D6E63"; }
+        if (mission.includes("car")) { icon = "Car"; color = "#7C4DFF"; }
+        else if (mission.includes("house")) { icon = "Home"; color = "#795548"; }
+        else if (mission.includes("place")) { icon = "Building"; color = "#0091EA"; }
+        else if (mission.includes("studies")) { icon = "GraduationCap"; color = "#3F51B5"; }
+        else if (mission.includes("debt")) { icon = "CreditCard"; color = "#FF1744"; category = "Debt Payments"; }
+        else if (mission.includes("emergency")) { icon = "Shield"; color = "#00C853"; }
+        else if (mission.includes("investing")) { icon = "Target"; color = "#00BFA5"; }
+        else if (mission.includes("business")) { icon = "Building"; color = "#FFA000"; }
+        else if (mission.includes("overseas")) { icon = "Plane"; color = "#00BCD4"; }
+        else if (mission.includes("holiday")) { icon = "Plane"; color = "#FFB300"; }
+        else if (mission.includes("wedding")) { icon = "Heart"; color = "#EC407A"; }
+        else if (mission.includes("child")) { icon = "Baby"; color = "#AB47BC"; }
+        else if (mission.includes("family")) { icon = "Users"; color = "#26A69A"; }
+        else if (mission.includes("retirement")) { icon = "Users"; color = "#78909C"; }
+        else if (mission.includes("laptop")) { icon = "Laptop"; color = "#26C6DA"; }
+        else if (mission.includes("phone")) { icon = "Smartphone"; color = "#82B1FF"; }
+        else if (mission.includes("furniture")) { icon = "Home"; color = "#8D6E63"; }
         
         const deadline = new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0];
         
@@ -932,7 +933,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                       <div className="flex gap-4">
                         <input
                           type="text"
-                          placeholder="e.g. 💻 Buy mechanical keyboard"
+                          placeholder="e.g. Buy mechanical keyboard"
                           value={answers.customGoal}
                           onChange={e => updateAnswer("customGoal", e.target.value)}
                           className="flex-1 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl px-6 py-4 text-slate-900 dark:text-white font-bold tracking-tight focus:outline-none focus:border-blue-600"
@@ -941,7 +942,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                           type="button"
                           onClick={() => {
                             if (!answers.customGoal.trim()) return;
-                            updateAnswer("missions", [...answers.missions, "🎯 " + answers.customGoal.trim()]);
+                            updateAnswer("missions", [...answers.missions, answers.customGoal.trim()]);
                             updateAnswer("customGoal", "");
                           }}
                           className="px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl flex items-center justify-center transition-all font-black text-sm uppercase tracking-wider"
@@ -963,7 +964,9 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                       {answers.goalsDetails?.map((goal: any, index: number) => (
                         <div key={index} className="border border-slate-200 dark:border-white/10 bg-white/5 rounded-3xl p-6 space-y-4">
                           <div className="flex items-center gap-3">
-                            <span className="text-2xl">{goal.icon || "🎯"}</span>
+                            <div className="w-10 h-10 rounded-xl bg-blue-600/10 border border-blue-600/10 flex items-center justify-center text-blue-600 shrink-0 shadow-sm">
+                              <GoalIcon iconName={goal.icon || "Target"} size={20} className="text-blue-600" />
+                            </div>
                             <div className="flex-1">
                               <input 
                                 type="text"

@@ -68,6 +68,7 @@ export async function POST(req: NextRequest) {
       - If the user asks to download, export, print, or get a PDF of their statement, finances, transactions, or report, you MUST output a Markdown link: [Download PDF Statement](download-statement) in your response. Do not output any other link or invent a URL.
 
       GENERAL RULES:
+      - Do NOT use emojis in your response under any circumstances. Keep the tone professional, direct, analytical, and written as if by a human financial analyst/advisor. Emojis make the response look automated/AI-generated, which is unacceptable for corporate presentation standards.
       - You provide general financial information only. You are not a licensed financial advisor.
       - Do not give regulated financial advice.
       - Do not invent numbers. If data is missing, say so.

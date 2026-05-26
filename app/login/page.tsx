@@ -88,14 +88,16 @@ export default function LoginPage() {
       <div className="absolute top-[40%] right-[-10%] w-[30%] h-[40%] bg-cyan-600/10 rounded-full blur-[120px] pointer-events-none" />
 
       {/* ─── Header Overlay ─── */}
-      <div className="absolute top-8 left-8 lg:left-12 hidden sm:flex items-center gap-4 z-50">
-        <div className="flex items-center justify-center relative group transition-all duration-700">
-          <VylosLogo iconOnly size="small" className="transform group-hover:scale-105 group-hover:rotate-3 transition-all duration-700 ease-out" />
-        </div>
-        <div className="flex flex-col">
+      <div className="absolute top-8 left-8 lg:left-12 hidden sm:flex flex-col z-50">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center relative group transition-all duration-700">
+            <VylosLogo iconOnly size="medium" className="transform group-hover:scale-105 group-hover:rotate-3 transition-all duration-700 ease-out" />
+          </div>
           <span className="text-3xl font-black tracking-tighter leading-tight overflow-visible pb-1 vylos-wordmark">Vylos</span>
-          <span className="text-[11px] font-black text-blue-200/60 tracking-widest uppercase mt-1">Track. Understand. Improve. Grow.</span>
         </div>
+        <span className="text-[11px] font-black text-blue-200/60 tracking-widest uppercase mt-1 ml-[52px]">
+          Track. Understand. Improve. Grow.
+        </span>
       </div>
 
       {/* ─── LEFT: Visual Branding ─── */}

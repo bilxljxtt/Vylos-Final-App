@@ -41,13 +41,15 @@ export const VylosLogo: React.FC<VylosLogoProps> = ({
         </span>
       ) : (
         <>
-          <img
-            src="/vylos%20frosted%20glass%20logo.png?v=1"
-            alt="Vylos Logo"
-            onError={() => setHasError(true)}
-            className={`${imgHeightClass} aspect-square object-cover rounded-full overflow-hidden drop-shadow-sm transition-transform duration-300`}
-            draggable={false}
-          />
+          <div className={`${imgHeightClass} aspect-square rounded-full overflow-hidden bg-white flex items-center justify-center shrink-0 border border-white/10 drop-shadow-sm`}>
+            <img
+              src="/vylos%20branded%20logo.jpeg?v=1"
+              alt="Vylos Logo"
+              onError={() => setHasError(true)}
+              className="h-full w-full object-cover scale-[0.95] translate-x-[-1.02%] translate-y-[3.6%] transition-transform duration-300"
+              draggable={false}
+            />
+          </div>
           {!iconOnly && (
             <span className={`font-black tracking-tighter leading-tight overflow-visible pb-1 ${textSizeClass} vylos-wordmark`}>
               Vylos

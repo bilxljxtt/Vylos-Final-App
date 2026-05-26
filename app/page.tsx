@@ -170,7 +170,7 @@ export default function App() {
     deadline: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
     category: "Savings",
     notes: "",
-    icon: "🎯",
+    icon: "Target",
     color: ACCENT
   });
   const [importPreview, setImportPreview] = useState<ImportPreviewTransaction[] | null>(null);
@@ -258,7 +258,7 @@ export default function App() {
     {
       id: "initial-assistant-msg",
       role: "assistant",
-      content: "👋 Hi! I've analyzed your financial situation. Ask me anything — budget tips, savings advice, or what your numbers mean.",
+      content: "Hello. I have analyzed your financial metrics. Feel free to ask any questions regarding your budget limits, savings targets, or spending habits.",
       timestamp: new Date().toISOString()
     }
   ]);
@@ -602,7 +602,7 @@ export default function App() {
       deadline: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
       category: "Savings",
       notes: "",
-      icon: "🎯",
+      icon: "Target",
       color: ACCENT
     });
     const { XP_CONFIG } = await import("@/lib/services/XPService");

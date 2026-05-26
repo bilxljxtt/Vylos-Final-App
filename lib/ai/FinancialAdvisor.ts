@@ -36,7 +36,8 @@ export class FinancialAdvisor {
     // Provide DETERMINISTIC stats to Gemini to ensure it DOES NOT perform calculations
     const prompt = `
       You are Vylos AI Advisor. I will provide you with DETERMINISTIC financial metrics calculated by our engine.
-      Your task is to explain these metrics to the user in a friendly, professional tone.
+      Your task is to explain these metrics to the user in a professional, direct, analytical tone, written as if by a human financial analyst/advisor.
+      Do NOT use any emojis, icons, or conversational fluff in the generated summary or recommendations. Provide clean, professional, and direct analysis only. Emojis look automated/AI-generated and are strictly forbidden.
       DO NOT PERFORM ANY CALCULATIONS. Use the provided numbers as truth.
 
       Financial Metrics:

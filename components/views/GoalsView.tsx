@@ -11,6 +11,7 @@ import { Goal } from "@/lib/store";
 import { V2Select } from "../ui/V2Select";
 import { formatDate } from "@/lib/utils";
 import { VylosCalculations } from "@/lib/vylosCalculations";
+import { GoalIcon } from "../ui/GoalIcon";
 
 interface GoalsViewProps {
   goals: Goal[];
@@ -239,7 +240,7 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
                       {/* Goal Info & Progress */}
                       <div className="flex items-start gap-4 sm:gap-6 flex-1 min-w-0">
                         <div className={`w-16 h-16 rounded-[24px] flex items-center justify-center shrink-0 shadow-2xl ${getIconBg(goal.title)}`}>
-                          {getIcon(goal.title)}
+                          <GoalIcon iconName={goal.icon || "Target"} size={24} className="text-white" />
                         </div>
                         
                         <div className="flex flex-col flex-1 min-w-0">
