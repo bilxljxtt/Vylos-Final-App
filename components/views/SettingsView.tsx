@@ -175,7 +175,7 @@ export function SettingsView({
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className={`px-10 py-5 bg-primary hover:bg-emerald-400 text-white rounded-[22px] text-[14px] font-black shadow-2xl shadow-primary/30 transition-all active:scale-95 flex items-center gap-3 vylos-focus uppercase tracking-widest ${saving ? 'opacity-70 cursor-not-allowed' : ''}`}
+          className={`px-6 sm:px-10 py-3.5 sm:py-5 bg-primary hover:bg-emerald-400 text-white rounded-[22px] text-[13px] sm:text-[14px] font-black shadow-2xl shadow-primary/30 transition-all active:scale-95 flex items-center justify-center gap-3 vylos-focus uppercase tracking-widest ${saving ? 'opacity-70 cursor-not-allowed' : ''} w-full sm:w-auto`}
         >
           {saving ? 'Synchronizing...' : 'Save Changes'}
           <CheckCircle2 size={18} strokeWidth={3} />
@@ -189,7 +189,7 @@ export function SettingsView({
         <div className="lg:col-span-4 flex flex-col gap-8">
           
           {/* Profile Glass Card */}
-          <div className="vylos-glass-panel p-10 flex flex-col items-center text-center relative overflow-hidden group">
+          <div className="vylos-glass-panel p-5 sm:p-10 flex flex-col items-center text-center relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
               <UserCircle size={140} />
             </div>
@@ -234,8 +234,8 @@ export function SettingsView({
           </div>
 
           {/* Security & Actions */}
-          <div className="vylos-glass-panel p-8 flex flex-col gap-4">
-            <h4 className="text-xs font-black text-text-muted uppercase tracking-[0.3em] mb-4 px-4 opacity-40">Account Security</h4>
+          <div className="vylos-glass-panel p-5 sm:p-8 flex flex-col gap-4">
+            <h4 className="text-xs font-black text-text-muted uppercase tracking-[0.3em] mb-4 px-2 sm:px-4 opacity-40">Account Security</h4>
             
             <button 
               type="button"
@@ -295,18 +295,18 @@ export function SettingsView({
         <div className="lg:col-span-8 flex flex-col gap-8">
           
           {/* Identity Section */}
-          <div className="vylos-glass-panel p-10 flex flex-col">
-            <div className="flex items-center gap-4 mb-10">
+          <div className="vylos-glass-panel p-5 sm:p-10 flex flex-col">
+            <div className="flex items-center gap-4 mb-8 sm:mb-10">
               <div className="p-3.5 bg-primary rounded-3xl text-white shadow-2xl shadow-primary/30">
                 <Edit2 size={24} />
               </div>
               <div>
-                <h4 className="text-2xl font-black text-text-main tracking-tighter">Public Identity</h4>
+                <h4 className="text-xl sm:text-2xl font-black text-text-main tracking-tighter">Public Identity</h4>
                 <p className="text-xs font-bold text-text-muted opacity-60">Manage your profile visibility and contact info.</p>
               </div>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+ 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
               <div className="flex flex-col gap-3">
                 <label className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] ml-2">Display Name</label>
                 <div className="relative">
@@ -369,18 +369,18 @@ export function SettingsView({
           </div>
 
           {/* Financial Blueprint Section */}
-          <div className="vylos-glass-panel p-10 flex flex-col">
-            <div className="flex items-center gap-4 mb-10">
+          <div className="vylos-glass-panel p-5 sm:p-10 flex flex-col">
+            <div className="flex items-center gap-4 mb-8 sm:mb-10">
               <div className="p-3.5 bg-blue-600 rounded-3xl text-white shadow-2xl shadow-blue-600/30">
                 <Zap size={24} />
               </div>
               <div>
-                <h4 className="text-2xl font-black text-text-main tracking-tighter">Financial Blueprint</h4>
+                <h4 className="text-xl sm:text-2xl font-black text-text-main tracking-tighter">Financial Blueprint</h4>
                 <p className="text-xs font-bold text-text-muted opacity-60">Manage your take-home pay, living baseline, and household variables.</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
               <div className="flex flex-col gap-3">
                 <label className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] ml-2">Take-Home Pay</label>
                 <div className="relative">
@@ -487,10 +487,10 @@ export function SettingsView({
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
             
             {/* Visual Interface */}
-            <div className="vylos-glass-panel p-10 flex flex-col">
+            <div className="vylos-glass-panel p-5 sm:p-10 flex flex-col">
               <div className="flex items-center gap-4 mb-10">
                 <div className="p-3.5 bg-indigo-500 rounded-3xl text-white shadow-2xl shadow-indigo-500/30">
                   <Palette size={24} />
@@ -531,7 +531,7 @@ export function SettingsView({
             </div>
 
             {/* Notifications */}
-            <div className="vylos-glass-panel p-10 flex flex-col">
+            <div className="vylos-glass-panel p-5 sm:p-10 flex flex-col">
               <div className="flex items-center gap-4 mb-10">
                 <div className="p-3.5 bg-emerald-500 rounded-3xl text-white shadow-2xl shadow-emerald-500/30">
                   <Bell size={24} />

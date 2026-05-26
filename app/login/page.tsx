@@ -88,7 +88,7 @@ export default function LoginPage() {
       <div className="absolute top-[40%] right-[-10%] w-[30%] h-[40%] bg-cyan-600/10 rounded-full blur-[120px] pointer-events-none" />
 
       {/* ─── Header Overlay ─── */}
-      <div className="absolute top-8 left-8 lg:left-12 flex items-center gap-4 z-50">
+      <div className="absolute top-8 left-8 lg:left-12 hidden sm:flex items-center gap-4 z-50">
         <div className="flex items-center justify-center relative group transition-all duration-700">
           <VylosLogo iconOnly size="small" className="transform group-hover:scale-105 group-hover:rotate-3 transition-all duration-700 ease-out" />
         </div>

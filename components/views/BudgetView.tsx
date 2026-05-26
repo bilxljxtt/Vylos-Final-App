@@ -288,7 +288,7 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
           <p className="text-[13px] font-medium text-slate-500 dark:text-slate-400 mt-1">Plan smart. Spend wisely. Build your future.</p>
         </div>
         
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4">
           <div className="flex items-center bg-white dark:bg-white/5 rounded-2xl shadow-sm border border-slate-200/60 dark:border-white/10 p-1">
             <button onClick={prevMonth} className="p-2 hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl transition-colors">
               <ChevronLeft size={16} className="text-slate-600 dark:text-slate-400" />
@@ -397,7 +397,7 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
           </div>
 
           {/* Budget by Category Table */}
-          <div id="budget-by-category-table" className="vylos-glass-readable p-8 scroll-mt-24">
+          <div id="budget-by-category-table" className="vylos-glass-readable p-5 sm:p-8 scroll-mt-24">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-[15px] font-black text-slate-900 dark:text-white">Budget by Category</h3>
               <button 
@@ -409,7 +409,8 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
               </button>
             </div>
             
-            <div className="w-full overflow-x-auto no-scrollbar">
+            {/* Desktop Table View */}
+            <div className="w-full overflow-x-auto no-scrollbar hidden sm:block">
               <table className="w-full min-w-[500px]">
                 <thead>
                   <tr className="border-b border-slate-100 dark:border-white/5">
@@ -452,9 +453,51 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
               </table>
             </div>
 
+            {/* Mobile Card List View */}
+            <div className="sm:hidden flex flex-col gap-4">
+              {categories.map((cat, i) => {
+                const pct = Math.min(100, cat.percentageUsed);
+                const isOver = cat.status === 'over';
+                return (
+                  <div key={i} className="flex flex-col gap-3 p-4 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-2xl">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <TransactionIcon merchant="" category={cat.name} size="sm" />
+                        <span className="text-[13px] font-black text-slate-900 dark:text-white">{cat.name}</span>
+                      </div>
+                      <span className={`text-[11px] font-bold ${isOver ? 'text-red-500 font-black' : 'text-slate-400'}`}>
+                        {Math.round(cat.percentageUsed)}% Used
+                      </span>
+                    </div>
+
+                    <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden w-full">
+                      <div className={`h-full rounded-full ${isOver ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} style={{ width: `${pct}%` }} />
+                    </div>
+
+                    <div className="flex justify-between items-center text-[12px]">
+                      <div className="flex flex-col">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Budget</span>
+                        <span className="font-bold text-slate-700 dark:text-slate-300">{formatCurrency(cat.allocated)}</span>
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Spent</span>
+                        <span className="font-bold text-slate-950 dark:text-slate-100">{formatCurrency(cat.spent)}</span>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Remaining</span>
+                        <span className={`font-bold ${isOver ? 'text-red-500' : 'text-slate-600 dark:text-slate-400'}`}>
+                          {isOver ? `-${formatCurrency(cat.spent - cat.allocated)}` : formatCurrency(cat.remaining)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
             <button 
               onClick={() => document.getElementById('budget-by-category-table')?.scrollIntoView({ behavior: 'smooth' })}
-              className="mt-4 text-[11px] font-black text-blue-600 hover:text-blue-700 transition-colors"
+              className="mt-4 text-[11px] font-black text-blue-600 hover:text-blue-700 transition-colors hidden sm:block"
             >
               View all categories
             </button>

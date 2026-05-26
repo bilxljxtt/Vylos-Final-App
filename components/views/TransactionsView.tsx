@@ -150,8 +150,8 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
       </div>
 
       {/* ─── Filters Bar ─── */}
-      <div className="flex flex-col lg:flex-row items-center gap-4">
-        <div className="relative flex-1 w-full lg:max-w-md">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4">
+        <div className="relative flex-1 w-full">
           <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
           <input 
             type="text" 
@@ -162,8 +162,8 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
           />
         </div>
         
-        <div className="flex items-center gap-3 w-full lg:w-auto overflow-x-auto no-scrollbar">
-          <div className="w-48">
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+          <div className="flex-1 min-w-[140px] md:w-48 md:flex-initial">
             <V2Select 
               value={filterCat} 
               onChange={setFilterCat} 
@@ -175,7 +175,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
             />
           </div>
           
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex items-center gap-2 ml-auto md:ml-0">
             <button 
               onClick={() => setPage("import")}
               className="px-4 h-11 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl flex items-center gap-2 text-blue-600 hover:border-blue-500 shadow-sm transition-all shrink-0"
@@ -201,7 +201,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
         
         {/* Left Column (Span 8) - Transactions Table */}
         <div className="lg:col-span-8 flex flex-col gap-6">
-          <div className="vylos-glass-readable p-6 md:p-8">
+          <div className="vylos-glass-readable p-5 sm:p-8">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-[15px] font-black text-slate-900 dark:text-white">Financial Activity</h3>
               <div className="flex items-center gap-2">
@@ -211,7 +211,8 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
               </div>
             </div>
             
-            <div className="w-full overflow-x-auto no-scrollbar">
+            {/* Desktop Table View */}
+            <div className="w-full overflow-x-auto no-scrollbar hidden sm:block">
               <table className="w-full min-w-[600px]">
                 <thead>
                   <tr className="border-b border-slate-100 dark:border-white/5">
@@ -222,7 +223,6 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {/* Provide exact visual mockup rows if needed or map real data */}
                   {filteredTxs.map((tx, i) => {
                     const isIncome = tx.amount > 0;
                     const now = new Date();
@@ -269,6 +269,46 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
                   })}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile Card List View */}
+            <div className="sm:hidden flex flex-col gap-3">
+              {filteredTxs.map((tx, i) => {
+                const isIncome = tx.amount > 0;
+                const now = new Date();
+                const txDate = new Date(tx.date);
+                const daysAgo = Math.floor((now.getTime() - txDate.getTime())/(1000*3600*24));
+                const timeLabel = daysAgo === 0 ? "Today" : daysAgo === 1 ? "Yesterday" : `${daysAgo} days ago`;
+
+                return (
+                  <div key={i} className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-2xl group transition-all">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <TransactionIcon 
+                        merchant={tx.merchant} 
+                        category={tx.category} 
+                        type={isIncome ? "income" : "expense"}
+                        size="md"
+                        className="group-hover:scale-105 transition-transform shrink-0"
+                      />
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[13px] font-black text-slate-900 dark:text-white leading-tight truncate">{cleanMerchantName(tx.merchant)}</span>
+                        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-1">
+                          <span className="text-[10px] font-medium text-slate-500">{formatDate(tx.date)}</span>
+                          <span className="text-[8px] text-slate-400 hidden xs:inline">•</span>
+                          <span className="text-[10px] font-semibold text-slate-500">{tx.category}</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-col items-end gap-0.5 shrink-0 ml-3">
+                      <span className={`text-[13px] font-black ${isIncome ? 'text-emerald-600' : 'text-slate-900 dark:text-white'}`}>
+                        {isIncome ? '+' : ''}{formatCurrency(tx.amount)}
+                      </span>
+                      <span className="text-[9px] font-bold text-slate-400">{timeLabel}</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             {fullFilteredTxs.length > visibleCount && (

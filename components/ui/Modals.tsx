@@ -35,13 +35,13 @@ export function TransactionModal({ txForm, setTxForm, setShowAddTx, handleAddTra
         />
         <form 
           onSubmit={onSubmit}
-          className="relative vylos-modal-glass rounded-[2.5rem] p-8 md:p-10 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-500 overflow-hidden max-h-[90vh] flex flex-col"
+          className="relative vylos-modal-glass rounded-[1.5rem] sm:rounded-[2.5rem] p-5 sm:p-8 md:p-10 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-500 overflow-hidden max-h-[90vh] flex flex-col"
         >
           {/* Subtle top glow effect */}
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent pointer-events-none" />
 
-          <div className="flex items-center justify-between mb-8 shrink-0">
-            <h3 className="text-3xl font-black tracking-tight text-text-main">Add Transaction</h3>
+          <div className="flex items-center justify-between mb-6 sm:mb-8 shrink-0">
+            <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-text-main">Add Transaction</h3>
             <button type="button" onClick={() => setShowAddTx(false)} className="p-2 hover:bg-border-main rounded-xl transition-all vylos-focus">
               <X size={20} className="text-text-muted" />
             </button>
@@ -163,12 +163,12 @@ export function GoalModal({ goalForm, setGoalForm, setShowAddGoal, handleAddGoal
         />
         <form 
           onSubmit={onSubmit}
-          className="relative vylos-modal-glass rounded-[2.5rem] p-8 md:p-10 w-full max-w-xl shadow-2xl animate-in zoom-in-95 duration-500 overflow-hidden max-h-[90vh] flex flex-col"
+          className="relative vylos-modal-glass rounded-[1.5rem] sm:rounded-[2.5rem] p-5 sm:p-8 md:p-10 w-full max-w-xl shadow-2xl animate-in zoom-in-95 duration-500 overflow-hidden max-h-[90vh] flex flex-col"
         >
           {/* Subtle top glow effect */}
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent pointer-events-none" />
-          <div className="flex items-center justify-between mb-8 shrink-0">
-              <h3 className="text-3xl font-black tracking-tight text-text-main">New Savings Goal</h3>
+          <div className="flex items-center justify-between mb-6 sm:mb-8 shrink-0">
+              <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-text-main">New Savings Goal</h3>
               <button type="button" onClick={() => setShowAddGoal(false)} className="p-2 hover:bg-border-main rounded-xl transition-all vylos-focus">
                   <X size={20} className="text-text-muted" />
               </button>
@@ -309,13 +309,13 @@ export function BudgetModal({ budgetForm, setBudgetForm, setShowAddBudget, handl
         />
         <form 
           onSubmit={onSubmit}
-          className="relative vylos-modal-glass rounded-[2.5rem] p-8 md:p-10 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-500 overflow-hidden max-h-[90vh] flex flex-col"
+          className="relative vylos-modal-glass rounded-[1.5rem] sm:rounded-[2.5rem] p-5 sm:p-8 md:p-10 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-500 overflow-hidden max-h-[90vh] flex flex-col"
         >
           {/* Subtle top glow effect */}
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent pointer-events-none" />
 
-          <div className="flex items-center justify-between mb-8 shrink-0">
-            <h3 className="text-3xl font-black tracking-tight text-text-main">Set Category Budget</h3>
+          <div className="flex items-center justify-between mb-6 sm:mb-8 shrink-0">
+            <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-text-main">Set Category Budget</h3>
             <button type="button" onClick={() => setShowAddBudget(false)} className="p-2 hover:bg-border-main rounded-xl transition-all vylos-focus">
               <X size={20} className="text-text-muted" />
             </button>

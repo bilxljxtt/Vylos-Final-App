@@ -77,18 +77,18 @@ export const V2Header: React.FC<V2HeaderProps> = ({ firstName, avatarUrl, onPage
           {/* Notification Popover */}
           <V2Popover
             trigger={
-              <button className="flex items-center gap-4 px-6 py-2.5 rounded-full text-white hover:bg-blue-500/20 transition-all active:scale-95 relative bg-blue-500/10 border border-white/10 shadow-xl group">
+              <button className="flex items-center gap-2 sm:gap-4 px-3.5 sm:px-6 py-2.5 rounded-full text-white hover:bg-blue-500/20 transition-all active:scale-95 relative bg-blue-500/10 border border-white/10 shadow-xl group">
                 <div className="relative">
                   {unreadCount > 0 ? <BellDot size={20} className="group-hover:rotate-12 transition-transform text-primary" /> : <Bell size={20} className="group-hover:rotate-12 transition-transform opacity-70" />}
                   {unreadCount > 0 && (
                     <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-blue-600 animate-pulse" />
                   )}
                 </div>
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 group-hover:opacity-100 transition-opacity">Activity Center</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 group-hover:opacity-100 transition-opacity hidden sm:inline">Activity Center</span>
               </button>
             }
           >
-            <div className="w-[380px] overflow-hidden vylos-glass-popup border-white/20 shadow-2xl">
+            <div className="w-[calc(100vw-2rem)] sm:w-[380px] max-w-[380px] overflow-hidden vylos-glass-popup border-white/20 shadow-2xl">
               <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5 relative">
                 <div className="flex flex-col gap-0.5">
                   <span className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-900 dark:text-white/60 opacity-80">Notifications</span>

@@ -195,38 +195,38 @@ export function CalendarEventModal({ isOpen, onClose, editingEvent }: CalendarEv
         
         <form 
           onSubmit={handleSubmit} 
-          className="relative vylos-glass-modal w-full max-w-5xl rounded-[3rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-500"
+          className="relative vylos-glass-modal w-full max-w-5xl rounded-[1.5rem] sm:rounded-[3rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-500"
         >
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent pointer-events-none" />
           
           {/* Modal Header */}
-          <div className="px-10 py-8 border-b border-border-main flex items-center justify-between bg-primary/5 shrink-0">
-            <div className="flex items-center gap-5">
-              <div className="w-16 h-16 rounded-[1.5rem] bg-blue-600 flex items-center justify-center text-white shadow-2xl shadow-blue-600/20">
-                <CalendarIcon size={32} strokeWidth={2.5} />
+          <div className="px-5 py-6 sm:px-10 sm:py-8 border-b border-border-main flex items-center justify-between bg-primary/5 shrink-0">
+            <div className="flex items-center gap-3 sm:gap-5">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-[1rem] sm:rounded-[1.5rem] bg-blue-600 flex items-center justify-center text-white shadow-2xl shadow-blue-600/20 shrink-0">
+                <CalendarIcon className="w-6 h-6 sm:w-8 sm:h-8" strokeWidth={2.5} />
               </div>
               <div>
-                <h2 className="text-3xl font-black text-text-main tracking-tight leading-tight">
-                  {editingEvent ? "Edit Calendar Event" : "Create New Event"}
+                <h2 className="text-xl sm:text-3xl font-black text-text-main tracking-tight leading-tight">
+                  {editingEvent ? "Edit Event" : "New Event"}
                 </h2>
-                <p className="text-xs font-black text-text-muted uppercase tracking-[0.2em] opacity-60">Organize your financial schedule</p>
+                <p className="text-[9px] sm:text-xs font-black text-text-muted uppercase tracking-wider sm:tracking-[0.2em] opacity-60">Organize your financial schedule</p>
               </div>
             </div>
             <button 
               type="button" 
               onClick={onClose} 
-              className="p-3 text-text-muted hover:text-text-main hover:bg-border-main/50 rounded-2xl transition-all"
+              className="p-2 sm:p-3 text-text-muted hover:text-text-main hover:bg-border-main/50 rounded-2xl transition-all"
             >
-              <X size={28} />
+              <X className="w-5 h-5 sm:w-7 sm:h-7" />
             </button>
           </div>
  
           {/* Modal Body */}
-          <div className="flex-1 overflow-y-auto custom-scrollbar p-10">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-5 sm:p-10">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-12 items-start">
               
               {/* Left Column */}
-              <div className="space-y-10">
+              <div className="space-y-6 sm:space-y-10">
                 <div className="space-y-3">
                   <label className="text-[11px] font-black text-text-main uppercase tracking-widest ml-1 opacity-80">Event Title</label>
                   <div className="relative">
@@ -281,7 +281,7 @@ export function CalendarEventModal({ isOpen, onClose, editingEvent }: CalendarEv
               </div>
 
               {/* Right Column */}
-              <div className="space-y-10">
+              <div className="space-y-6 sm:space-y-10">
                 <div className="space-y-4">
                   <label className="text-[11px] font-black text-text-main uppercase tracking-widest ml-1 opacity-80">Category</label>
                   <div className="grid grid-cols-2 gap-3">
@@ -303,7 +303,7 @@ export function CalendarEventModal({ isOpen, onClose, editingEvent }: CalendarEv
                   </div>
                 </div>
 
-                <div className="space-y-10">
+                <div className="space-y-6 sm:space-y-10">
                   <SegmentedControl 
                     label="Priority Level"
                     options={PRIORITY_OPTIONS}
@@ -338,13 +338,13 @@ export function CalendarEventModal({ isOpen, onClose, editingEvent }: CalendarEv
           </div>
 
           {/* Modal Footer */}
-          <div className="px-10 py-8 bg-border-main/10 border-t border-border-main flex flex-col sm:flex-row gap-5 shrink-0">
+          <div className="px-5 py-6 sm:px-10 sm:py-8 bg-border-main/10 border-t border-border-main flex flex-col sm:flex-row gap-3 sm:gap-5 shrink-0">
             {editingEvent && (
               <button 
                 type="button"
                 onClick={handleDelete}
                 disabled={loading}
-                className="flex-1 py-5 bg-red-600/10 border border-red-500/30 text-red-600 font-black rounded-2xl hover:bg-red-600 hover:text-white transition-all active:scale-[0.98] uppercase tracking-[0.2em] text-xs flex items-center justify-center gap-2"
+                className="flex-1 py-3.5 sm:py-5 bg-red-600/10 border border-red-500/30 text-red-600 font-black rounded-2xl hover:bg-red-600 hover:text-white transition-all active:scale-[0.98] uppercase tracking-[0.2em] text-xs flex items-center justify-center gap-2"
               >
                 Delete Event
               </button>
@@ -352,14 +352,14 @@ export function CalendarEventModal({ isOpen, onClose, editingEvent }: CalendarEv
             <button 
               type="button"
               onClick={onClose}
-              className="flex-1 py-5 bg-card border border-border-main text-text-muted font-black rounded-2xl hover:bg-border-main hover:text-text-main transition-all active:scale-[0.98] uppercase tracking-[0.2em] text-xs"
+              className="flex-1 py-3.5 sm:py-5 bg-card border border-border-main text-text-muted font-black rounded-2xl hover:bg-border-main hover:text-text-main transition-all active:scale-[0.98] uppercase tracking-[0.2em] text-xs"
             >
               Discard
             </button>
             <button 
               type="submit"
               disabled={loading}
-              className="flex-[1.5] py-5 bg-blue-600 text-white font-black rounded-2xl shadow-2xl shadow-blue-600/20 hover:bg-blue-700 hover:-translate-y-0.5 transition-all active:scale-[0.98] disabled:opacity-50 uppercase tracking-[0.2em] text-xs flex items-center justify-center gap-3"
+              className="flex-[1.5] py-3.5 sm:py-5 bg-blue-600 text-white font-black rounded-2xl shadow-2xl shadow-blue-600/20 hover:bg-blue-700 hover:-translate-y-0.5 transition-all active:scale-[0.98] disabled:opacity-50 uppercase tracking-[0.2em] text-xs flex items-center justify-center gap-3"
             >
               {loading ? "Processing..." : (editingEvent ? "Update Event" : "Create Event")}
               {!loading && <CheckCircle2 size={20} strokeWidth={2.5} />}

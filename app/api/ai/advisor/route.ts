@@ -64,6 +64,9 @@ export async function POST(req: NextRequest) {
       - If they ask "How much do I need to save monthly for X?", give them the 'Recommended Contribution' from the summary for that specific goal.
       - Match goal names case-insensitively (e.g., "macbook" matches "MacBook").
       
+      RULES FOR STATEMENTS / PDF / EXPORTS:
+      - If the user asks to download, export, print, or get a PDF of their statement, finances, transactions, or report, you MUST output a Markdown link: [Download PDF Statement](download-statement) in your response. Do not output any other link or invent a URL.
+
       GENERAL RULES:
       - You provide general financial information only. You are not a licensed financial advisor.
       - Do not give regulated financial advice.

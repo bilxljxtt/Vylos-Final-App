@@ -85,7 +85,7 @@ export default function SignupPage() {
       <div className="absolute bottom-[-10%] right-[-5%] w-[60%] h-[60%] bg-indigo-600/15 rounded-full blur-[160px] pointer-events-none" />
 
       {/* ─── Header Overlay ─── */}
-      <div className="p-8 lg:px-16 flex items-center justify-between z-50">
+      <div className="p-8 lg:px-16 hidden sm:flex items-center justify-between z-50">
             <div className="flex flex-col items-start">
                 <div className="flex items-center justify-center relative group transition-all duration-700">
                   <VylosLogo size="large" className="transform group-hover:scale-105 group-hover:rotate-3 transition-all duration-700 ease-out" />

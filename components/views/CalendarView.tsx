@@ -254,40 +254,40 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ setPage }) => {
     <div className="flex flex-col lg:flex-row gap-8 h-full min-h-[850px] animate-in fade-in duration-500">
       
       {/* ─── Main Calendar Area ─── */}
-      <div className="flex-1 vylos-glass-readable p-8 flex flex-col relative overflow-hidden">
+      <div className="flex-1 vylos-glass-readable p-5 sm:p-8 flex flex-col relative overflow-hidden">
         {/* Subtle background glow */}
         <div className="absolute -top-24 -left-24 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
         
         {/* Calendar Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-6 relative z-10">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-8 lg:mb-10 gap-6 relative z-10">
           <div className="flex flex-col">
              <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-none mb-2">Calendar</h2>
              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Financial Timeline & Tasks</p>
           </div>
           
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
             <div className="flex items-center bg-slate-100/50 dark:bg-white/5 rounded-2xl shadow-inner border border-slate-200 dark:border-white/10 p-1">
               <button 
                 type="button"
                 onClick={(e) => { e.stopPropagation(); prevMonth(); }} 
-                className="p-2.5 hover:bg-white dark:hover:bg-white/10 rounded-xl transition-all hover:shadow-sm"
+                className="p-2 hover:bg-white dark:hover:bg-white/10 rounded-xl transition-all hover:shadow-sm"
               >
-                <ChevronLeft size={20} className="text-slate-600 dark:text-slate-400" />
+                <ChevronLeft size={16} className="text-slate-600 dark:text-slate-400" />
               </button>
-              <span className="w-44 text-center text-sm font-black text-slate-900 dark:text-white tracking-tight">{monthName}</span>
+              <span className="w-32 sm:w-44 text-center text-xs sm:text-sm font-black text-slate-900 dark:text-white tracking-tight">{monthName}</span>
               <button 
                 type="button"
                 onClick={(e) => { e.stopPropagation(); nextMonth(); }} 
-                className="p-2.5 hover:bg-white dark:hover:bg-white/10 rounded-xl transition-all hover:shadow-sm"
+                className="p-2 hover:bg-white dark:hover:bg-white/10 rounded-xl transition-all hover:shadow-sm"
               >
-                <ChevronRight size={20} className="text-slate-600 dark:text-slate-400" />
+                <ChevronRight size={16} className="text-slate-600 dark:text-slate-400" />
               </button>
             </div>
             
             <button 
               type="button"
               onClick={goToday} 
-              className="px-6 py-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/10 shadow-sm transition-all active:scale-95"
+              className="px-4 sm:px-6 py-2.5 sm:py-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/10 shadow-sm transition-all active:scale-95"
             >
               Today
             </button>
@@ -301,7 +301,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ setPage }) => {
                 <button 
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`px-5 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? "bg-white dark:bg-blue-600 text-blue-600 dark:text-white shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"}`}
+                  className={`px-3.5 sm:px-5 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? "bg-white dark:bg-blue-600 text-blue-600 dark:text-white shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"}`}
                 >
                   {tab.label}
                 </button>
@@ -314,9 +314,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ setPage }) => {
                 setEditingEvent(null);
                 setShowEventModal(true);
               }}
-              className="flex items-center gap-3 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-blue-600/20 transition-all active:scale-95"
+              className="flex items-center gap-2.5 px-4 sm:px-6 py-2.5 sm:py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-blue-600/20 transition-all active:scale-95 w-full sm:w-auto justify-center"
             >
-              <Plus size={18} strokeWidth={3} />
+              <Plus size={16} strokeWidth={3} />
               New Event
             </button>
           </div>
@@ -336,31 +336,32 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ setPage }) => {
               </div>
 
               {/* Grid Cells */}
-              <div className="flex-1 grid grid-cols-7 gap-px bg-slate-200/50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-[2rem] overflow-hidden shadow-inner">
+              <div className="flex-1 grid grid-cols-7 gap-px bg-slate-200/50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden shadow-inner">
                 {days.map((day, i) => {
                   const events = getEventsForDay(day.dateKey);
                   return (
                     <div 
                       key={i} 
                       onClick={() => setSelectedDay(day.date)}
-                      className={`bg-white/80 dark:bg-slate-900/40 p-2 lg:p-4 min-h-[110px] flex flex-col gap-1.5 transition-all hover:bg-blue-50 dark:hover:bg-blue-500/5 group cursor-pointer
+                      className={`bg-white/80 dark:bg-slate-900/40 p-1 sm:p-2 lg:p-4 min-h-[56px] sm:min-h-[110px] flex flex-col gap-1 transition-all hover:bg-blue-50 dark:hover:bg-blue-500/5 group cursor-pointer
                         ${!day.inMonth ? 'opacity-30' : ''}
                         ${toDateKey(selectedDay) === day.dateKey ? 'ring-2 ring-inset ring-blue-500/50 bg-blue-50/50 dark:bg-blue-500/5' : ''}
                       `}
                     >
-                      <div className="flex justify-between items-start mb-1">
+                      <div className="flex justify-between items-start mb-0.5">
                         <span className={`
-                          text-xs font-black w-7 h-7 flex items-center justify-center rounded-lg transition-all
+                          text-[11px] sm:text-xs font-black w-5 h-5 sm:w-7 sm:h-7 flex items-center justify-center rounded-lg transition-all
                           ${day.isToday 
-                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' 
+                            ? 'bg-blue-600 text-white shadow-lg' 
                             : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white'}
                         `}>
                           {day.date.getDate()}
                         </span>
-                        {events.length > 0 && <span className="text-[9px] font-black text-slate-300 dark:text-slate-600">{events.length}</span>}
+                        {events.length > 0 && <span className="text-[9px] font-black text-slate-300 dark:text-slate-600 hidden sm:inline">{events.length}</span>}
                       </div>
                       
-                      <div className="flex flex-col gap-1 overflow-hidden flex-1">
+                      {/* Desktop event names */}
+                      <div className="hidden sm:flex flex-col gap-1 overflow-hidden flex-1">
                         {events.slice(0, 3).map((ev, j) => (
                           <div 
                             key={j} 
@@ -383,9 +384,56 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ setPage }) => {
                           <span className="text-[9px] font-black text-blue-600 dark:text-blue-400 mt-1">+{events.length - 3} more</span>
                         )}
                       </div>
+
+                      {/* Mobile event dots */}
+                      <div className="flex flex-wrap gap-0.5 mt-auto sm:hidden justify-center max-w-full">
+                        {events.slice(0, 3).map((ev, j) => (
+                          <div key={j} className={`w-1 h-1 rounded-full ${ev.dot}`} />
+                        ))}
+                        {events.length > 3 && (
+                          <div className="w-1 h-1 rounded-full bg-slate-400" />
+                        )}
+                      </div>
                     </div>
                   );
                 })}
+              </div>
+
+              {/* Selected Day Agenda for Mobile */}
+              <div className="sm:hidden mt-4 p-4 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-2xl flex flex-col gap-3">
+                <div className="flex justify-between items-center pb-2 border-b border-slate-200/20 dark:border-white/10">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-900 dark:text-white">Agenda: {formatDate(toDateKey(selectedDay))}</span>
+                  <span className="text-[9px] font-black text-slate-400 uppercase">{getEventsForDay(toDateKey(selectedDay)).length} Events</span>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {getEventsForDay(toDateKey(selectedDay)).length > 0 ? (
+                    getEventsForDay(toDateKey(selectedDay)).map((ev, idx) => (
+                      <div 
+                        key={idx} 
+                        onClick={() => {
+                          if (ev.type === 'reminder' && ev.originalReminder) {
+                            setEditingEvent(ev.originalReminder);
+                            setShowEventModal(true);
+                          }
+                        }}
+                        className="flex items-center justify-between p-3 bg-white dark:bg-white/5 rounded-xl border border-black/5 dark:border-white/5"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${ev.dot}`} />
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-[12px] font-black text-slate-900 dark:text-white truncate">{ev.title}</span>
+                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">{ev.subtitle}</span>
+                          </div>
+                        </div>
+                        <span className="text-[12px] font-black text-slate-900 dark:text-white shrink-0 ml-3">{ev.amount}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-4 text-[11px] font-bold text-slate-400 italic">
+                      No events or transactions scheduled
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}

@@ -66,7 +66,7 @@ export function LandingPage() {
               <span className="text-[9px] font-black text-white uppercase tracking-[0.3em]">The Intelligent Wealth Companion</span>
             </div>
 
-            <h1 className="text-6xl md:text-8xl font-black text-white leading-[0.9] tracking-tighter mb-8 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-100">
+            <h1 className="text-4xl sm:text-6xl md:text-8xl font-black text-white leading-[0.9] tracking-tighter mb-8 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-100">
               <span className="text-gradient">Govern your</span> <br />
               <span className="text-blue-200/90 italic font-serif">financial destiny.</span>
             </h1>

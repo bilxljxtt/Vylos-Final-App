@@ -72,26 +72,26 @@ export const ImportView: React.FC<ImportViewProps> = ({
   };
 
   const renderUpload = () => (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in duration-500">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 animate-in fade-in duration-500">
       <div 
         onDragOver={e => { e.preventDefault(); setDrag(true); }} 
         onDragLeave={() => setDrag(false)} 
         onDrop={e => { e.preventDefault(); setDrag(false); if (e.dataTransfer.files[0]) handleFileSelect(e.dataTransfer.files[0]); }}
         className={`
-          lg:col-span-2 vylos-glass-readable p-20 text-center transition-all duration-500 flex flex-col items-center justify-center !rounded-[3rem]
+          lg:col-span-2 vylos-glass-readable p-8 sm:p-20 text-center transition-all duration-500 flex flex-col items-center justify-center !rounded-[1.5rem] sm:!rounded-[3rem]
           ${drag ? "!border-primary !bg-primary/5 scale-[0.98] shadow-2xl shadow-primary/10" : "hover:border-primary/40 hover:shadow-xl hover:shadow-primary/5"}
           ${isProcessing ? "opacity-50 pointer-events-none" : ""}
         `}
       >
-        <div className="w-24 h-24 bg-border-main rounded-3xl flex items-center justify-center mb-8 shadow-inner ring-1 ring-white/10 group">
-          <Upload className={`w-10 h-10 ${drag ? "text-primary" : "text-text-muted opacity-30"} transition-all group-hover:scale-110 group-hover:text-primary group-hover:opacity-100`} />
+        <div className="w-16 h-16 sm:w-24 sm:h-24 bg-border-main rounded-[1.2rem] sm:rounded-3xl flex items-center justify-center mb-6 sm:mb-8 shadow-inner ring-1 ring-white/10 group">
+          <Upload className={`w-8 h-8 sm:w-10 sm:h-10 ${drag ? "text-primary" : "text-text-muted opacity-30"} transition-all group-hover:scale-110 group-hover:text-primary group-hover:opacity-100`} />
         </div>
         
-        <h3 className="text-3xl font-black text-text-main mb-3 tracking-tighter">Import Transactions</h3>
-        <p className="text-base font-medium text-text-muted mb-10 max-w-sm mx-auto">Upload your CSV or Excel bank statement. We'll help you map the columns to Vylos.</p>
+        <h3 className="text-2xl sm:text-3xl font-black text-text-main mb-3 tracking-tighter">Import Transactions</h3>
+        <p className="text-sm sm:text-base font-medium text-text-muted mb-8 sm:mb-10 max-w-sm mx-auto">Upload your CSV or Excel bank statement. We'll help you map the columns to Vylos.</p>
         
-        <label className="inline-flex items-center gap-3 bg-primary hover:bg-emerald-400 text-white font-black px-12 py-5 rounded-[1.5rem] shadow-2xl shadow-primary/30 transition-all cursor-pointer select-none active:scale-95">
-          {isProcessing ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FileText size={20} strokeWidth={3} />}
+        <label className="inline-flex items-center gap-2.5 sm:gap-3 bg-primary hover:bg-emerald-400 text-white font-black px-8 sm:px-12 py-4 sm:py-5 rounded-xl sm:rounded-[1.5rem] shadow-2xl shadow-primary/30 transition-all cursor-pointer select-none active:scale-95 text-xs sm:text-sm">
+          {isProcessing ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FileText size={16} sm-size={20} strokeWidth={3} />}
           {isProcessing ? "Analyzing..." : "Choose Statement"}
           <input 
             type="file" 
@@ -103,7 +103,7 @@ export const ImportView: React.FC<ImportViewProps> = ({
       </div>
 
       <div className="flex flex-col gap-6">
-        <div className="vylos-glass-readable p-8 !rounded-[2.5rem]">
+        <div className="vylos-glass-readable p-6 sm:p-8 !rounded-[1.5rem] sm:!rounded-[2.5rem]">
           <h4 className="text-[11px] font-black text-primary uppercase tracking-widest mb-4">Supported Formats</h4>
           <ul className="space-y-3">
             {["Standard CSV", "Excel Sheets (.xlsx)", "Standard Bank Formats"].map(f => (
@@ -114,7 +114,7 @@ export const ImportView: React.FC<ImportViewProps> = ({
             ))}
           </ul>
         </div>
-        <div className="vylos-glass-readable p-8 !rounded-[2.5rem] flex-1">
+        <div className="vylos-glass-readable p-6 sm:p-8 !rounded-[1.5rem] sm:!rounded-[2.5rem] flex-1">
           <h4 className="text-[11px] font-black text-text-muted uppercase tracking-widest mb-4">Pro Tip</h4>
           <p className="text-xs font-medium text-text-muted leading-relaxed">
             Ensure your file has headers in the first row for the best experience. Vylos will try to auto-detect them.
@@ -125,17 +125,17 @@ export const ImportView: React.FC<ImportViewProps> = ({
   );
 
   const renderMapping = () => (
-    <div className="vylos-glass-readable !rounded-[3rem] p-10 animate-in slide-in-from-bottom-8 duration-500">
-      <div className="flex items-center justify-between mb-10">
+    <div className="vylos-glass-readable !rounded-[1.5rem] sm:!rounded-[3rem] p-5 sm:p-10 animate-in slide-in-from-bottom-8 duration-500">
+      <div className="flex items-center justify-between mb-8 sm:mb-10">
         <div>
-          <h3 className="text-2xl font-black text-text-main tracking-tighter">Map your data</h3>
-          <p className="text-sm font-medium text-text-muted">Tell us which columns contain your transaction details.</p>
+          <h3 className="text-xl sm:text-2xl font-black text-text-main tracking-tighter">Map your data</h3>
+          <p className="text-xs sm:text-sm font-medium text-text-muted">Tell us which columns contain your transaction details.</p>
         </div>
         <button 
           onClick={() => setStage("upload")}
-          className="p-3 text-text-muted hover:text-red-500 transition-colors"
+          className="p-2 sm:p-3 text-text-muted hover:text-red-500 transition-colors"
         >
-          <X size={24} />
+          <X size={20} sm-size={24} />
         </button>
       </div>
 
@@ -261,15 +261,15 @@ export const ImportView: React.FC<ImportViewProps> = ({
   );
 
   const renderPreview = () => (
-    <div className="vylos-glass-readable !rounded-[3rem] shadow-2xl flex flex-col max-h-[calc(100vh-200px)] overflow-hidden animate-in fade-in zoom-in-95 duration-500">
-      <div className="p-10 border-b border-slate-200 dark:border-white/10 flex items-center justify-between bg-white/5 dark:bg-white/5 backdrop-blur-xl">
-        <div className="flex items-center gap-10">
+    <div className="vylos-glass-readable !rounded-[1.5rem] sm:!rounded-[3rem] shadow-2xl flex flex-col max-h-[calc(100vh-200px)] overflow-hidden animate-in fade-in zoom-in-95 duration-500">
+      <div className="p-5 sm:p-10 border-b border-slate-200 dark:border-white/10 flex flex-col md:flex-row gap-6 md:items-center justify-between bg-white/5 dark:bg-white/5 backdrop-blur-xl shrink-0">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-6 sm:gap-10">
           <div>
-            <h3 className="text-2xl font-black text-text-main tracking-tighter">Review synchronization</h3>
+            <h3 className="text-xl sm:text-2xl font-black text-text-main tracking-tighter">Review synchronization</h3>
             <p className="text-[11px] font-black text-text-muted uppercase tracking-[0.2em] mt-1">{(importPreview || []).length} records staging for commit</p>
           </div>
 
-          <div className="hidden lg:flex items-center gap-6 border-l border-border-main pl-10">
+          <div className="flex items-center gap-6 border-l border-border-main pl-6 sm:pl-10">
             <div className="flex flex-col">
               <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">Duplicates Skipped</span>
               <span className="text-lg font-black text-amber-500">{(importPreview || []).filter(tx => tx.isDuplicate).length}</span>
@@ -281,18 +281,18 @@ export const ImportView: React.FC<ImportViewProps> = ({
           </div>
         </div>
 
-        <div className="flex gap-4">
+        <div className="flex items-center gap-3 w-full md:w-auto">
           <button 
             onClick={() => { setImportPreview(null); setStage("upload"); }}
-            className="px-8 py-4 rounded-[1.2rem] text-sm font-black text-text-muted hover:text-text-main transition-colors border border-border-main hover:bg-border-main/50"
+            className="flex-1 md:flex-initial px-6 sm:px-8 py-3.5 sm:py-4 rounded-[1.2rem] text-sm font-black text-text-muted hover:text-text-main transition-colors border border-border-main hover:bg-border-main/50"
           >
             Discard
           </button>
           <button 
             onClick={confirmImport}
-            className="px-10 py-4 bg-primary hover:bg-emerald-400 text-white font-black rounded-[1.2rem] shadow-2xl shadow-primary/30 transition-all active:scale-95 flex items-center gap-2"
+            className="flex-1 md:flex-initial px-8 sm:px-10 py-3.5 sm:py-4 bg-primary hover:bg-emerald-400 text-white font-black rounded-[1.2rem] shadow-2xl shadow-primary/30 transition-all active:scale-95 flex items-center justify-center gap-2"
           >
-            Confirm Stream <CheckCircle2 size={18} strokeWidth={3} />
+            Confirm Stream <CheckCircle2 size={16} strokeWidth={3} />
           </button>
         </div>
       </div>
@@ -300,33 +300,35 @@ export const ImportView: React.FC<ImportViewProps> = ({
       <div className="flex-1 overflow-y-auto">
         <div className="flex flex-col">
           {(importPreview || []).map((tx, i) => (
-            <div key={i} className={`flex items-center gap-6 px-10 py-6 border-b border-border-main/50 transition-colors group ${tx.isDuplicate ? 'opacity-40 bg-card' : 'hover:bg-primary/[0.02]'}`}>
+            <div key={i} className={`flex items-center gap-3 sm:gap-6 px-4 sm:px-10 py-4 sm:py-6 border-b border-border-main/50 transition-colors group ${tx.isDuplicate ? 'opacity-40 bg-card' : 'hover:bg-primary/[0.02]'}`}>
               <div 
-                className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-inner transition-transform ${!tx.isDuplicate && 'group-hover:scale-105'}`}
+                className={`w-10 h-10 sm:w-12 sm:h-12 rounded-[1rem] sm:rounded-2xl flex items-center justify-center text-lg sm:text-2xl shadow-inner transition-transform shrink-0 ${!tx.isDuplicate && 'group-hover:scale-105'}`}
                 style={{ backgroundColor: `${CATEGORY_METADATA[tx.cat as TransactionCategory]?.color || '#888'}15` }}
               >
-                {tx.isDuplicate ? <AlertCircle size={24} className="text-amber-500" /> : (CATEGORY_METADATA[tx.cat as TransactionCategory]?.icon || "📦")}
+                {tx.isDuplicate ? <AlertCircle size={20} className="text-amber-500 sm:hidden" /> : (CATEGORY_METADATA[tx.cat as TransactionCategory]?.icon || "📦")}
+                {tx.isDuplicate ? <AlertCircle size={24} className="text-amber-500 hidden sm:block" /> : null}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <div className={`text-base font-black truncate tracking-tight ${tx.isDuplicate ? 'text-text-muted line-through' : 'text-text-main'}`}>{tx.desc}</div>
-                  {tx.isDuplicate && <span className="text-[9px] font-black uppercase tracking-widest text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full">Duplicate</span>}
+                  <div className={`text-[13px] sm:text-base font-black truncate tracking-tight ${tx.isDuplicate ? 'text-text-muted line-through' : 'text-text-main'}`}>{tx.desc}</div>
+                  {tx.isDuplicate && <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full shrink-0">Dup</span>}
                 </div>
-                <div className="text-[11px] font-black text-text-muted uppercase tracking-widest flex items-center gap-3 mt-1">
+                <div className="text-[10px] sm:text-[11px] font-black text-text-muted uppercase tracking-widest flex items-center gap-1.5 sm:gap-3 mt-1">
                   <span>{tx.date}</span>
                   <span className="w-1 h-1 rounded-full bg-border-main" />
-                  <span style={{ color: CATEGORY_METADATA[tx.cat as TransactionCategory]?.color }}>{tx.cat}</span>
+                  <span className="truncate" style={{ color: CATEGORY_METADATA[tx.cat as TransactionCategory]?.color }}>{tx.cat}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-8">
-                <div className={`text-lg font-black tracking-tighter ${tx.isDuplicate ? 'text-text-muted' : (tx.amount > 0 ? "text-primary" : "text-red-500")}`}>
+              <div className="flex items-center gap-3 sm:gap-8 shrink-0 ml-3">
+                <div className={`text-[13px] sm:text-lg font-black tracking-tighter ${tx.isDuplicate ? 'text-text-muted' : (tx.amount > 0 ? "text-primary" : "text-red-500")}`}>
                   {formatCurrency(tx.amount)}
                 </div>
                 <button 
                   onClick={() => setImportPreview((importPreview || []).filter((_, idx) => idx !== i))}
-                  className="p-2 text-text-muted hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                  className="p-1.5 sm:p-2 text-text-muted hover:text-red-500 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all shrink-0"
                 >
-                  <Trash2 size={18} />
+                  <Trash2 size={16} className="sm:hidden" />
+                  <Trash2 size={18} className="hidden sm:block" />
                 </button>
               </div>
             </div>

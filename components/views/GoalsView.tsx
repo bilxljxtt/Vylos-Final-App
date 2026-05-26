@@ -234,10 +234,10 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
                 const isGoalUnrealistic = monthlyNeeded > availableMonthly && goal.currentAmount < goal.targetAmount;
 
                 return (
-                  <div key={i} className="vylos-glass-readable p-8 flex flex-col gap-6 group hover:scale-[1.01] transition-all duration-300">
-                    <div className="flex flex-col md:flex-row md:items-center gap-8">
+                  <div key={i} className="vylos-glass-readable p-5 sm:p-8 flex flex-col gap-6 group hover:scale-[1.01] transition-all duration-300">
+                    <div className="flex flex-col md:flex-row md:items-center gap-6 md:gap-8">
                       {/* Goal Info & Progress */}
-                      <div className="flex items-start gap-6 flex-1 min-w-0">
+                      <div className="flex items-start gap-4 sm:gap-6 flex-1 min-w-0">
                         <div className={`w-16 h-16 rounded-[24px] flex items-center justify-center shrink-0 shadow-2xl ${getIconBg(goal.title)}`}>
                           {getIcon(goal.title)}
                         </div>
@@ -254,7 +254,7 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
                           </div>
                           
                           <div className="h-3 bg-white/10 dark:bg-black/20 rounded-full overflow-hidden mb-4 border border-white/10">
-                            <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full shadow-[0_0_15px_rgba(16,185,129,0.4)]" style={{ width: `${pct}%` }} />
+                            <div className="h-full bg-gradient-to-r from-emerald-50 to-teal-400 rounded-full shadow-[0_0_15px_rgba(16,185,129,0.4)]" style={{ width: `${pct}%` }} />
                           </div>
 
                           <div className="flex items-center justify-between">
@@ -274,7 +274,7 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
                       {/* Stats & Actions Container */}
                       <div className="flex flex-col gap-4 w-full md:w-56 shrink-0">
                         {/* Contributions & Suggestions */}
-                        <div className="flex flex-row md:flex-col justify-between gap-4 w-full">
+                        <div className="flex flex-col sm:flex-row md:flex-col justify-between gap-3 sm:gap-4 w-full">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20 shadow-lg shadow-primary/10">
                               <DollarSign size={16} />

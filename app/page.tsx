@@ -55,7 +55,7 @@ const ACCENT = "#00D8A5";
 
 
 export default function App() {
-  const { state, addTransaction, deleteTransaction, addGoal, deleteGoal, updateBudgetLimit, updateBudgets, updateProfile, awardXP, updateDailyConsistency, sessionUser, isAuthLoaded, formatCurrency, categorizeTransaction, setSelectedMonth, refreshData } = useAppStore();
+  const { state, addTransaction, deleteTransaction, addGoal, deleteGoal, updateBudgetLimit, updateBudgets, updateProfile, awardXP, updateDailyConsistency, sessionUser, isAuthLoaded, profileLoadingError, clearProfileError, formatCurrency, categorizeTransaction, setSelectedMonth, refreshData } = useAppStore();
   const { toast: showToast } = useToast();
   
   const [dark, setDark] = useState(() => {
@@ -741,6 +741,38 @@ export default function App() {
   if (!isAuthLoaded) return (
     <VylosLoadingScreen variant="fullscreen" text="Syncing your finances..." />
   );
+
+  if (profileLoadingError) {
+    return (
+      <div className="vylos-bg-loading fixed inset-0 flex flex-col items-center justify-center z-[9999] p-6 text-center select-none animate-in fade-in duration-300">
+        <div className="absolute top-[48%] left-[50%] -translate-x-[50%] -translate-y-[50%] w-80 h-80 bg-red-500/10 blur-[120px] rounded-full pointer-events-none z-0" />
+        
+        <div className="relative z-20 flex flex-col items-center max-w-sm">
+          <div className="w-16 h-16 rounded-[22px] bg-red-500/10 text-red-500 flex items-center justify-center border border-red-500/20 shadow-lg shadow-red-500/5 mb-6">
+            <svg viewBox="0 0 24 24" className="w-8 h-8 fill-none stroke-current" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="16" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="4" />
+              <line x1="8" y1="2" x2="8" y2="4" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+          </div>
+          <h3 className="text-xl font-black text-white mb-2">Sync Connection Error</h3>
+          <p className="text-white/60 text-xs font-medium leading-relaxed mb-8">
+            Vylos was unable to sync your financial profile from the database securely. Please check your internet connection and try again.
+          </p>
+          <button
+            onClick={async () => {
+              clearProfileError();
+              await refreshData();
+            }}
+            className="w-full py-4 bg-white/10 hover:bg-white/25 border border-white/10 hover:border-white/20 text-white text-xs font-black uppercase tracking-widest rounded-2xl shadow-xl transition-all active:scale-95"
+          >
+            Retry Connection
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!sessionUser) return <LandingPage />;
 

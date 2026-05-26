@@ -106,11 +106,11 @@ export function EditBudgetModal({ isOpen, onClose }: EditBudgetModalProps) {
       <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 md:p-6 animate-in fade-in duration-300">
         <div className="absolute inset-0 bg-black/60 backdrop-blur-xl cursor-pointer" onClick={onClose} />
         
-        <form onSubmit={handleSubmit} className="relative vylos-glass-modal w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-500 flex flex-col max-h-[90vh]">
+        <form onSubmit={handleSubmit} className="relative vylos-glass-modal w-full max-w-2xl rounded-[1.5rem] sm:rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-500 flex flex-col max-h-[90vh]">
           {/* Subtle top glow effect */}
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent pointer-events-none" />
           {/* Header */}
-          <div className="p-8 border-b border-border-main flex items-center justify-between bg-emerald-500/5 shrink-0">
+          <div className="p-5 sm:p-8 border-b border-border-main flex items-center justify-between bg-emerald-500/5 shrink-0">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-2xl bg-emerald-500 flex items-center justify-center text-white shadow-xl shadow-emerald-500/20">
                 <PieChart size={24} />
@@ -126,7 +126,7 @@ export function EditBudgetModal({ isOpen, onClose }: EditBudgetModalProps) {
           </div>
 
           {/* Content */}
-          <div className="p-8 space-y-8 overflow-y-auto flex-1 custom-scrollbar">
+          <div className="p-5 sm:p-8 space-y-6 sm:space-y-8 overflow-y-auto flex-1 custom-scrollbar">
             {error && (
               <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl text-red-500 text-xs font-bold text-center">
                 {error}
@@ -204,7 +204,7 @@ export function EditBudgetModal({ isOpen, onClose }: EditBudgetModalProps) {
                       <button 
                         type="button" 
                         onClick={() => handleRemoveCategory(cat)}
-                        className="text-text-muted hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all vylos-focus rounded-lg"
+                        className="text-text-muted hover:text-red-500 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all vylos-focus rounded-lg"
                         aria-label={`Remove ${cat} category`}
                       >
                         <Trash2 size={14} />
@@ -244,7 +244,7 @@ export function EditBudgetModal({ isOpen, onClose }: EditBudgetModalProps) {
           </div>
 
           {/* Footer */}
-          <div className="p-8 bg-border-main/20 border-t border-border-main flex gap-4 flex-shrink-0">
+          <div className="p-5 sm:p-8 bg-border-main/20 border-t border-border-main flex gap-4 flex-shrink-0">
             <button 
               type="button"
               onClick={onClose}

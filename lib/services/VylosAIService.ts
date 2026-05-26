@@ -23,21 +23,14 @@ export class VylosAIService {
       throw new Error("UNAUTHORIZED");
     }
 
-    const apiUrl = process.env.NEXT_PUBLIC_VYLOS_AI_API_URL;
-    if (!apiUrl) {
-      throw new Error("MISSING_API_URL");
-    }
-
     try {
-      const response = await fetch(`${apiUrl}/bot/ask`, {
+      const response = await fetch("/api/ai/advisor", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          question: question,
-          user_id: userId
+          messages: [{ role: "user", content: question }]
         })
       });
 
@@ -57,7 +50,7 @@ export class VylosAIService {
 
       const data = await response.json();
       return {
-        answer: data.answer || "",
+        answer: data.reply || "",
         layer: data.layer,
         source: data.source,
         raw_data: data.raw_data
@@ -72,31 +65,9 @@ export class VylosAIService {
   }
 
   static async downloadStatement(): Promise<Blob> {
-    const supabase = createClient();
-    
-    // Get current session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !session) {
-      throw new Error("UNAUTHORIZED");
-    }
-
-    const token = session.access_token;
-    const userId = session.user?.id;
-    if (!userId) {
-      throw new Error("UNAUTHORIZED");
-    }
-
-    const apiUrl = process.env.NEXT_PUBLIC_VYLOS_AI_API_URL;
-    if (!apiUrl) {
-      throw new Error("MISSING_API_URL");
-    }
-
     try {
-      const response = await fetch(`${apiUrl}/bot/download-statement/${userId}`, {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
+      const response = await fetch("/api/ai/download-statement", {
+        method: "GET"
       });
 
       if (!response.ok) {

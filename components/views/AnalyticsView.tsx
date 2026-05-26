@@ -217,7 +217,7 @@ export function AnalyticsView({ netWorth = 124500, chartRef }: AnalyticsViewProp
           interaction: { mode: 'index', intersect: false },
           plugins: { legend: { display: false } },
           scales: {
-            x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#94A3B8' } },
+            x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#94A3B8', maxTicksLimit: 6 } },
             y: { 
               grid: { color: 'rgba(0,0,0,0.05)' }, 
               border: { display: false },
@@ -246,7 +246,7 @@ export function AnalyticsView({ netWorth = 124500, chartRef }: AnalyticsViewProp
           maintainAspectRatio: false,
           plugins: { legend: { display: false } },
           scales: {
-            x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#94A3B8' } },
+            x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#94A3B8', maxTicksLimit: 6 } },
             y: { 
               grid: { color: 'rgba(0,0,0,0.05)' }, 
               border: { display: false },
@@ -364,17 +364,17 @@ export function AnalyticsView({ netWorth = 124500, chartRef }: AnalyticsViewProp
           <p className="text-[13px] font-medium text-slate-500 dark:text-slate-400 mt-1">Your financial journey at a glance.</p>
         </div>
         
-        <div className="vylos-glass-readable p-1.5 flex items-center gap-2">
+        <div className="vylos-glass-readable p-1.5 flex items-center gap-2 overflow-x-auto no-scrollbar max-w-full shrink-0">
           {['This Month', '3 Months', '6 Months', 'YTD', 'Custom'].map(tab => (
             <button 
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-xl text-[12px] font-bold transition-all ${activeTab === tab ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+              className={`px-4 py-2 rounded-xl text-[12px] font-bold transition-all shrink-0 ${activeTab === tab ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
             >
               {tab}
             </button>
           ))}
-          <button className="px-3 py-2 text-slate-500 hover:text-slate-700">
+          <button className="px-3 py-2 text-slate-500 hover:text-slate-700 shrink-0">
             <Filter size={16} />
           </button>
         </div>

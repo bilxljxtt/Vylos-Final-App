@@ -113,14 +113,14 @@ export function ActivityView() {
           filteredNotifications.map((notif) => (
             <div 
               key={notif.id}
-              className={`group flex items-center justify-between p-6 rounded-[2rem] border transition-all hover:translate-x-1 ${
+              className={`group flex items-center justify-between p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] border transition-all hover:translate-x-1 ${
                 !notif.read 
                   ? 'vylos-glass-notification-card shadow-xl shadow-primary/5' 
                   : 'bg-white/5 border-white/5 opacity-80 hover:opacity-100 hover:bg-white/10'
               }`}
             >
-              <div className="flex items-center gap-6 flex-1 min-w-0">
-                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border ${
+              <div className="flex items-center gap-4 sm:gap-6 flex-1 min-w-0">
+                <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center shrink-0 border ${
                   !notif.read ? 'bg-white/20 border-primary/30 shadow-lg' : 'bg-white/5 border-white/10'
                 }`}>
                   {getIcon(notif.type)}
@@ -128,15 +128,15 @@ export function ActivityView() {
                 
                 <div className="flex flex-col min-w-0 flex-1">
                   <div className="flex items-center gap-3">
-                    <h4 className={`text-[15px] font-black tracking-tight truncate ${!notif.read ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>
+                    <h4 className={`text-[14px] sm:text-[15px] font-black tracking-tight truncate ${!notif.read ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>
                       {notif.title}
                     </h4>
                     {!notif.read && <div className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(37,99,235,0.6)]" />}
                   </div>
-                  <p className={`text-[13px] font-medium mt-1.5 leading-relaxed truncate md:whitespace-normal ${!notif.read ? 'text-slate-700 dark:text-white/70' : 'text-slate-500 dark:text-white/40'}`}>
+                  <p className={`text-[12px] sm:text-[13px] font-medium mt-1.5 leading-relaxed break-words whitespace-normal ${!notif.read ? 'text-slate-700 dark:text-white/70' : 'text-slate-500 dark:text-white/40'}`}>
                     {notif.message?.replace(/\[SID:[^\]]+\]/, '').trim() || ""}
                   </p>
-                  <div className="flex items-center gap-4 mt-3">
+                  <div className="flex items-center gap-3 sm:gap-4 mt-3">
                      <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-white/30">
                         <Clock size={12} />
                         {new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -149,13 +149,14 @@ export function ActivityView() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 ml-6">
+              <div className="flex items-center gap-4 ml-4 sm:ml-6 shrink-0">
                 <button 
                   onClick={(e) => handleDelete(notif.id, e)}
-                  className="w-11 h-11 rounded-xl bg-white/5 hover:bg-red-500/10 text-slate-400 hover:text-red-500 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 shadow-sm border border-transparent hover:border-red-500/20"
+                  className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white/5 hover:bg-red-500/10 text-slate-400 hover:text-red-500 flex items-center justify-center transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100 shadow-sm border border-transparent hover:border-red-500/20"
                   aria-label="Delete notification"
                 >
-                  <Trash2 size={18} />
+                  <Trash2 size={16} className="sm:hidden" />
+                  <Trash2 size={18} className="hidden sm:block" />
                 </button>
               </div>
             </div>

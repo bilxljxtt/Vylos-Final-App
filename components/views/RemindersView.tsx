@@ -157,7 +157,7 @@ export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
               setSelectedDate(null);
               document.getElementById('active-reminders')?.scrollIntoView({ behavior: 'smooth' });
             }}
-            className="vylos-glass-readable p-5 flex flex-col justify-between items-center text-center cursor-pointer hover:bg-white/10 transition-all border border-transparent hover:border-white/10 active:scale-95"
+            className="vylos-glass-readable p-3.5 sm:p-5 flex flex-col justify-between items-center text-center cursor-pointer hover:bg-white/10 transition-all border border-transparent hover:border-white/10 active:scale-95"
           >
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${card.color}`}>
               {card.icon}
@@ -280,7 +280,7 @@ export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 pb-12">
         
         {/* All Reminders List */}
-        <div className="lg:col-span-8 vylos-glass-readable p-6 flex flex-col">
+        <div className="lg:col-span-8 vylos-glass-readable p-4 sm:p-6 flex flex-col">
           <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
             <span id="active-reminders" className="text-[16px] font-black text-slate-900 dark:text-white tracking-tight scroll-mt-24">Active Reminders</span>
             <div className="flex items-center gap-2">
@@ -313,28 +313,30 @@ export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
               const tag = isCompleted ? 'Completed' : isOverdue ? 'Overdue' : isToday ? 'Due Today' : 'Upcoming';
 
               return (
-                <div key={i} className="flex items-center justify-between p-4 hover:bg-white/10 rounded-2xl transition-all cursor-pointer group border border-transparent hover:border-white/5">
-                  <div className="flex items-center gap-5">
+                <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 hover:bg-white/10 rounded-2xl transition-all cursor-pointer group border border-transparent hover:border-white/5 gap-3">
+                  <div className="flex items-center gap-3 sm:gap-5 min-w-0">
                     <button 
                       onClick={(e) => { e.stopPropagation(); handleComplete(r); }}
-                      className={`w-11 h-11 rounded-[1.25rem] flex items-center justify-center shrink-0 transition-all shadow-sm ${r.status === 'completed' ? 'bg-emerald-500 text-white' : 'bg-white/5 dark:bg-white/5 border border-white/10 text-slate-400 hover:bg-primary hover:text-white hover:border-primary'}`}
+                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-[1.25rem] flex items-center justify-center shrink-0 transition-all shadow-sm ${r.status === 'completed' ? 'bg-emerald-500 text-white' : 'bg-white/5 dark:bg-white/5 border border-white/10 text-slate-400 hover:bg-primary hover:text-white hover:border-primary'}`}
                     >
-                      {r.status === 'completed' ? <CheckCircle2 size={20} /> : <div className="w-5 h-5 rounded-full border-2 border-current" />}
+                      {r.status === 'completed' ? <CheckCircle2 size={18} /> : <div className="w-5 h-5 rounded-full border-2 border-current" />}
                     </button>
-                    <div className="flex flex-col">
-                      <span className={`text-[14px] font-black transition-colors ${r.status === 'completed' ? 'text-slate-400 line-through' : 'text-slate-900 dark:text-white'}`}>{r.title}</span>
-                      <span className="text-[11px] font-medium text-slate-500 opacity-60">{r.description || r.category}</span>
+                    <div className="flex flex-col min-w-0">
+                      <span className={`text-[13px] sm:text-[14px] font-black transition-colors truncate ${r.status === 'completed' ? 'text-slate-400 line-through' : 'text-slate-900 dark:text-white'}`}>{r.title}</span>
+                      <span className="text-[10px] sm:text-[11px] font-medium text-slate-500 opacity-60 truncate">{r.description || r.category}</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-8">
-                    <div className="flex flex-col text-right w-20">
-                      <span className="text-[12px] font-black text-slate-900 dark:text-white">{isToday ? 'Today' : r.due_date}</span>
+                  <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-6 pl-[52px] sm:pl-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] sm:text-[12px] font-black text-slate-900 dark:text-white">{isToday ? 'Today' : r.due_date}</span>
+                      <div className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ${tagC}`}>
+                        {tag}
+                      </div>
                     </div>
-                    <div className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest w-24 text-center ${tagC}`}>
-                      {tag}
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-[13px] sm:text-[15px] font-black text-slate-900 dark:text-white w-20 text-right">{formatCurrency(r.amount || 0)}</span>
+                      <ChevronRight size={16} className="text-slate-400 group-hover:text-primary transition-colors shrink-0" />
                     </div>
-                    <span className="text-[15px] font-black text-slate-900 dark:text-white w-20 text-right">{formatCurrency(r.amount || 0)}</span>
-                    <ChevronRight size={18} className="text-slate-400 group-hover:text-primary transition-colors" />
                   </div>
                 </div>
               );

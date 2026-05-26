@@ -10,6 +10,7 @@ import { useAppStore } from "@/lib/AppContext";
 import { UserProfile, computeHealthScoreMetrics } from "@/lib/store";
 import { Permissions } from "@/lib/permissions";
 import { VylosCalculations } from "@/lib/vylosCalculations";
+import { VylosAIService } from "@/lib/services/VylosAIService";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -99,6 +100,31 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
                 <button 
                   onClick={() => setPage(targetPage)}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 mx-1 mt-2 mb-1 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/40 text-[12px] font-black uppercase tracking-widest text-white rounded-lg transition-all active:scale-95"
+                >
+                  {children} <ArrowRight size={14} />
+                </button>
+              );
+            }
+            if (href?.includes("download-statement")) {
+              return (
+                <button 
+                  onClick={async () => {
+                    try {
+                      const blob = await VylosAIService.downloadStatement();
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = "vylos-statement.pdf";
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      window.URL.revokeObjectURL(url);
+                    } catch (e: any) {
+                      console.error("Failed to download statement:", e);
+                      alert("Failed to download statement. Please check your connection and try again.");
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 mx-1 mt-2 mb-1 bg-emerald-500 hover:bg-emerald-600 border border-emerald-400 text-[12px] font-black uppercase tracking-widest text-white rounded-lg transition-all active:scale-95 shadow-lg"
                 >
                   {children} <ArrowRight size={14} />
                 </button>

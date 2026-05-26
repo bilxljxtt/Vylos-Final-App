@@ -41,6 +41,11 @@ export class LogicAdvisor {
     // Check for "bills" or "reminders"
     if (q.includes("bill") || q.includes("reminder") || q.includes("due")) {
        return "To see your upcoming bills and overdue payments, please check your reminders calendar. [View Reminders|calendar]";
+     }
+
+    // Check for PDF/statement download
+    if (q.includes("pdf") || q.includes("statement") || q.includes("download") || q.includes("export")) {
+      return "I can generate a PDF copy of your financial statement. [Download PDF Statement](download-statement)";
     }
 
     // Default response

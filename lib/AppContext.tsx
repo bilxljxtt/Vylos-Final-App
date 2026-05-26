@@ -260,6 +260,8 @@ interface AppContextValue {
   formatCurrency: (val: number) => string;
   sessionUser: any;
   isAuthLoaded: boolean;
+  profileLoadingError: string | null;
+  clearProfileError: () => void;
   lastSynced: Date | null;
   setSelectedMonth: (date: string) => void;
   refreshData: () => Promise<void>;
@@ -272,10 +274,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [sessionUser, setSessionUser] = useState<any>(null);
   const [isAuthLoaded, setIsAuthLoaded] = useState(false);
+  const [profileLoadingError, setProfileLoadingError] = useState<string | null>(null);
   const [lastNotificationCheck, setLastNotificationCheck] = useState<number>(0);
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const supabase = useMemo(() => createClient(), []);
   const healthScoreTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  
+  const profileRef = React.useRef(state.userProfile);
+  React.useEffect(() => {
+    profileRef.current = state.userProfile;
+  }, [state.userProfile]);
+
+  const hydratingUserRef = React.useRef<string | null>(null);
+
+  const clearProfileError = useCallback(() => {
+    setProfileLoadingError(null);
+  }, []);
 
   const triggerHealthScoreRecalculation = useCallback(() => {
     if (healthScoreTimeoutRef.current) clearTimeout(healthScoreTimeoutRef.current);
@@ -1015,10 +1029,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!user) {
       setSessionUser(null);
       dispatch({ type: "RESET" });
+      hydratingUserRef.current = null;
+      setProfileLoadingError(null);
       setIsAuthLoaded(true);
       return;
     }
+
+    if (hydratingUserRef.current === user.id) {
+      console.log("Hydration already in progress or completed for user:", user.id);
+      return;
+    }
+    hydratingUserRef.current = user.id;
+
     setSessionUser(user);
+    setProfileLoadingError(null); // Clear error on new hydration attempt
 
     const currentMonth = new Date().toISOString().slice(0, 7);
     const results = await Promise.all([
@@ -1037,9 +1061,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     ]);
 
     const [profRes, txsRes, subsRes, gpsRes, contribsRes, budgetsRes, notifyRes, remRes, compRes, rulesRes, usageRes, scoreRes] = results;
+    
+    // Check if the query returned an error that is NOT 'PGRST116' (row not found)
+    const isNoRowFound = profRes.error && profRes.error.code === 'PGRST116';
+    if (profRes.error && !isNoRowFound) {
+      console.error("Critical error fetching user profile:", profRes.error);
+      // Release lock ref so user can click retry
+      hydratingUserRef.current = null;
+      // If we don't have profile data loaded yet, show the connection error screen
+      if (!profileRef.current.id) {
+        setProfileLoadingError(profRes.error.message || "Failed to load user profile");
+      } else {
+        console.warn("Background profile sync deferred due to query failure.");
+      }
+      setIsAuthLoaded(true);
+      return;
+    }
+
     let prof = profRes.data;
-    if (!prof && user) {
-      // Auto-create default user profile row in database if missing (e.g. on Google OAuth signup)
+    if (!prof && user && isNoRowFound) {
+      // Auto-create default user profile row in database since it is confirmed missing
       const defaultProf = {
         id: user.id,
         name: user.user_metadata?.full_name || user.email?.split('@')[0] || "User",
@@ -1213,7 +1254,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const refreshData = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (user) await hydrateCloudState(user);
+    if (user) {
+      hydratingUserRef.current = null; // Clear lock to force re-hydration
+      await hydrateCloudState(user);
+    }
   }, [hydrateCloudState, supabase]);
 
   useEffect(() => {
@@ -1360,6 +1404,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         formatCurrency,
         sessionUser,
         isAuthLoaded,
+        profileLoadingError,
+        clearProfileError,
         lastSynced,
         setSelectedMonth,
         refreshData,
