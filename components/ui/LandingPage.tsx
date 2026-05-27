@@ -19,7 +19,7 @@ export function LandingPage() {
   }, []);
 
   return (
-    <div className="vylos-bg-premium min-h-screen w-full flex flex-col relative overflow-x-hidden font-inter selection:bg-blue-500/30">
+    <div className="dark vylos-bg-premium min-h-screen w-full flex flex-col relative overflow-x-hidden font-inter selection:bg-blue-500/30">
       
       {/* ─── Navigation ─── */}
       <nav className={`fixed top-0 left-0 right-0 z-[100] transition-all duration-500 ${scrolled ? 'py-4' : 'py-8'}`}>
@@ -188,7 +188,7 @@ export function LandingPage() {
       </section>
 
       {/* ─── Trust Bar ─── */}
-      <div className="border-y border-white/5 bg-white/[0.02] backdrop-blur-sm py-12 px-6">
+      <div className="my-16 border-y border-white/5 bg-white/[0.02] backdrop-blur-sm py-16 px-6">
         <div className="max-w-7xl mx-auto flex flex-wrap justify-center lg:justify-between items-center gap-12 opacity-30">
             {[
                 { icon: <Shield size={18} />, title: "256-bit encryption" },
@@ -205,7 +205,7 @@ export function LandingPage() {
       </div>
 
       {/* ─── Features Grid ─── */}
-      <section className="py-24 lg:py-32 px-6 relative">
+      <section className="py-32 lg:py-40 px-6 relative">
         <div className="max-w-7xl mx-auto">
             <div className="text-center mb-20">
                 <h2 className="text-4xl md:text-5xl font-black text-white tracking-tight mb-4">Powerful tools for <span className="text-blue-200 italic font-serif">modern builders.</span></h2>
@@ -258,7 +258,7 @@ export function LandingPage() {
       </section>
 
       {/* ─── Final CTA ─── */}
-      <section className="py-24 lg:py-32 px-6">
+      <section className="py-32 lg:py-40 px-6">
         <div className="max-w-5xl mx-auto vylos-glass rounded-[40px] p-12 lg:p-20 text-center relative overflow-hidden border-white/20">
             <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-[100px]" />
             <div className="absolute bottom-0 left-0 w-96 h-96 bg-indigo-500/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-[100px]" />

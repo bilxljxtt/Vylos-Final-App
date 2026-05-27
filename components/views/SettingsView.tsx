@@ -169,7 +169,6 @@ export function SettingsView({
              <span className="text-[10px] font-black text-primary uppercase tracking-widest">App Settings</span>
           </div>
           <h2 className="text-5xl font-black text-text-main tracking-tighter leading-none">Settings</h2>
-          <p className="text-sm font-bold text-text-muted mt-2 opacity-60">Manage your profile settings and platform preferences.</p>
         </div>
         <button 
           type="button"

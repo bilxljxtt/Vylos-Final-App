@@ -33,14 +33,24 @@ interface AIAdvisorViewProps {
   userProfile: UserProfile;
   setPage: (page: string) => void;
   setAiMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+  dailyUsed?: number;
+  monthlyUsed?: number;
 }
 
 export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
-  aiMessages, aiInput, setAiInput, sendAI, aiLoading, userProfile, setPage, setAiMessages
+  aiMessages, aiInput, setAiInput, sendAI, aiLoading, userProfile, setPage, setAiMessages,
+  dailyUsed = 0, monthlyUsed = 0
 }) => {
   const { state } = useAppStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const hasAccess = Permissions.canUseAIAdvisor(userProfile);
+
+  const isDeveloper = userProfile.email === 'bilxljxtt10@gmail.com';
+  const isFree = userProfile.subscription_tier === 'free';
+  const limit = isFree ? 5 : Permissions.getAIMonthlyLimit(userProfile);
+  const used = isFree ? dailyUsed : monthlyUsed;
+  const remaining = isDeveloper ? 9999 : Math.max(0, limit - used);
+  const isLimitReached = !isDeveloper && remaining <= 0;
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -49,10 +59,12 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
   }, [aiMessages]);
 
   const handleQuickPrompt = (prompt: string) => {
+    if (isLimitReached) return;
     setAiInput(prompt);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (isLimitReached) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendAI();
@@ -150,21 +162,31 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
         <div>
           <h2 className="text-[28px] font-black text-slate-900 dark:text-white tracking-tight leading-tight mb-1">Vylos Advisor</h2>
-          <p className="text-[13px] font-medium text-slate-500 dark:text-slate-400 mt-1">Your AI financial assistant. Ask questions, get insights, and plan your future.</p>
         </div>
         
-        <button 
-          onClick={() => setAiMessages([{
-            id: "initial-assistant-msg",
-            role: "assistant",
-            content: `Hello ${userProfile.name || 'there'}! I'm your Vylos AI Advisor. How can I help you with your finances today?`,
-            timestamp: new Date().toISOString()
-          }])}
-          className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-white/5 border border-slate-200/60 dark:border-white/10 hover:border-blue-500 text-blue-600 rounded-2xl text-[13px] font-bold shadow-sm transition-all"
-        >
-          <Plus size={16} strokeWidth={3} />
-          New Chat
-        </button>
+        <div className="flex items-center gap-3">
+          {!isDeveloper && (
+            <div className="px-4 py-2 bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/10 rounded-2xl text-[12px] font-bold text-slate-500 dark:text-slate-400">
+              {isFree ? (
+                <span>Daily Limit: <strong className="text-primary">{remaining} / 5</strong> remaining</span>
+              ) : (
+                <span>Monthly Limit: <strong className="text-primary">{remaining} / {limit}</strong> remaining</span>
+              )}
+            </div>
+          )}
+          <button 
+            onClick={() => setAiMessages([{
+              id: "initial-assistant-msg",
+              role: "assistant",
+              content: `Hello ${userProfile.name || 'there'}! I'm your Vylos AI Advisor. How can I help you with your finances today?`,
+              timestamp: new Date().toISOString()
+            }])}
+            className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-white/5 border border-slate-200/60 dark:border-white/10 hover:border-blue-500 text-blue-600 rounded-2xl text-[13px] font-bold shadow-sm transition-all"
+          >
+            <Plus size={16} strokeWidth={3} />
+            New Chat
+          </button>
+        </div>
       </div>
 
       {/* ─── Main Content Grid ─── */}
@@ -224,6 +246,20 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
 
           {/* Input Area */}
           <div className="p-8 bg-white/5 border-t border-white/10 shrink-0">
+            {isLimitReached && (
+              <div className="mb-4 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-bold flex items-center justify-between">
+                <span>You have reached your daily limit of 5 AI messages. Upgrade to get higher monthly limits!</span>
+                {isFree && (
+                  <button 
+                    onClick={() => setPage("pricing")}
+                    className="px-3 py-1.5 bg-amber-500 text-white rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-amber-600 transition-colors"
+                  >
+                    View Plans
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Suggested Prompts */}
             <div className="flex items-center gap-3 overflow-x-auto no-scrollbar mb-6">
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0 mr-2 opacity-60">Suggested</span>
@@ -231,7 +267,8 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
                 <button 
                   key={p} 
                   onClick={() => handleQuickPrompt(p)}
-                  className="px-4 py-2 bg-white/5 hover:bg-primary/10 border border-white/10 hover:border-primary/30 text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-white/60 hover:text-primary rounded-xl transition-all whitespace-nowrap"
+                  disabled={isLimitReached}
+                  className="px-4 py-2 bg-white/5 hover:bg-primary/10 border border-white/10 hover:border-primary/30 text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-white/60 hover:text-primary rounded-xl transition-all whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {p}
                 </button>
@@ -239,7 +276,7 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
             </div>
 
             <div className="relative flex items-center">
-              <button className="absolute left-5 p-2 text-slate-400 hover:text-primary transition-colors">
+              <button className="absolute left-5 p-2 text-slate-400 hover:text-primary transition-colors" disabled={isLimitReached}>
                 <Paperclip size={20} />
               </button>
               <input 
@@ -247,13 +284,14 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
                 value={aiInput}
                 onChange={(e) => setAiInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask Vylos anything about your finances..." 
-                className="w-full pl-14 pr-16 py-5 bg-white/5 border border-white/10 rounded-2xl text-[14px] font-bold text-slate-900 dark:text-white placeholder-slate-500 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 shadow-inner transition-all"
+                disabled={isLimitReached}
+                placeholder={isLimitReached ? "Daily AI message limit reached. Upgrade to continue." : "Ask Vylos anything about your finances..."} 
+                className="w-full pl-14 pr-16 py-5 bg-white/5 border border-white/10 rounded-2xl text-[14px] font-bold text-slate-900 dark:text-white placeholder-slate-500 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 shadow-inner transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               />
               <button 
                 onClick={sendAI}
-                disabled={aiLoading || !aiInput.trim()}
-                className="absolute right-2.5 p-3.5 bg-primary disabled:bg-slate-700 text-white rounded-xl shadow-xl shadow-primary/20 transition-all hover:bg-emerald-400 hover:-translate-y-0.5 active:scale-95 disabled:translate-y-0"
+                disabled={aiLoading || !aiInput.trim() || isLimitReached}
+                className="absolute right-2.5 p-3.5 bg-primary disabled:bg-slate-700 text-white rounded-xl shadow-xl shadow-primary/20 transition-all hover:bg-emerald-400 hover:-translate-y-0.5 active:scale-95 disabled:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Send size={18} strokeWidth={2.5} />
               </button>

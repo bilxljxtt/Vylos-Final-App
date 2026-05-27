@@ -108,7 +108,6 @@ export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-[28px] font-black text-slate-900 dark:text-white tracking-tight leading-tight">Reminders</h2>
-          <p className="text-[13px] font-medium text-slate-500 dark:text-slate-400 mt-1">Stay on top of bills, goals, and important financial to-dos.</p>
         </div>
         
         <div className="flex items-center gap-2">

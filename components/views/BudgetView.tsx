@@ -285,7 +285,6 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-[28px] font-black text-slate-900 dark:text-white tracking-tight leading-tight">Budget</h2>
-          <p className="text-[13px] font-medium text-slate-500 dark:text-slate-400 mt-1">Plan smart. Spend wisely. Build your future.</p>
         </div>
         
         <div className="flex flex-wrap items-center gap-3 sm:gap-4">
@@ -316,14 +315,14 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
           
           {/* Realistic Warning Banner */}
           {budgetSummary.isUnrealistic && (
-            <div className="vylos-glass-soft p-6 border border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/10 flex items-start gap-4 animate-in fade-in slide-in-from-top-4 duration-500 text-slate-700 dark:text-slate-200">
+            <div className="vylos-warning-card p-6 flex items-start gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
               <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0 border border-amber-500/20 shadow-lg shadow-amber-500/5">
                 <Divide size={24} className="rotate-45" />
               </div>
               <div className="flex-1">
                 <h4 className="text-[13px] font-black text-amber-600 uppercase tracking-widest mb-1">Over-Allocation Warning</h4>
-                <p className="text-[12px] font-medium text-slate-700 dark:text-slate-200 leading-relaxed">
-                  Your total budget allocation (<span className="font-bold text-slate-900 dark:text-white">{formatCurrency(budgetSummary.totalAllocated)}</span>) exceeds your monthly income (<span className="font-bold text-slate-900 dark:text-white">{formatCurrency(budgetSummary.monthlyIncome)}</span>). This setup may lead to debt accumulation. Consider reducing your limits.
+                <p className="text-[12px] font-medium leading-relaxed">
+                  Your total budget allocation (<span className="font-bold">{formatCurrency(budgetSummary.totalAllocated)}</span>) exceeds your monthly income (<span className="font-bold">{formatCurrency(budgetSummary.monthlyIncome)}</span>). This setup may lead to debt accumulation. Consider reducing your limits.
                 </p>
               </div>
             </div>

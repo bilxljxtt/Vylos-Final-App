@@ -261,8 +261,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ setPage }) => {
         {/* Calendar Header */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-8 lg:mb-10 gap-6 relative z-10">
           <div className="flex flex-col">
-             <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-none mb-2">Calendar</h2>
-             <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Financial Timeline & Tasks</p>
+             <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-none">Calendar</h2>
           </div>
           
           <div className="flex flex-wrap items-center gap-3 sm:gap-4">

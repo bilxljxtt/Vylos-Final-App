@@ -361,7 +361,6 @@ export function AnalyticsView({ netWorth = 124500, chartRef }: AnalyticsViewProp
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-[28px] font-black text-slate-900 dark:text-white tracking-tight leading-tight">Progress Overview</h2>
-          <p className="text-[13px] font-medium text-slate-500 dark:text-slate-400 mt-1">Your financial journey at a glance.</p>
         </div>
         
         <div className="vylos-glass-readable p-1.5 flex items-center gap-2 overflow-x-auto no-scrollbar max-w-full shrink-0">

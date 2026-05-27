@@ -302,6 +302,25 @@ input, textarea, [contenteditable="true"], .selectable-text {
   }
 }
 
+/* Warning/Alert Glass Card — High readability in light and dark modes */
+@utility vylos-warning-card {
+  background: rgba(226, 236, 255, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  backdrop-filter: blur(18px) saturate(130%);
+  -webkit-backdrop-filter: blur(18px) saturate(130%);
+  color: #0f172a;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.10);
+  border-radius: 20px;
+  transition: all 0.3s ease;
+
+  @variant dark {
+    background: rgba(15, 23, 42, 0.58);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    color: #e5f0ff;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  }
+}
+
 /* Overlay Glass — For backdrop behind modals/sidebars */
 .vylos-glass-overlay {
   background: rgba(5, 12, 30, 0.45);

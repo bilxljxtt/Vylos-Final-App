@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { MessageCircle } from "lucide-react";
 import { Chart, registerables } from 'chart.js';
 import { useAppStore } from "@/lib/AppContext";
@@ -254,6 +254,8 @@ export default function App() {
   }, [engineOutput, stats.budgetUtilization, savingsRate, state, transactionIndex]);
   const [filterCat, setFilterCat] = useState("All");
   const [aiLoading, setAiLoading] = useState(false);
+  const [dailyUsed, setDailyUsed] = useState(0);
+  const [monthlyUsed, setMonthlyUsed] = useState(0);
   const [aiMessages, setAiMessages] = useState<Message[]>([
     {
       id: "initial-assistant-msg",
@@ -263,6 +265,40 @@ export default function App() {
     }
   ]);
   const [aiInput, setAiInput] = useState("");
+
+  const fetchAiUsage = useCallback(async () => {
+    if (!sessionUser) return;
+    try {
+      const supabase = createClient();
+      const today = new Date().toISOString().slice(0, 10);
+      const currentMonth = new Date().toISOString().slice(0, 7);
+
+      const { data: dailyData } = await supabase
+        .from('ai_daily_usage')
+        .select('message_count')
+        .eq('user_id', sessionUser.id)
+        .eq('usage_date', today)
+        .maybeSingle();
+
+      const { data: monthlyData } = await supabase
+        .from('ai_usage')
+        .select('messages_used')
+        .eq('user_id', sessionUser.id)
+        .eq('billing_month', currentMonth)
+        .maybeSingle();
+
+      setDailyUsed(dailyData?.message_count || 0);
+      setMonthlyUsed(monthlyData?.messages_used || 0);
+    } catch (err) {
+      console.error("Error fetching AI limits:", err);
+    }
+  }, [sessionUser]);
+
+  useEffect(() => {
+    if (page === "ai") {
+      fetchAiUsage();
+    }
+  }, [page, fetchAiUsage]);
   
   const chartRef = useRef<HTMLCanvasElement>(null);
   const donutRef = useRef<HTMLCanvasElement>(null);
@@ -620,6 +656,22 @@ export default function App() {
       return;
     }
 
+    const isDeveloper = state.userProfile.email === 'bilxljxtt10@gmail.com';
+    if (!isDeveloper) {
+      if (state.userProfile.subscription_tier === 'free') {
+        if (dailyUsed >= 5) {
+          showToast("Daily AI limit reached. Please try again tomorrow.", "error");
+          return;
+        }
+      } else {
+        const monthlyLimit = Permissions.getAIMonthlyLimit(state.userProfile);
+        if (monthlyUsed >= monthlyLimit) {
+          showToast(`You have reached your Vylos Advisor limit of ${monthlyLimit} messages for this month.`, "error");
+          return;
+        }
+      }
+    }
+
     const userMsg = aiInput.trim();
     const userMsgId = `msg-user-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
     const assistantMsgId = `msg-assistant-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
@@ -647,6 +699,7 @@ export default function App() {
         layer: response.layer
       };
       setAiMessages(prev => [...prev, newAssistantMessage]);
+      await fetchAiUsage();
     } catch (e: any) {
       let errorMessage = "AI service connection failed. Please check the backend connection.";
       
@@ -660,6 +713,7 @@ export default function App() {
         errorMessage = "You do not have permission to access this AI feature.";
       } else if (e.message === "RATE_LIMITED") {
         errorMessage = "You’ve reached the AI message limit for now. Please try again later.";
+        await fetchAiUsage();
       } else if (e.message === "BACKEND_ERROR") {
         errorMessage = "Vylos AI is temporarily unavailable. Please try again shortly.";
       }
@@ -882,6 +936,8 @@ export default function App() {
             userProfile={state.userProfile}
             setPage={setPage}
             setAiMessages={setAiMessages}
+            dailyUsed={dailyUsed}
+            monthlyUsed={monthlyUsed}
           />
         )}
 

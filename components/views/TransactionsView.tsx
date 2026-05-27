@@ -136,8 +136,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
       {/* ─── Header Section ─── */}
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
-          <h2 className="text-[28px] font-black text-slate-900 dark:text-white tracking-tight leading-tight mb-1">Transactions</h2>
-          <p className="text-[13px] font-medium text-slate-500 dark:text-slate-400 mt-1">Manage and track your financial activity across the Vylos ecosystem.</p>
+          <h2 className="text-[28px] font-black text-slate-900 dark:text-white tracking-tight leading-tight">Transactions</h2>
         </div>
 
         <button 

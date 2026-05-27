@@ -22,31 +22,51 @@ export async function POST(req: NextRequest) {
     const { data: profile } = await supabase.from('user_profiles').select('*').eq('id', user.id).single();
     if (!profile) return NextResponse.json({ reply: "Profile not found." });
 
-    // 3. Subscription Block for Free Users
+    // 3. Subscription Block check
     if (!Permissions.canUseAIAdvisor(profile)) {
       return NextResponse.json({ 
-        reply: "Vylos Advisor is a premium feature. Please upgrade your plan to unlock personalized AI guidance." 
+        reply: "Vylos Advisor is currently unavailable. Please check your account settings." 
       });
     }
 
     // 4. Usage Tracking & Limits
+    const isDeveloper = user.email === 'bilxljxtt10@gmail.com';
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+    let dailyUsed = 0;
+    let monthlyUsed = 0;
     const monthlyLimit = Permissions.getAIMonthlyLimit(profile);
 
-    // Fetch usage record
-    const { data: usageData } = await supabase
-      .from('ai_usage')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('billing_month', currentMonth)
-      .single();
+    if (!isDeveloper) {
+      if (profile.subscription_tier === 'free') {
+        const { data: dailyUsage } = await supabase
+          .from('ai_daily_usage')
+          .select('message_count')
+          .eq('user_id', user.id)
+          .eq('usage_date', today)
+          .maybeSingle();
+        
+        dailyUsed = dailyUsage?.message_count || 0;
+        if (dailyUsed >= 5) {
+          return NextResponse.json({ 
+            reply: "Daily AI limit reached. Please try again tomorrow." 
+          }, { status: 429 });
+        }
+      } else {
+        const { data: usageData } = await supabase
+          .from('ai_usage')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('billing_month', currentMonth)
+          .maybeSingle();
 
-    const used = usageData?.messages_used || 0;
-
-    if (used >= monthlyLimit) {
-      return NextResponse.json({ 
-        reply: `You have reached your Vylos Advisor limit of ${monthlyLimit} messages for this month. Upgrade your plan or wait until your limit resets next month.` 
-      });
+        monthlyUsed = usageData?.messages_used || 0;
+        if (monthlyUsed >= monthlyLimit) {
+          return NextResponse.json({ 
+            reply: `You have reached your Vylos Advisor limit of ${monthlyLimit} messages for this month. Upgrade your plan or wait until your limit resets next month.` 
+          }, { status: 429 });
+        }
+      }
     }
 
     // 5. Fetch Real Data Context
@@ -143,12 +163,27 @@ export async function POST(req: NextRequest) {
     }
 
     // 8. Increment Usage on Success
-    await supabase.from('ai_usage').upsert({
-      user_id: user.id,
-      billing_month: currentMonth,
-      messages_used: used + 1,
-      last_used_at: new Date().toISOString()
-    });
+    if (!isDeveloper) {
+      if (profile.subscription_tier === 'free') {
+        await supabase.from('ai_daily_usage').upsert({
+          user_id: user.id,
+          usage_date: today,
+          message_count: dailyUsed + 1,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,usage_date'
+        });
+      } else {
+        await supabase.from('ai_usage').upsert({
+          user_id: user.id,
+          billing_month: currentMonth,
+          messages_used: monthlyUsed + 1,
+          last_used_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,billing_month'
+        });
+      }
+    }
 
     return NextResponse.json({ reply });
   } catch (err: any) {

@@ -29,12 +29,12 @@ const TIER_CONFIG: Record<UserProfile['subscription_tier'], TierFeatures> = {
       goals: true,
       advanced_reports: false,
       transaction_imports: 'limited',
-      ai_advisor: false,
+      ai_advisor: true,
       business_tools: false,
       team_features: false,
       reminders: false,
     },
-    aiLimit: 'none',
+    aiLimit: 'limited',
     aiMonthlyLimit: 0,
   },
   individual: {
@@ -137,13 +137,8 @@ export class Permissions {
       return !!user.onboardingAnswers?.allowTrialAI || !!(user as any).allow_trial_ai;
     }
 
-    // Free users: no AI access
-    if (user.subscription_tier === 'free') {
-      return false;
-    }
-
-    // Paid users: AI access allowed
-    return user.subscription_status === 'active';
+    // Free users: now allowed with daily limit
+    return true;
   }
 
   /**

@@ -604,7 +604,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
             <div className="vylos-glass-readable !p-8 md:!p-12 !rounded-[40px] shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500 relative">
               
               {/* Progress Indicator */}
-              <div className="absolute top-10 right-10 text-[10px] font-black text-slate-300 dark:text-white/20 uppercase tracking-[0.3em]">
+              <div className="absolute top-10 right-10 text-[10px] font-black text-slate-600 dark:text-white/40 uppercase tracking-[0.3em]">
                 Step {currentProgressIndex} of {totalProgressCount}
               </div>
 
@@ -618,7 +618,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                   <div className="space-y-6">
                     <h2 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">Tell us about yourself</h2>
                     <div className="space-y-4">
-                      <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-2">What best describes you?</label>
+                      <label className="text-[11px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-[0.2em] ml-2">What best describes you?</label>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {[
                           { id: "student", label: "🎓 Student" },
@@ -637,7 +637,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                             className={`p-5 rounded-2xl border text-left font-black text-sm tracking-tight transition-all duration-300
                               ${answers.userType === opt.id 
                                 ? "bg-blue-600 border-blue-600 text-white shadow-xl shadow-blue-600/20" 
-                                : "bg-white/5 border-white/10 text-slate-600 dark:text-slate-400 hover:border-blue-600/30"
+                                : "bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-400 hover:border-blue-600/30"
                               }
                             `}
                           >
@@ -647,7 +647,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                       </div>
                     </div>
                     <div className="space-y-2 mt-6">
-                      <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-2">What is your age?</label>
+                      <label className="text-[11px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-[0.2em] ml-2">What is your age?</label>
                       <input
                         type="number"
                         min="12"
@@ -676,7 +676,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                           className={`p-6 rounded-2xl border font-black text-lg transition-all duration-300
                             ${answers.hasBudget === val 
                               ? "bg-blue-600 border-blue-600 text-white shadow-xl shadow-blue-600/20" 
-                              : "bg-white/5 border-white/10 text-slate-600 dark:text-slate-400 hover:border-blue-600/30"
+                              : "bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-400 hover:border-blue-600/30"
                             }
                           `}
                         >
@@ -687,7 +687,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
 
                     {answers.hasBudget === "Yes" && (
                       <div className="space-y-4 pt-6 border-t border-white/5 animate-in fade-in duration-300">
-                        <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-2">What would you like to do?</label>
+                        <label className="text-[11px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-[0.2em] ml-2">What would you like to do?</label>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {[
                             { id: "import", label: "📊 Import existing budget", desc: "Upload a spreadsheet (CSV/XLSX)" },
@@ -700,7 +700,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                               className={`p-5 rounded-2xl border text-left transition-all duration-300
                                 ${answers.budgetChoice === choice.id
                                   ? "bg-blue-600 border-blue-600 text-white shadow-xl shadow-blue-600/20"
-                                  : "bg-white/5 border-white/10 text-slate-600 dark:text-slate-400 hover:border-blue-600/30"
+                                  : "bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-400 hover:border-blue-600/30"
                                 }
                               `}
                             >
@@ -845,7 +845,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
 
                     {/* Monthly Hobbies spend */}
                     <div className="space-y-4 pt-6 border-t border-white/5">
-                      <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-2">Around how much do you spend monthly on hobbies and outings?</label>
+                      <label className="text-[11px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-[0.2em] ml-2">Around how much do you spend monthly on hobbies and outings?</label>
                       <div className="relative">
                         <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-xl text-slate-400">R</span>
                         <input
@@ -864,7 +864,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                             key={v}
                             type="button"
                             onClick={() => updateAnswer("hobbiesSpend", v)}
-                            className="bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold px-4 py-2.5 rounded-xl text-slate-500 dark:text-slate-300"
+                            className="bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-xs font-bold px-4 py-2.5 rounded-xl text-slate-800 dark:text-slate-300"
                           >
                             {v === "0" ? "R0 - R250" : v === "350" ? "R250 - R500" : v === "750" ? "R500 - R1,000" : v === "1800" ? "R1,000 - R2,500" : v === "3500" ? "R2,500 - R5,000" : "R5,000+"}
                           </button>
@@ -929,7 +929,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
 
                     {/* Custom goal field */}
                     <div className="space-y-3 pt-6 border-t border-white/5">
-                      <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-2">Add a Custom Goal</label>
+                      <label className="text-[11px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-[0.2em] ml-2">Add a Custom Goal</label>
                       <div className="flex gap-4">
                         <input
                           type="text"
@@ -1107,7 +1107,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                             className={`p-4 rounded-xl border text-left text-sm font-black transition-all duration-200
                               ${isSel 
                                 ? "bg-blue-600 border-blue-600 text-white" 
-                                : "bg-white/5 border-white/10 text-slate-600 dark:text-slate-400 hover:border-blue-600/30"
+                                : "bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-400 hover:border-blue-600/30"
                               }
                             `}
                           >
@@ -1197,7 +1197,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                     </div>
 
                     <div className="space-y-4">
-                      <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-2">Total Monthly Essentials Cost</label>
+                      <label className="text-[11px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-[0.2em] ml-2">Total Monthly Essentials Cost</label>
                       <div className="relative">
                         <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-2xl text-slate-400">R</span>
                         <input
@@ -1269,7 +1269,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                           className={`p-6 rounded-2xl border font-black text-lg transition-all duration-300
                             ${answers.hasDebt === val 
                               ? "bg-blue-600 border-blue-600 text-white shadow-xl shadow-blue-600/20" 
-                              : "bg-white/5 border-white/10 text-slate-600 dark:text-slate-400 hover:border-blue-600/30"
+                              : "bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-400 hover:border-blue-600/30"
                             }
                           `}
                         >
@@ -1390,7 +1390,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                           className={`p-6 rounded-2xl border text-left font-black text-sm transition-all duration-300
                             ${answers.budgetTarget === opt.id 
                               ? "bg-blue-600 border-blue-600 text-white shadow-xl shadow-blue-600/20" 
-                              : "bg-white/5 border-white/10 text-slate-600 dark:text-slate-400 hover:border-blue-600/30"
+                              : "bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-400 hover:border-blue-600/30"
                             }
                           `}
                         >
@@ -1458,7 +1458,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                           className={`p-5 rounded-2xl border text-left font-black text-sm transition-all duration-300
                             ${answers.trackingMethod === opt.id 
                               ? "bg-blue-600 border-blue-600 text-white shadow-xl shadow-blue-600/20" 
-                              : "bg-white/5 border-white/10 text-slate-600 dark:text-slate-400 hover:border-blue-600/30"
+                              : "bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-400 hover:border-blue-600/30"
                             }
                           `}
                         >
@@ -1480,7 +1480,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
               <div className="flex items-center justify-between pt-10 border-t border-slate-100 dark:border-white/5">
                 <button 
                   onClick={handleBack}
-                  className="flex items-center gap-2 px-6 py-4 rounded-2xl font-black text-xs text-slate-400 hover:text-slate-900 dark:hover:text-white uppercase tracking-[0.2em] transition-all"
+                  className="flex items-center gap-2 px-6 py-4 rounded-2xl font-black text-xs text-slate-600 dark:text-white/40 hover:text-slate-900 dark:hover:text-white uppercase tracking-[0.2em] transition-all"
                 >
                   <ArrowLeft size={16} strokeWidth={3} /> Back
                 </button>

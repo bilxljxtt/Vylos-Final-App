@@ -154,7 +154,6 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-[28px] font-black text-slate-900 dark:text-white tracking-tight leading-tight">Goals</h2>
-          <p className="text-[13px] font-medium text-slate-500 dark:text-slate-400 mt-1">Plan for what matters most. Stay focused and reach your goals.</p>
         </div>
         
         <button 
@@ -420,11 +419,11 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
 
                     {/* Realistic Goal feasibility Warning Banner */}
                     {isGoalUnrealistic && (
-                      <div className="vylos-glass-soft p-4 border border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/10 rounded-2xl flex items-start gap-3 animate-in fade-in slide-in-from-top-4 duration-300 text-slate-700 dark:text-slate-200">
+                      <div className="vylos-warning-card p-4 rounded-2xl flex items-start gap-3 animate-in fade-in slide-in-from-top-4 duration-300">
                         <AlertCircle size={18} className="text-amber-500 mt-0.5 shrink-0" />
                         <div className="flex-1">
-                          <h5 className="text-[11px] font-black text-amber-600 uppercase tracking-widest mb-0.5">Feasibility Alert</h5>
-                          <p className="text-[11px] font-medium text-slate-700 dark:text-slate-200 leading-relaxed">
+                          <h5 className="text-[11px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest mb-0.5">Feasibility Alert</h5>
+                          <p className="text-[11px] font-medium leading-relaxed text-slate-900/90 dark:text-slate-200">
                             This goal may be difficult to reach by the selected deadline. You would need to save around <span className="font-bold text-slate-950 dark:text-white">{formatCurrency(monthlyNeeded)}</span> per month, which is higher than your current available monthly cash flow.
                           </p>
                         </div>
@@ -443,13 +442,13 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
           
           {/* Realistic Warning Banner */}
           {isUnrealistic && (
-            <div className="vylos-glass-soft p-6 border border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/10 flex items-start gap-4 animate-in fade-in slide-in-from-top-4 duration-500 text-slate-700 dark:text-slate-200">
+            <div className="vylos-warning-card p-6 flex items-start gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
               <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0 border border-amber-500/20 shadow-lg shadow-amber-500/5">
                 <AlertCircle size={24} />
               </div>
               <div className="flex-1">
-                <h4 className="text-[13px] font-black text-amber-600 uppercase tracking-widest mb-1">Realistic Projection Warning</h4>
-                <p className="text-[12px] font-medium text-slate-700 dark:text-slate-200 leading-relaxed">
+                <h4 className="text-[13px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest mb-1">Realistic Projection Warning</h4>
+                <p className="text-[12px] font-medium leading-relaxed text-slate-900/90 dark:text-slate-200">
                   Your combined goals require <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(totalMonthlyNeeded)}</span> per month, but your current surplus is <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(availableMonthly)}</span>. Consider extending deadlines or reducing target amounts to maintain financial stability.
                 </p>
               </div>
