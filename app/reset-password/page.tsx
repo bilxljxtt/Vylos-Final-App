@@ -59,7 +59,7 @@ export default function ResetPassword() {
   }
 
   return (
-    <div className="vylos-bg-premium min-h-screen w-full flex items-center justify-center p-6 relative overflow-hidden font-inter selection:bg-blue-500/30">
+    <div className="vylos-bg-premium min-h-screen w-full flex items-center justify-center p-6 relative overflow-y-auto overflow-x-hidden font-inter selection:bg-blue-500/30">
       
       {/* ─── Background Blobs ─── */}
       <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-blue-600/20 rounded-full blur-[160px] pointer-events-none animate-pulse" />

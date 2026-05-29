@@ -11,7 +11,7 @@ interface TermsAcceptanceViewProps {
 
 export function TermsAcceptanceView({ onAccept }: TermsAcceptanceViewProps) {
   return (
-    <div className="vylos-bg-premium fixed inset-0 z-[100] flex flex-col items-center justify-center p-2 sm:p-4 md:p-8 overflow-hidden font-inter">
+    <div className="vylos-bg-premium fixed inset-0 z-[100] flex flex-col items-center justify-center p-2 sm:p-4 md:p-8 overflow-y-auto font-inter">
       
       {/* ─── Background Blobs ─── */}
       <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-blue-600/20 rounded-full blur-[160px] pointer-events-none" />

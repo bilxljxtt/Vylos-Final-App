@@ -14,7 +14,7 @@ export const HealthScoreWidget: React.FC<HealthScoreWidgetProps> = ({ onDetailCl
   const { backendHealthScore, isCalculatingHealthScore } = state;
   
   // Live reactive engine is the single source of truth to ensure consistency across views
-  const engineOutput = VylosEngine.run(state);
+  const engineOutput = React.useMemo(() => VylosEngine.run(state), [state]);
   
   const score = engineOutput.healthScore;
   const status = engineOutput.healthCategory;

@@ -20,6 +20,7 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import { UserProfile } from "@/lib/store";
 import { Permissions, FeatureName } from "@/lib/permissions";
+import { VylosAvatar } from "./VylosAvatar";
 
 interface SidebarProps {
   currentPage: string;
@@ -86,13 +87,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* ── User Profile Block ── */}
       <div className="flex flex-col items-center gap-2 px-4 pt-6 pb-4">
         {/* Avatar */}
-        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-sky-100 via-blue-100 to-indigo-100 flex items-center justify-center text-primary font-bold text-2xl overflow-hidden border-2 border-white shadow-md">
-          {avatarUrl ? (
-            <img src={avatarUrl} alt={userName} className="w-full h-full object-cover" />
-          ) : (
-            <span>{initials}</span>
-          )}
-        </div>
+        <VylosAvatar size="xl" className="border-2 border-white shadow-md !rounded-full bg-gradient-to-br from-sky-100 via-blue-100 to-indigo-100" />
         {/* Name */}
         <div className="flex flex-col items-center gap-0.5 w-full text-center mt-1">
           <span className="text-sm font-semibold text-text-main leading-tight truncate max-w-full">

@@ -11,7 +11,6 @@ import {
 import { useAppStore } from "@/lib/AppContext";
 import { AppState, UserProfile, NotificationPrefs } from "@/lib/store";
 import { createClient } from "@/utils/supabase/client";
-import { AvatarPickerModal } from "../modals/AvatarPickerModal";
 import { VylosAvatar } from "../ui/VylosAvatar";
 
 interface SettingsViewProps {
@@ -69,7 +68,6 @@ export function SettingsView({
   });
 
   const [saving, setSaving] = useState(false);
-  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
 
   const handleToggle = (key: keyof NotificationPrefs) => {
     setToggles(prev => ({ ...prev, [key]: !prev[key] }));
@@ -195,20 +193,9 @@ export function SettingsView({
             
             <div className="relative mb-8">
               <VylosAvatar 
-                url={state.userProfile.avatarUrl} 
-                name={state.userProfile.name} 
                 size="2xl" 
                 className="!rounded-[2.5rem] bg-black/10 dark:bg-white/10 border-4 border-white/20 shadow-2xl" 
               />
-              <button 
-                type="button"
-                onClick={() => setShowAvatarPicker(true)}
-                className="absolute bottom-[-4px] right-[-4px] w-12 h-12 bg-white/10 dark:bg-white/10 backdrop-blur-xl rounded-2xl flex items-center justify-center shadow-2xl border border-white/20 text-primary hover:scale-110 transition-transform vylos-focus group/avatar"
-                title="Choose Avatar"
-                aria-label="Choose built-in avatar"
-              >
-                <Edit2 size={20} strokeWidth={2.5} className="group-hover/avatar:rotate-12 transition-transform" />
-              </button>
             </div>
 
             <h3 className="text-2xl font-black text-text-main mb-1 tracking-tight">{state.userProfile.name || "Vylos User"}</h3>
@@ -565,12 +552,6 @@ export function SettingsView({
 
       </div>
 
-      <AvatarPickerModal 
-        isOpen={showAvatarPicker}
-        onClose={() => setShowAvatarPicker(false)}
-        currentAvatarId={state.userProfile.avatarUrl}
-        onSelect={(id) => updateProfile({ avatarUrl: id })}
-      />
     </div>
   );
 }

@@ -49,7 +49,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
       if (dateRange.end) matchesDate = matchesDate && t.date <= dateRange.end;
 
       return matchesSearch && matchesCat && matchesDate;
-    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }).sort((a, b) => b.date.localeCompare(a.date));
     const end = performance.now();
     if (end - start > 10) console.log(`[Perf] Transaction filtering took ${(end - start).toFixed(2)}ms`);
     return res;

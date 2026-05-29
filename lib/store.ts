@@ -187,6 +187,15 @@ export interface ReminderCompletion {
   completed_at: string;
 }
 
+export interface Debt {
+  id: string;
+  name: string;
+  category: string;
+  monthlyRepayment: number;
+  outstandingBalance: number;
+  createdAt?: string;
+}
+
 export interface BackendHealthScore {
   score: number;
   status: string;
@@ -214,6 +223,7 @@ export interface AppState {
   reminders: Reminder[];
   reminderCompletions: ReminderCompletion[];
   merchantRules: MerchantRule[];
+  debts: Debt[];
   budgets: Record<string, BudgetCategory>;
   userProfile: UserProfile;
   notifications: NotificationPrefs;
@@ -261,6 +271,7 @@ export const initialState: AppState = {
   reminders: [],
   reminderCompletions: [],
   merchantRules: [],
+  debts: [],
   unreadNotificationCount: 0,
   notificationList: [],
   selectedMonth: getMonthStart(),

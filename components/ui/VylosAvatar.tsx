@@ -1,62 +1,41 @@
 "use client";
 
 import React from "react";
-import { getAvatarUrl } from "@/lib/avatars";
-
-/**
- * Vylos Avatar System
- * Uses DiceBear Avataaars (MIT License - safe for commercial use)
- * Supports priority rendering: ID -> URL -> Default Generated -> Branded Initials
- */
+import { User } from "lucide-react";
 
 interface VylosAvatarProps {
-  url?: string; // This can now be an ID or a URL
+  url?: string;
   name?: string;
   size?: "sm" | "md" | "lg" | "xl" | "2xl";
   className?: string;
 }
 
-export function VylosAvatar({ url, name, size = "md", className = "" }: VylosAvatarProps) {
-  const finalUrl = getAvatarUrl(url, name);
-  const initials = (name || "V")
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-
+export function VylosAvatar({ size = "md", className = "" }: VylosAvatarProps) {
   const sizeClasses = {
-    sm: "w-8 h-8 text-[10px]",
-    md: "w-12 h-12 text-xs",
-    lg: "w-16 h-16 text-sm",
-    xl: "w-24 h-24 text-xl",
-    "2xl": "w-32 h-32 text-2xl",
+    sm: "w-8 h-8",
+    md: "w-12 h-12",
+    lg: "w-16 h-16",
+    xl: "w-24 h-24",
+    "2xl": "w-32 h-32",
+  };
+
+  const iconSizes = {
+    sm: 16,
+    md: 22,
+    lg: 28,
+    xl: 40,
+    "2xl": 56,
   };
 
   return (
     <div 
-      className={`relative rounded-full overflow-hidden flex items-center justify-center shrink-0 border border-white/40 bg-white/20 backdrop-blur-md shadow-lg ${sizeClasses[size]} ${className}`}
+      className={`relative rounded-full flex items-center justify-center shrink-0 border border-white/20 dark:border-white/10 bg-slate-100 dark:bg-white/5 backdrop-blur-md shadow-lg ${sizeClasses[size] || sizeClasses.md} ${className}`}
     >
-      <img 
-        src={finalUrl} 
-        alt="" 
-        aria-hidden="true"
-        className="w-full h-full object-cover"
-        onError={(e) => {
-          // Fallback: Gradient + Initials
-          const target = e.target as HTMLImageElement;
-          target.style.display = "none";
-          const parent = target.parentElement;
-          if (parent) {
-            parent.classList.add("bg-gradient-to-br", "from-blue-600", "to-cyan-400");
-            const initialsEl = parent.querySelector(".vylos-initials");
-            if (initialsEl) initialsEl.classList.remove("opacity-0");
-          }
-        }}
+      <User 
+        size={iconSizes[size] || 22} 
+        className="text-slate-700 dark:text-white/80" 
+        strokeWidth={2.5}
       />
-      <span className="vylos-initials absolute font-black text-white tracking-tighter opacity-0">
-        {initials}
-      </span>
     </div>
   );
 }

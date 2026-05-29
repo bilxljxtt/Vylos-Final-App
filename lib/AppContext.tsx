@@ -24,7 +24,8 @@ import {
   Reminder,
   getMonthStart,
   TransactionCategory,
-  Notification
+  Notification,
+  Debt
 } from "./store";
 import { CategorizationEngine, MerchantRule } from "./services/CategorizationEngine";
 import { formatDate } from "./utils";
@@ -66,6 +67,7 @@ type Action =
   | { type: "UPDATE_REMINDERS"; payload: Reminder[] }
   | { type: "UPDATE_BACKEND_HEALTH_SCORE"; payload: any }
   | { type: "SET_HEALTH_SCORE_LOADING"; payload: boolean }
+  | { type: "UPDATE_DEBTS"; payload: Debt[] }
   | { type: "RESET" };
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────
@@ -219,6 +221,8 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, backendHealthScore: action.payload, isCalculatingHealthScore: false };
     case "SET_HEALTH_SCORE_LOADING":
       return { ...state, isCalculatingHealthScore: action.payload };
+    case "UPDATE_DEBTS":
+      return { ...state, debts: action.payload };
     case "RESET":
       if (typeof window !== 'undefined') {
         localStorage.removeItem('vylos-last-page');
@@ -1057,10 +1061,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       supabase.from('reminder_completions').select('*').eq('user_id', user.id),
       supabase.from('merchant_rules').select('*').eq('user_id', user.id),
       supabase.from('ai_usage').select('*').eq('user_id', user.id).eq('billing_month', currentMonth).single(),
-      supabase.from('user_health_scores').select('*').eq('user_id', user.id).order('calculated_at', { ascending: false }).limit(1).maybeSingle()
+      supabase.from('user_health_scores').select('*').eq('user_id', user.id).order('calculated_at', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('debts').select('*').eq('user_id', user.id)
     ]);
 
-    const [profRes, txsRes, subsRes, gpsRes, contribsRes, budgetsRes, notifyRes, remRes, compRes, rulesRes, usageRes, scoreRes] = results;
+    const [profRes, txsRes, subsRes, gpsRes, contribsRes, budgetsRes, notifyRes, remRes, compRes, rulesRes, usageRes, scoreRes, debtsRes] = results;
     
     // Check if the query returned an error that is NOT 'PGRST116' (row not found)
     const isNoRowFound = profRes.error && profRes.error.code === 'PGRST116';
@@ -1126,6 +1131,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const rules = rulesRes.data;
     const usage = usageRes?.data;
 
+    let debtsData: any[] = [];
+    if (debtsRes && debtsRes.error) {
+      console.warn("Warning: Failed to fetch debts from Supabase. Falling back to profile onboardingAnswers. Error:", debtsRes.error.message);
+      const profileData = profRes.data;
+      if (profileData && profileData.onboarding_answers && profileData.onboarding_answers.debts) {
+        debtsData = profileData.onboarding_answers.debts;
+      }
+    } else {
+      debtsData = debtsRes?.data || [];
+    }
+
     const budgetsObj: Record<string, BudgetCategory> = {};
     if (budgets) {
       budgets.forEach((b: any) => {
@@ -1180,6 +1196,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         })) : [],
         reminderCompletions: compRes.data || [],
         merchantRules: rules ? rules.map((r: any) => ({ id: r.id, user_id: r.user_id, merchant_keyword: r.merchant_keyword, category: r.category })) : [],
+        debts: debtsData.map((d: any) => ({
+          id: d.id,
+          name: d.name,
+          category: d.category || d.type || "Other",
+          monthlyRepayment: parseFloat(d.monthly_repayment || d.repayment || "0"),
+          outstandingBalance: parseFloat(d.outstanding_balance || d.balance || "0"),
+          createdAt: d.created_at
+        })),
         budgets: Object.keys(budgetsObj).length > 0 ? budgetsObj : initialState.budgets,
         aiUsage: usage ? { messages_used: usage.messages_used, billing_month: usage.billing_month } : { messages_used: 0, billing_month: currentMonth },
         userProfile: prof ? {
@@ -1252,6 +1276,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setIsAuthLoaded(true);
   }, [supabase]);
 
+  // Cleanup health score calculation debounced timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (healthScoreTimeoutRef.current) clearTimeout(healthScoreTimeoutRef.current);
+    };
+  }, []);
+
   const refreshData = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
@@ -1260,12 +1291,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [hydrateCloudState, supabase]);
 
+  // Auth and Profile Hydration Hook
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }: { data: { user: any } }) => {
-      hydrateCloudState(user);
+    let active = true;
+
+    // Fetch current user session once on mount as a fallback/initial check
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (active && session?.user) {
+        hydrateCloudState(session.user);
+      } else if (active) {
+        setIsAuthLoaded(true);
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: any) => {
+      if (!active) return;
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         hydrateCloudState(session?.user);
       } else if (event === 'SIGNED_OUT') {
@@ -1273,105 +1313,129 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    let txChannel: any = null;
-    let goalsChannel: any = null;
-    let contribChannel: any = null;
-    let remChannel: any = null;
-    let budgetsChannel: any = null;
-
-    supabase.auth.getUser().then(({ data: { user } }: { data: { user: any } }) => {
-      if (user) {
-        txChannel = supabase.channel('public:transactions')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${user.id}` }, async () => {
-            const { data: txs } = await supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false });
-            if (txs) dispatch({ type: "UPDATE_TRANSACTIONS", payload: txs.map((t: any) => ({ 
-              id: t.id, 
-              merchant: t.title, 
-              amount: parseFloat(t.amount), 
-              date: t.date, 
-              transaction_date: t.transaction_date,
-              category: t.category,
-              notes: t.notes,
-              recurring: t.recurring,
-              payment_status: t.payment_status,
-              createdAt: t.created_at,
-              updatedAt: t.updated_at
-            })) });
-            setLastSynced(new Date());
-          }).subscribe();
-
-        goalsChannel = supabase.channel('public:goals')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'goals', filter: `user_id=eq.${user.id}` }, async () => {
-            const { data: gps } = await supabase.from('goals').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
-            if (gps) dispatch({ type: "UPDATE_GOALS", payload: gps.map((g: any) => ({ id: g.id, title: g.title, targetAmount: parseFloat(g.target_amount), currentAmount: parseFloat(g.current_amount), deadline: g.deadline, status: g.status, category: g.category, notes: g.notes, icon: g.icon, color: g.color, createdAt: g.created_at })) });
-            setLastSynced(new Date());
-          }).subscribe();
-
-        contribChannel = supabase.channel('public:goal_contributions')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'goal_contributions', filter: `user_id=eq.${user.id}` }, async () => {
-            const { data: contribs } = await supabase.from('goal_contributions').select('*').eq('user_id', user.id);
-            if (contribs) dispatch({ type: "UPDATE_CONTRIBUTIONS", payload: contribs.map((c: any) => ({ id: c.id, goalId: c.goal_id, amount: parseFloat(c.amount), date: c.date, notes: c.notes })) });
-            setLastSynced(new Date());
-          }).subscribe();
-
-        remChannel = supabase.channel('public:reminders')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'reminders', filter: `user_id=eq.${user.id}` }, async () => {
-            const { data: rems } = await supabase.from('reminders').select('*').eq('user_id', user.id).order('due_date', { ascending: true });
-            if (rems) dispatch({ type: "UPDATE_REMINDERS", payload: rems.map((r: any) => ({ 
-              id: r.id, 
-              title: r.title, 
-              description: r.description,
-              amount: r.amount ? parseFloat(r.amount) : undefined, 
-              due_date: r.due_date, 
-              due_time: r.due_time,
-              category: r.category, 
-              priority: r.priority,
-              recurring: r.recurring, 
-              status: r.status,
-              completed_at: r.completed_at,
-              billing_day: r.billing_day
-            })) });
-            setLastSynced(new Date());
-          }).subscribe();
-
-        const compChannel = supabase.channel('public:reminder_completions')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'reminder_completions', filter: `user_id=eq.${user.id}` }, async () => {
-            const { data: comps } = await supabase.from('reminder_completions').select('*').eq('user_id', user.id);
-            if (comps) dispatch({ type: "UPDATE_REMINDER_COMPLETIONS", payload: comps });
-            setLastSynced(new Date());
-          }).subscribe();
-
-        const scoreChannel = supabase.channel('public:user_health_scores')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'user_health_scores', filter: `user_id=eq.${user.id}` }, async (payload: any) => {
-            if (payload.new) {
-              dispatch({ type: "UPDATE_BACKEND_HEALTH_SCORE", payload: payload.new });
-            }
-          }).subscribe();
-
-        budgetsChannel = supabase.channel('public:budgets')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'budgets', filter: `user_id=eq.${user.id}` }, async () => {
-            const { data: budgets } = await supabase.from('budgets').select('*').eq('user_id', user.id);
-            const budgetsObj: Record<string, BudgetCategory> = {};
-            if (budgets) {
-              budgets.forEach((b: any) => {
-                budgetsObj[b.category] = { limit: parseFloat(b.limit), type: b.type as any };
-              });
-            }
-            dispatch({ type: "SET_BUDGETS", payload: budgetsObj });
-            setLastSynced(new Date());
-          }).subscribe();
-      }
-    });
-
     return () => {
+      active = false;
       subscription.unsubscribe();
-      if (txChannel) supabase.removeChannel(txChannel);
-      if (goalsChannel) supabase.removeChannel(goalsChannel);
-      if (contribChannel) supabase.removeChannel(contribChannel);
-      if (remChannel) supabase.removeChannel(remChannel);
-      if (budgetsChannel) supabase.removeChannel(budgetsChannel);
     };
   }, [supabase, hydrateCloudState]);
+
+  // Dedicated Realtime Database Subscription Hook
+  useEffect(() => {
+    if (!sessionUser) return;
+
+    const user = sessionUser;
+
+    const txChannel = supabase.channel('public:transactions')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${user.id}` }, async () => {
+        const { data: txs } = await supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false });
+        if (txs) dispatch({ type: "UPDATE_TRANSACTIONS", payload: txs.map((t: any) => ({ 
+          id: t.id, 
+          merchant: t.title, 
+          amount: parseFloat(t.amount), 
+          date: t.date, 
+          transaction_date: t.transaction_date,
+          category: t.category,
+          notes: t.notes,
+          recurring: t.recurring,
+          payment_status: t.payment_status,
+          createdAt: t.created_at,
+          updatedAt: t.updated_at
+        })) });
+        setLastSynced(new Date());
+      }).subscribe();
+
+    const goalsChannel = supabase.channel('public:goals')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'goals', filter: `user_id=eq.${user.id}` }, async () => {
+        const { data: gps } = await supabase.from('goals').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+        if (gps) dispatch({ type: "UPDATE_GOALS", payload: gps.map((g: any) => ({ id: g.id, title: g.title, targetAmount: parseFloat(g.target_amount), currentAmount: parseFloat(g.current_amount), deadline: g.deadline, status: g.status, category: g.category, notes: g.notes, icon: g.icon, color: g.color, createdAt: g.created_at })) });
+        setLastSynced(new Date());
+      }).subscribe();
+
+    const contribChannel = supabase.channel('public:goal_contributions')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'goal_contributions', filter: `user_id=eq.${user.id}` }, async () => {
+        const { data: contribs } = await supabase.from('goal_contributions').select('*').eq('user_id', user.id);
+        if (contribs) dispatch({ type: "UPDATE_CONTRIBUTIONS", payload: contribs.map((c: any) => ({ id: c.id, goalId: c.goal_id, amount: parseFloat(c.amount), date: c.date, notes: c.notes })) });
+        setLastSynced(new Date());
+      }).subscribe();
+
+    const remChannel = supabase.channel('public:reminders')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reminders', filter: `user_id=eq.${user.id}` }, async () => {
+        const { data: rems } = await supabase.from('reminders').select('*').eq('user_id', user.id).order('due_date', { ascending: true });
+        if (rems) dispatch({ type: "UPDATE_REMINDERS", payload: rems.map((r: any) => ({ 
+          id: r.id, 
+          title: r.title, 
+          description: r.description,
+          amount: r.amount ? parseFloat(r.amount) : undefined, 
+          due_date: r.due_date, 
+          due_time: r.due_time,
+          category: r.category, 
+          priority: r.priority,
+          recurring: r.recurring, 
+          status: r.status,
+          completed_at: r.completed_at,
+          billing_day: r.billing_day
+        })) });
+        setLastSynced(new Date());
+      }).subscribe();
+
+    const compChannel = supabase.channel('public:reminder_completions')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reminder_completions', filter: `user_id=eq.${user.id}` }, async () => {
+        const { data: comps } = await supabase.from('reminder_completions').select('*').eq('user_id', user.id);
+        if (comps) dispatch({ type: "UPDATE_REMINDER_COMPLETIONS", payload: comps });
+        setLastSynced(new Date());
+      }).subscribe();
+
+    const scoreChannel = supabase.channel('public:user_health_scores')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_health_scores', filter: `user_id=eq.${user.id}` }, async (payload: any) => {
+        if (payload.new) {
+          dispatch({ type: "UPDATE_BACKEND_HEALTH_SCORE", payload: payload.new });
+        }
+        setLastSynced(new Date());
+      }).subscribe();
+
+    const budgetsChannel = supabase.channel('public:budgets')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'budgets', filter: `user_id=eq.${user.id}` }, async () => {
+        const { data: budgets } = await supabase.from('budgets').select('*').eq('user_id', user.id);
+        const budgetsObj: Record<string, BudgetCategory> = {};
+        if (budgets) {
+          budgets.forEach((b: any) => {
+            budgetsObj[b.category] = { limit: parseFloat(b.limit), type: b.type as any };
+          });
+        }
+        dispatch({ type: "SET_BUDGETS", payload: budgetsObj });
+        setLastSynced(new Date());
+      }).subscribe();
+
+    const debtsChannel = supabase.channel('public:debts')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'debts', filter: `user_id=eq.${user.id}` }, async () => {
+        const { data: dbDebts } = await supabase.from('debts').select('*').eq('user_id', user.id);
+        if (dbDebts) {
+          dispatch({
+            type: "UPDATE_DEBTS",
+            payload: dbDebts.map((d: any) => ({
+              id: d.id,
+              name: d.name,
+              category: d.category,
+              monthlyRepayment: parseFloat(d.monthly_repayment),
+              outstandingBalance: parseFloat(d.outstanding_balance),
+              createdAt: d.created_at
+            }))
+          });
+        }
+        setLastSynced(new Date());
+      }).subscribe();
+
+    return () => {
+      supabase.removeChannel(txChannel);
+      supabase.removeChannel(goalsChannel);
+      supabase.removeChannel(contribChannel);
+      supabase.removeChannel(remChannel);
+      supabase.removeChannel(compChannel);
+      supabase.removeChannel(scoreChannel);
+      supabase.removeChannel(budgetsChannel);
+      supabase.removeChannel(debtsChannel);
+    };
+  }, [sessionUser, supabase]);
 
   return (
     <AppContext.Provider

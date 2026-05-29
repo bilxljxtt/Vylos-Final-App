@@ -160,6 +160,15 @@ export default function App() {
       setPage("dashboard");
     }
   }, [page, state.userProfile]);
+
+  // Reset scroll to top (vertical and horizontal) on active view state changes
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: "auto"
+    });
+  }, [page]);
   const [showAddTx, setShowAddTx] = useState(false);
   const [showAddGoal, setShowAddGoal] = useState(false);
   const [txForm, setTxForm] = useState({desc:"",amount:"",cat: "Groceries" as TransactionCategory,date:new Date().toISOString().slice(0,10),type:"expense",notes:""});
@@ -312,11 +321,11 @@ export default function App() {
       const takeHomePay = parseFloat(answers.takeHomePay || "0");
       const age = parseInt(answers.age || "0");
       const householdSize = answers.budgetTarget === "individual" ? 1 : (
-        parseInt(answers.householdBreakdown.kids || "0") +
-        parseInt(answers.householdBreakdown.teens || "0") +
-        parseInt(answers.householdBreakdown.youngAdults || "0") +
-        parseInt(answers.householdBreakdown.adults || "0") +
-        parseInt(answers.householdBreakdown.elders || "0")
+        parseInt(answers.householdBreakdown?.kids || "0") +
+        parseInt(answers.householdBreakdown?.teens || "0") +
+        parseInt(answers.householdBreakdown?.youngAdults || "0") +
+        parseInt(answers.householdBreakdown?.adults || "0") +
+        parseInt(answers.householdBreakdown?.elders || "0")
       );
 
       const updates = {
@@ -333,44 +342,62 @@ export default function App() {
 
       const supabase = createClient();
 
-      // 1. Generate starter budgets (combining imported budget + onboarding recommendation defaults)
+      // 1. Generate starter budgets
       const budgetsToInsert: any[] = [];
-
-      if (answers.wantsBudgetImport && answers.importedBudgetUploaded && answers.importedBudgetData) {
-        answers.importedBudgetData.forEach((item: any) => {
-          if (item.category && item.limit > 0) {
-            budgetsToInsert.push({
-              category: item.category,
-              user_id: sessionUser.id,
-              limit: item.limit,
-              spent: 0,
-              type: "limit"
-            });
-          }
-        });
-      }
 
       const hasCategory = (catName: string) => 
         budgetsToInsert.some(b => b.category.toLowerCase() === catName.toLowerCase());
 
-      const housingLimit = parseFloat(answers.infrastructure?.rentBond || "0") +
-                           parseFloat(answers.infrastructure?.residence || "0") +
-                           parseFloat(answers.infrastructure?.householdContribution || "0") +
-                           parseFloat(answers.infrastructure?.ratesLevies || "0");
+      // Parse Hobbies & Outings to Wants budgets
+      const wantsMap: Record<string, number> = {};
+      if (answers.hobbies && Array.isArray(answers.hobbies)) {
+        answers.hobbies.forEach((h: any) => {
+          const name = (h.name || "").toLowerCase();
+          const amt = parseFloat(h.amount || "0");
+          if (isNaN(amt) || amt <= 0) return;
 
-      const transportLimit = parseFloat(answers.infrastructure?.fuel || "0") +
-                             parseFloat(answers.infrastructure?.publicTransport || "0") +
-                             parseFloat(answers.infrastructure?.uberBolt || "0") +
-                             parseFloat(answers.infrastructure?.carRepayment || "0") +
-                             parseFloat(answers.infrastructure?.carInsurance || "0") +
-                             parseFloat(answers.infrastructure?.carMaintenance || "0");
+          let cat = "Entertainment";
+          if (name.includes("gym") || name.includes("fitness") || name.includes("health")) {
+            cat = "Health";
+          } else if (name.includes("eat") || name.includes("restaurant") || name.includes("cafe") || name.includes("food")) {
+            cat = "Eating Out";
+          } else if (name.includes("fashion") || name.includes("clothing") || name.includes("shop") || name.includes("beauty")) {
+            cat = "Shopping";
+          } else if (name.includes("sub") || name.includes("netflix") || name.includes("spotify")) {
+            cat = "Subscriptions";
+          }
+          wantsMap[cat] = (wantsMap[cat] || 0) + amt;
+        });
+      }
 
-      const billsLimit = parseFloat(answers.utilities || "0") + parseFloat(answers.data || "0");
+      // Add wants budgets from hobbies mapping
+      Object.entries(wantsMap).forEach(([cat, limit]) => {
+        if (limit > 0 && !hasCategory(cat)) {
+          budgetsToInsert.push({ category: cat, user_id: sessionUser.id, limit, spent: 0, type: "limit" });
+        }
+      });
+
+      // Sum up fixed costs
+      const rentBond = parseFloat(answers.infrastructure?.rentBond || "0");
+      const householdContribution = parseFloat(answers.infrastructure?.householdContribution || "0");
+      const ratesLevies = parseFloat(answers.infrastructure?.ratesLevies || "0");
+      const housingLimit = rentBond + householdContribution + ratesLevies;
+
+      const fuel = parseFloat(answers.infrastructure?.fuel || "0");
+      const publicTransport = parseFloat(answers.infrastructure?.publicTransport || "0");
+      const carRepayment = parseFloat(answers.infrastructure?.carRepayment || "0");
+      const carInsurance = parseFloat(answers.infrastructure?.carInsurance || "0");
+      const carMaintenance = parseFloat(answers.infrastructure?.carMaintenance || "0");
+      const transportLimit = fuel + publicTransport + carRepayment + carInsurance + carMaintenance;
+
+      // Sum up survival essentials
       const groceriesLimit = parseFloat(answers.groceries || "0");
-      const wantsLimit = parseFloat(answers.hobbiesSpend || "0");
-      
+      const billsLimit = parseFloat(answers.utilities || "0") + parseFloat(answers.data || "0");
+      const otherLimit = parseFloat(answers.toiletries || "0") +
+                         parseFloat(answers.householdItems || "0") +
+                         parseFloat(answers.otherEssentials || "0");
+
       const debtLimit = answers.debts ? answers.debts.reduce((sum: number, d: any) => sum + parseFloat(d.repayment || "0"), 0) : 0;
-      const otherLimit = parseFloat(answers.otherEssentials || "0");
 
       if (housingLimit > 0 && !hasCategory("Rent / Housing")) {
         budgetsToInsert.push({ category: "Rent / Housing", user_id: sessionUser.id, limit: housingLimit, spent: 0, type: "limit" });
@@ -384,9 +411,6 @@ export default function App() {
       if (groceriesLimit > 0 && !hasCategory("Groceries")) {
         budgetsToInsert.push({ category: "Groceries", user_id: sessionUser.id, limit: groceriesLimit, spent: 0, type: "limit" });
       }
-      if (wantsLimit > 0 && !hasCategory("Entertainment")) {
-        budgetsToInsert.push({ category: "Entertainment", user_id: sessionUser.id, limit: wantsLimit, spent: 0, type: "limit" });
-      }
       if (debtLimit > 0 && !hasCategory("Debt Payments")) {
         budgetsToInsert.push({ category: "Debt Payments", user_id: sessionUser.id, limit: debtLimit, spent: 0, type: "limit" });
       }
@@ -397,19 +421,24 @@ export default function App() {
         budgetsToInsert.push({ category: "Other", user_id: sessionUser.id, limit: otherLimit, spent: 0, type: "limit" });
       }
 
+      // Ensure Entertainment budget is created if not already added by hobbies
+      if (!hasCategory("Entertainment")) {
+        budgetsToInsert.push({ category: "Entertainment", user_id: sessionUser.id, limit: Math.round(takeHomePay * 0.15), spent: 0, type: "limit" });
+      }
+
       if (budgetsToInsert.length > 0) {
         const { error: budgetError } = await supabase.from('budgets').upsert(budgetsToInsert, { onConflict: "user_id,category" });
         if (budgetError) console.error("Error creating starter budgets:", budgetError);
       }
 
-      // 2. Generate starter goals based on configured goal details or selected missions
+      // 2. Generate starter goals
       if (answers.goalsDetails && answers.goalsDetails.length > 0) {
         const goalsToInsert = answers.goalsDetails.map((g: any) => ({
           user_id: sessionUser.id,
           title: g.title,
           target_amount: parseFloat(g.target_amount) || 0,
-          current_amount: parseFloat(g.current_amount) || 0,
-          deadline: g.deadline,
+          current_amount: parseFloat(g.current_amount || "0") || 0,
+          deadline: g.deadline || new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
           category: g.category || "Savings",
           status: "On Track",
           notes: `Created during onboarding config`,
@@ -424,6 +453,95 @@ export default function App() {
         }
       }
 
+      // 3. Create bill reminders for fixed costs and debts
+      const remindersToInsert: any[] = [];
+      const nextMonthFirst = new Date();
+      nextMonthFirst.setMonth(nextMonthFirst.getMonth() + 1);
+      nextMonthFirst.setDate(1);
+      const dueDateStr = nextMonthFirst.toISOString().split('T')[0];
+
+      if (rentBond > 0) {
+        remindersToInsert.push({
+          user_id: sessionUser.id,
+          title: "Rent / Bond Payment",
+          description: "Fixed monthly housing infrastructure payment",
+          amount: rentBond,
+          due_date: dueDateStr,
+          category: "Rent / Housing",
+          priority: "high",
+          recurring: "monthly",
+          status: "pending"
+        });
+      }
+
+      if (carRepayment > 0) {
+        remindersToInsert.push({
+          user_id: sessionUser.id,
+          title: "Car Repayment",
+          description: "Monthly vehicle finance repayment",
+          amount: carRepayment,
+          due_date: dueDateStr,
+          category: "Transport",
+          priority: "high",
+          recurring: "monthly",
+          status: "pending"
+        });
+      }
+
+      if (carInsurance > 0) {
+        remindersToInsert.push({
+          user_id: sessionUser.id,
+          title: "Car Insurance",
+          description: "Monthly car insurance premium",
+          amount: carInsurance,
+          due_date: dueDateStr,
+          category: "Transport",
+          priority: "medium",
+          recurring: "monthly",
+          status: "pending"
+        });
+      }
+
+      if (answers.hasDebt === "Yes" && answers.debts && answers.debts.length > 0) {
+        answers.debts.forEach((d: any) => {
+          const repaymentAmt = parseFloat(d.repayment || "0");
+          if (repaymentAmt > 0) {
+            remindersToInsert.push({
+              user_id: sessionUser.id,
+              title: `${d.name} Repayment`,
+              description: `Monthly payment obligation for ${d.type}`,
+              amount: repaymentAmt,
+              due_date: dueDateStr,
+              category: "Debt Payments",
+              priority: "high",
+              recurring: "monthly",
+              status: "pending"
+            });
+          }
+        });
+      }
+
+      if (remindersToInsert.length > 0) {
+        const { error: remindersError } = await supabase.from('reminders').insert(remindersToInsert);
+        if (remindersError) console.error("Error creating onboarding reminders:", remindersError);
+      }
+
+      // 4. Save to native debts table (if table exists)
+      if (answers.hasDebt === "Yes" && answers.debts && answers.debts.length > 0) {
+        const debtsToInsert = answers.debts.map((d: any) => ({
+          user_id: sessionUser.id,
+          name: d.name,
+          category: d.type || "Other",
+          monthly_repayment: parseFloat(d.repayment || "0") || 0,
+          outstanding_balance: parseFloat(d.balance || "0") || 0
+        }));
+
+        const { error: debtsError } = await supabase.from('debts').insert(debtsToInsert);
+        if (debtsError) {
+          console.warn("Could not insert into native debts table (it may not exist yet):", debtsError.message);
+        }
+      }
+
       const { XP_CONFIG } = await import("@/lib/services/XPService");
       await awardXP("ONBOARDING_COMPLETE", XP_CONFIG.ONBOARDING_COMPLETE.xp, "Completed Onboarding Questionnaire");
       await refreshData();
@@ -435,19 +553,31 @@ export default function App() {
   }
 
 
-  const totalSaved = state.goals.reduce((acc, g) => acc + g.currentAmount, 0);
+  // Memoize dynamic dashboard stats and calculations
+  const { totalSaved, avgMonthlySpend, lowestMonthSpend, highestMonthSpend } = useMemo(() => {
+    const totalSavedVal = state.goals.reduce((acc, g) => acc + g.currentAmount, 0);
+    const spendMap: Record<string, number> = {};
+    state.transactions.filter(t => t.amount < 0).forEach(t => {
+      const d = new Date(t.date);
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      spendMap[key] = (spendMap[key] || 0) + Math.abs(t.amount);
+    });
+    const spendVals = Object.values(spendMap);
+    const avg = spendVals.length > 0 ? spendVals.reduce((a, b) => a + b, 0) / spendVals.length : 0;
+    const lowest = spendVals.length > 0 ? Math.min(...spendVals) : 0;
+    const highest = spendVals.length > 0 ? Math.max(...spendVals) : 0;
+    return {
+      totalSaved: totalSavedVal,
+      avgMonthlySpend: avg,
+      lowestMonthSpend: lowest,
+      highestMonthSpend: highest
+    };
+  }, [state.transactions, state.goals]);
 
-  // Calculate dynamic dashboard stats
-  const monthlySpendMap: Record<string, number> = {};
-  state.transactions.filter(t => t.amount < 0).forEach(t => {
-    const d = new Date(t.date);
-    const key = `${d.getFullYear()}-${d.getMonth()}`;
-    monthlySpendMap[key] = (monthlySpendMap[key] || 0) + Math.abs(t.amount);
-  });
-  const spendValues = Object.values(monthlySpendMap);
-  const avgMonthlySpend = spendValues.length > 0 ? spendValues.reduce((a, b) => a + b, 0) / spendValues.length : 0;
-  const lowestMonthSpend = spendValues.length > 0 ? Math.min(...spendValues) : 0;
-  const highestMonthSpend = spendValues.length > 0 ? Math.max(...spendValues) : 0;
+  // Pre-sort transactions and memoize to avoid sorting inside render loops
+  const sortedTransactions = useMemo(() => {
+    return [...state.transactions].sort((a, b) => getTransactionDateKey(b).localeCompare(getTransactionDateKey(a)));
+  }, [state.transactions]);
 
   const isPro = useMemo(() => Permissions.isInternalUser(state.userProfile) || state.userProfile.subscription_tier !== 'free', [state.userProfile]);
 
@@ -853,7 +983,7 @@ export default function App() {
   }
 
   return (
-    <div className="vylos-bg-premium min-h-screen w-full flex flex-col pt-2 pb-8 px-4 md:pt-4 md:px-6 lg:pt-4 lg:px-8 font-inter relative">
+    <div className="vylos-bg-premium min-h-screen w-full flex flex-col pt-2 pb-8 px-4 md:pt-4 md:px-6 lg:pt-4 lg:px-8 font-inter relative overflow-x-hidden">
       
       {/* ─── Global App Header ─── */}
       <V2Header 
@@ -871,7 +1001,7 @@ export default function App() {
             expense={expense}
             netWorth={netWorth}
             savingsRate={savingsRate}
-            transactions={state.transactions.slice().sort((a, b) => getTransactionDateKey(b).localeCompare(getTransactionDateKey(a)))}
+            transactions={sortedTransactions}
             goals={state.goals}
             healthScore={engineOutput.healthScore}
             userName={state.userProfile.name}

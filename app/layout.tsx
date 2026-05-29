@@ -1,15 +1,8 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 
 import { AppProvider } from "@/lib/AppContext";
 import { ToastProvider } from "@/components/Toast";
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800"],
-});
 
 export const viewport: Viewport = {
   themeColor: "#2563EB",
@@ -23,6 +16,17 @@ export const metadata: Metadata = {
   title: "Vylos | Your Financial Intelligence Engine",
   description: "Take control of your financial future with Vylos. Professional-grade tracking, automated health scoring, and AI-powered financial coaching.",
   keywords: ["personal finance", "wealth management", "budgeting app", "financial health", "savings tracker"],
+  icons: {
+    icon: [
+      { url: "/favicon.ico?v=2" },
+      { url: "/icon-192.png?v=2", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png?v=2", sizes: "512x512", type: "image/png" }
+    ],
+    shortcut: "/favicon.ico?v=2",
+    apple: [
+      { url: "/apple-touch-icon.png?v=2", sizes: "180x180", type: "image/png" }
+    ]
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -46,7 +50,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} antialiased`} suppressHydrationWarning>
+    <html lang="en" className="antialiased" suppressHydrationWarning>
       <head>
         <Script
           id="theme-detection"

@@ -5,6 +5,7 @@ import { Bell, BellDot, CheckCircle, AlertTriangle, Info, X, Trash2, Grid3x3, La
 import { MonthSelector } from "./MonthSelector";
 import { useAppStore } from "@/lib/AppContext";
 import { formatRelativeTime } from "@/lib/utils";
+import { VylosAvatar } from "./VylosAvatar";
 
 export const TopHeader: React.FC<{
   page: string;
@@ -75,16 +76,10 @@ export const TopHeader: React.FC<{
         </button>
 
         {/* User avatar */}
-        <div
-          className="w-9 h-9 rounded-full bg-white/20 border-2 border-white/30 flex items-center justify-center text-white font-bold text-xs cursor-pointer hover:bg-white/30 transition-all overflow-hidden"
-          title={userProfile?.name}
-        >
-          {userProfile?.avatarUrl ? (
-            <img src={userProfile.avatarUrl} alt={userProfile.name} className="w-full h-full object-cover" />
-          ) : (
-            <span>{initials}</span>
-          )}
-        </div>
+        <VylosAvatar 
+          size="sm" 
+          className="border-2 border-white/30 cursor-pointer hover:bg-white/30 transition-all" 
+        />
 
         {/* Notifications Dropdown */}
         {showNotifications && (
