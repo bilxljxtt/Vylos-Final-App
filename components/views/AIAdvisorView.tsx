@@ -59,12 +59,12 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
   }, [aiMessages]);
 
   const handleQuickPrompt = (prompt: string) => {
-    if (isLimitReached) return;
+    if (isLimitReached || aiLoading) return;
     setAiInput(prompt);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (isLimitReached) return;
+    if (isLimitReached || aiLoading) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendAI();
@@ -276,7 +276,7 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
             </div>
 
             <div className="relative flex items-center">
-              <button className="absolute left-5 p-2 text-slate-400 hover:text-primary transition-colors" disabled={isLimitReached}>
+              <button className="absolute left-5 p-2 text-slate-400 hover:text-primary transition-colors" disabled={isLimitReached || aiLoading}>
                 <Paperclip size={20} />
               </button>
               <input 
@@ -284,8 +284,8 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
                 value={aiInput}
                 onChange={(e) => setAiInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                disabled={isLimitReached}
-                placeholder={isLimitReached ? "Daily AI message limit reached. Upgrade to continue." : "Ask Vylos anything about your finances..."} 
+                disabled={isLimitReached || aiLoading}
+                placeholder={isLimitReached ? "Daily AI message limit reached. Upgrade to continue." : aiLoading ? "AI is processing your query..." : "Ask Vylos anything about your finances..."} 
                 className="w-full pl-14 pr-16 py-5 bg-white/5 border border-white/10 rounded-2xl text-[14px] font-bold text-slate-900 dark:text-white placeholder-slate-500 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 shadow-inner transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               />
               <button 

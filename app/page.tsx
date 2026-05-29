@@ -880,7 +880,7 @@ export default function App() {
   }
 
   async function sendAI() {
-    if(!aiInput.trim()) return;
+    if(!aiInput.trim() || aiLoading) return;
 
     if (!Permissions.canUseAI(state.userProfile)) {
       showToast("You do not have permission to access this AI feature.", "error");
