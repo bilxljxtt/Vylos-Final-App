@@ -31,6 +31,7 @@ const DEBT_CATEGORIES = [
 
 export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComplete }) => {
   const { state } = useAppStore();
+  const containerRef = React.useRef<HTMLDivElement>(null);
 
   // Determine if we need Step 0 (Quick Profile Setup) for Google OAuth users
   const needsPreStep = useMemo(() => {
@@ -364,7 +365,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
       const nextIdx = activeStepIndex + 1;
       if (nextIdx < totalStepsCount) {
         setCurrentStep(steps[nextIdx]);
-        window.scrollTo(0, 0);
+        containerRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
       }
     }
   };
@@ -373,7 +374,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
     const prevIdx = activeStepIndex - 1;
     if (prevIdx >= 0) {
       setCurrentStep(steps[prevIdx]);
-      window.scrollTo(0, 0);
+      containerRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
       setError(null);
     }
   };
@@ -385,7 +386,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
   }
 
   return (
-    <div className="vylos-bg-premium fixed inset-0 z-[100] flex flex-col overflow-y-auto font-inter">
+    <div ref={containerRef} className="vylos-bg-premium fixed inset-0 z-[100] flex flex-col overflow-y-auto font-inter">
       
       {/* Background Blobs */}
       <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-blue-600/20 rounded-full blur-[160px] pointer-events-none animate-pulse" />

@@ -48,7 +48,7 @@ export const V2DatePicker: React.FC<V2DatePickerProps> = ({
       document.addEventListener("mousedown", handleClickOutside);
       document.addEventListener("keydown", handleEsc);
       updateCoords();
-      window.addEventListener("scroll", updateCoords, true);
+      window.addEventListener("scroll", updateCoords, { capture: true, passive: true });
       window.addEventListener("resize", updateCoords);
       // Sync view date with current value when opening
       if (value) {
@@ -60,7 +60,7 @@ export const V2DatePicker: React.FC<V2DatePickerProps> = ({
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleEsc);
-      window.removeEventListener("scroll", updateCoords, true);
+      window.removeEventListener("scroll", updateCoords, { capture: true });
       window.removeEventListener("resize", updateCoords);
     };
   }, [isOpen, value]);

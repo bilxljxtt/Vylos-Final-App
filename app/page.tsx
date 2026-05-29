@@ -162,13 +162,25 @@ export default function App() {
   }, [page, state.userProfile]);
 
   // Reset scroll to top (vertical and horizontal) on active view state changes
+  const previousPageRef = useRef(page);
   useEffect(() => {
-    window.scrollTo({
-      top: 0,
-      left: 0,
-      behavior: "auto"
-    });
+    if (previousPageRef.current !== page) {
+      previousPageRef.current = page;
+      // Temporarily disable smooth scroll to force instant scroll to top on tab change
+      const originalScrollBehavior = document.documentElement.style.scrollBehavior;
+      document.documentElement.style.scrollBehavior = 'auto';
+      window.scrollTo({
+        top: 0,
+        left: 0,
+        behavior: "auto"
+      });
+      // Restore scroll-behavior in the next animation frame
+      requestAnimationFrame(() => {
+        document.documentElement.style.scrollBehavior = originalScrollBehavior;
+      });
+    }
   }, [page]);
+
   const [showAddTx, setShowAddTx] = useState(false);
   const [showAddGoal, setShowAddGoal] = useState(false);
   const [txForm, setTxForm] = useState({desc:"",amount:"",cat: "Groceries" as TransactionCategory,date:new Date().toISOString().slice(0,10),type:"expense",notes:""});
@@ -343,162 +355,233 @@ export default function App() {
       const supabase = createClient();
 
       // 1. Generate starter budgets
-      const budgetsToInsert: any[] = [];
+      const budgetLimits: Record<string, number> = {};
 
-      const hasCategory = (catName: string) => 
-        budgetsToInsert.some(b => b.category.toLowerCase() === catName.toLowerCase());
+      const addLimit = (cat: string, amt: number) => {
+        if (isNaN(amt) || amt <= 0) return;
+        budgetLimits[cat] = (budgetLimits[cat] || 0) + amt;
+      };
 
-      // Parse Hobbies & Outings to Wants budgets
-      const wantsMap: Record<string, number> = {};
+      // Hobbies mapping
       if (answers.hobbies && Array.isArray(answers.hobbies)) {
         answers.hobbies.forEach((h: any) => {
-          const name = (h.name || "").toLowerCase();
+          const name = (h.name || "").toLowerCase().trim();
           const amt = parseFloat(h.amount || "0");
           if (isNaN(amt) || amt <= 0) return;
 
-          let cat = "Entertainment";
-          if (name.includes("gym") || name.includes("fitness") || name.includes("health")) {
-            cat = "Health";
-          } else if (name.includes("eat") || name.includes("restaurant") || name.includes("cafe") || name.includes("food")) {
+          let cat = "";
+          if (name.includes("gym") || name === "fitness" || name === "health") {
+            cat = "Health/Fitness";
+          } else if (name.includes("gaming") || name === "entertainment") {
+            cat = "Entertainment";
+          } else if (name.includes("eating out") || name.includes("restaurant") || name.includes("cafe") || name.includes("food")) {
             cat = "Eating Out";
           } else if (name.includes("fashion") || name.includes("clothing") || name.includes("shop") || name.includes("beauty")) {
             cat = "Shopping";
-          } else if (name.includes("sub") || name.includes("netflix") || name.includes("spotify")) {
-            cat = "Subscriptions";
+          } else if (name.includes("travel") || name.includes("holiday")) {
+            cat = "Travel";
+          } else if (name.includes("car")) {
+            cat = "Transport/Car Lifestyle";
+          } else if (name.includes("content creation") || name.includes("creative") || name.includes("business")) {
+            cat = "Business/Creative";
+          } else if (name.includes("sports") || name.includes("sport") || name.includes("exercise")) {
+            cat = "Fitness/Sports";
+          } else {
+            cat = h.name.trim().charAt(0).toUpperCase() + h.name.trim().slice(1);
           }
-          wantsMap[cat] = (wantsMap[cat] || 0) + amt;
+          addLimit(cat, amt);
         });
       }
 
-      // Add wants budgets from hobbies mapping
-      Object.entries(wantsMap).forEach(([cat, limit]) => {
-        if (limit > 0 && !hasCategory(cat)) {
-          budgetsToInsert.push({ category: cat, user_id: sessionUser.id, limit, spent: 0, type: "limit" });
-        }
-      });
-
-      // Sum up fixed costs
+      // Infrastructure costs
       const rentBond = parseFloat(answers.infrastructure?.rentBond || "0");
       const householdContribution = parseFloat(answers.infrastructure?.householdContribution || "0");
       const ratesLevies = parseFloat(answers.infrastructure?.ratesLevies || "0");
-      const housingLimit = rentBond + householdContribution + ratesLevies;
-
       const fuel = parseFloat(answers.infrastructure?.fuel || "0");
       const publicTransport = parseFloat(answers.infrastructure?.publicTransport || "0");
       const carRepayment = parseFloat(answers.infrastructure?.carRepayment || "0");
       const carInsurance = parseFloat(answers.infrastructure?.carInsurance || "0");
       const carMaintenance = parseFloat(answers.infrastructure?.carMaintenance || "0");
-      const transportLimit = fuel + publicTransport + carRepayment + carInsurance + carMaintenance;
 
-      // Sum up survival essentials
-      const groceriesLimit = parseFloat(answers.groceries || "0");
-      const billsLimit = parseFloat(answers.utilities || "0") + parseFloat(answers.data || "0");
-      const otherLimit = parseFloat(answers.toiletries || "0") +
-                         parseFloat(answers.householdItems || "0") +
-                         parseFloat(answers.otherEssentials || "0");
+      addLimit("Housing", rentBond);
+      addLimit("Housing/Household", householdContribution);
+      addLimit("Utilities/Bills", ratesLevies);
+      addLimit("Transport", fuel);
+      addLimit("Transport", publicTransport);
+      addLimit("Car Finance/Transport", carRepayment);
+      addLimit("Insurance", carInsurance);
+      addLimit("Maintenance/Transport", carMaintenance);
 
+      // Essentials
+      const groceries = parseFloat(answers.groceries || "0");
+      const utilities = parseFloat(answers.utilities || "0");
+      const data = parseFloat(answers.data || "0");
+      const toiletries = parseFloat(answers.toiletries || "0");
+      const householdItems = parseFloat(answers.householdItems || "0");
+      const otherEssentials = parseFloat(answers.otherEssentials || "0");
+
+      addLimit("Groceries", groceries);
+      addLimit("Utilities/Bills", utilities);
+      addLimit("Mobile/Data", data);
+      addLimit("Personal Care", toiletries);
+      addLimit("Household", householdItems);
+      addLimit("Other Essentials", otherEssentials);
+
+      // Debts budget category mapping
       const debtLimit = answers.debts ? answers.debts.reduce((sum: number, d: any) => sum + parseFloat(d.repayment || "0"), 0) : 0;
+      addLimit("Debt Payments", debtLimit);
 
-      if (housingLimit > 0 && !hasCategory("Rent / Housing")) {
-        budgetsToInsert.push({ category: "Rent / Housing", user_id: sessionUser.id, limit: housingLimit, spent: 0, type: "limit" });
+      // Default allocations (Savings 20%, Entertainment 15% if not already allocated)
+      if (takeHomePay > 0 && !budgetLimits["Savings"]) {
+        addLimit("Savings", Math.round(takeHomePay * 0.20));
       }
-      if (transportLimit > 0 && !hasCategory("Transport")) {
-        budgetsToInsert.push({ category: "Transport", user_id: sessionUser.id, limit: transportLimit, spent: 0, type: "limit" });
-      }
-      if (billsLimit > 0 && !hasCategory("Bills")) {
-        budgetsToInsert.push({ category: "Bills", user_id: sessionUser.id, limit: billsLimit, spent: 0, type: "limit" });
-      }
-      if (groceriesLimit > 0 && !hasCategory("Groceries")) {
-        budgetsToInsert.push({ category: "Groceries", user_id: sessionUser.id, limit: groceriesLimit, spent: 0, type: "limit" });
-      }
-      if (debtLimit > 0 && !hasCategory("Debt Payments")) {
-        budgetsToInsert.push({ category: "Debt Payments", user_id: sessionUser.id, limit: debtLimit, spent: 0, type: "limit" });
-      }
-      if (takeHomePay > 0 && !hasCategory("Savings")) {
-        budgetsToInsert.push({ category: "Savings", user_id: sessionUser.id, limit: Math.round(takeHomePay * 0.20), spent: 0, type: "limit" });
-      }
-      if (otherLimit > 0 && !hasCategory("Other")) {
-        budgetsToInsert.push({ category: "Other", user_id: sessionUser.id, limit: otherLimit, spent: 0, type: "limit" });
+      if (takeHomePay > 0 && !budgetLimits["Entertainment"]) {
+        addLimit("Entertainment", Math.round(takeHomePay * 0.15));
       }
 
-      // Ensure Entertainment budget is created if not already added by hobbies
-      if (!hasCategory("Entertainment")) {
-        budgetsToInsert.push({ category: "Entertainment", user_id: sessionUser.id, limit: Math.round(takeHomePay * 0.15), spent: 0, type: "limit" });
-      }
+      const budgetsToInsert = Object.entries(budgetLimits).map(([cat, limit]) => ({
+        category: cat,
+        user_id: sessionUser.id,
+        limit,
+        spent: 0,
+        type: "limit"
+      }));
 
       if (budgetsToInsert.length > 0) {
-        const { error: budgetError } = await supabase.from('budgets').upsert(budgetsToInsert, { onConflict: "user_id,category" });
+        const { error: budgetError } = await supabase
+          .from('budgets')
+          .upsert(budgetsToInsert, { onConflict: "category,user_id" });
         if (budgetError) console.error("Error creating starter budgets:", budgetError);
       }
 
       // 2. Generate starter goals
       if (answers.goalsDetails && answers.goalsDetails.length > 0) {
-        const goalsToInsert = answers.goalsDetails.map((g: any) => ({
-          user_id: sessionUser.id,
-          title: g.title,
-          target_amount: parseFloat(g.target_amount) || 0,
-          current_amount: parseFloat(g.current_amount || "0") || 0,
-          deadline: g.deadline || new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
-          category: g.category || "Savings",
-          status: "On Track",
-          notes: `Created during onboarding config`,
-          icon: g.icon || "🎯",
-          color: g.color || "#00D8A5",
-          created_at: new Date().toISOString()
-        }));
+        const { data: existingGoals } = await supabase
+          .from('goals')
+          .select('id, title')
+          .eq('user_id', sessionUser.id);
 
-        if (goalsToInsert.length > 0) {
-          const { error: goalsError } = await supabase.from('goals').insert(goalsToInsert);
-          if (goalsError) console.error("Error creating onboarding goals:", goalsError);
+        for (const g of answers.goalsDetails) {
+          const targetAmt = parseFloat(g.target_amount) || 0;
+          const currentAmt = parseFloat(g.current_amount || "0") || 0;
+          const deadline = g.deadline || new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0];
+          const matchedGoal = existingGoals?.find((eg: any) => eg.title.toLowerCase().trim() === g.title.toLowerCase().trim());
+
+          if (matchedGoal) {
+            const { error: updateGoalErr } = await supabase
+              .from('goals')
+              .update({
+                target_amount: targetAmt,
+                current_amount: currentAmt,
+                deadline,
+                category: g.category || "Savings",
+                icon: g.icon || "🎯",
+                color: g.color || "#00D8A5",
+                notes: `Updated during onboarding config`
+              })
+              .eq('id', matchedGoal.id);
+            if (updateGoalErr) console.error("Error updating onboarding goal:", updateGoalErr);
+          } else {
+            const { error: insertGoalErr } = await supabase
+              .from('goals')
+              .insert({
+                user_id: sessionUser.id,
+                title: g.title,
+                target_amount: targetAmt,
+                current_amount: currentAmt,
+                deadline,
+                category: g.category || "Savings",
+                status: "On Track",
+                notes: `Created during onboarding config`,
+                icon: g.icon || "🎯",
+                color: g.color || "#00D8A5",
+                created_at: new Date().toISOString()
+              });
+            if (insertGoalErr) console.error("Error inserting onboarding goal:", insertGoalErr);
+          }
         }
       }
 
-      // 3. Create bill reminders for fixed costs and debts
-      const remindersToInsert: any[] = [];
+      // 3. Save to native debts table (if table exists)
+      if (answers.hasDebt === "Yes" && answers.debts && answers.debts.length > 0) {
+        try {
+          const { data: existingDebts } = await supabase
+            .from('debts')
+            .select('id, name')
+            .eq('user_id', sessionUser.id);
+
+          for (const d of answers.debts) {
+            const repaymentAmt = parseFloat(d.repayment || "0") || 0;
+            const balanceAmt = parseFloat(d.balance || "0") || 0;
+            const matchedDebt = existingDebts?.find((ed: any) => ed.name.toLowerCase().trim() === d.name.toLowerCase().trim());
+
+            if (matchedDebt) {
+              await supabase
+                .from('debts')
+                .update({
+                  category: d.category || "Other",
+                  monthly_repayment: repaymentAmt,
+                  outstanding_balance: balanceAmt
+                })
+                .eq('id', matchedDebt.id);
+            } else {
+              await supabase
+                .from('debts')
+                .insert({
+                  user_id: sessionUser.id,
+                  name: d.name,
+                  category: d.category || "Other",
+                  monthly_repayment: repaymentAmt,
+                  outstanding_balance: balanceAmt
+                });
+            }
+          }
+        } catch (debtsError: any) {
+          console.warn("Could not manage native debts table (it may not exist yet or have RLS limits):", debtsError.message);
+        }
+      }
+
+      // 4. Create bill reminders for fixed costs and debts
       const nextMonthFirst = new Date();
       nextMonthFirst.setMonth(nextMonthFirst.getMonth() + 1);
       nextMonthFirst.setDate(1);
       const dueDateStr = nextMonthFirst.toISOString().split('T')[0];
 
+      const candidateReminders: any[] = [];
+
       if (rentBond > 0) {
-        remindersToInsert.push({
-          user_id: sessionUser.id,
+        candidateReminders.push({
           title: "Rent / Bond Payment",
           description: "Fixed monthly housing infrastructure payment",
           amount: rentBond,
           due_date: dueDateStr,
-          category: "Rent / Housing",
+          category: "Housing",
           priority: "high",
-          recurring: "monthly",
-          status: "pending"
+          recurring: "monthly"
         });
       }
 
       if (carRepayment > 0) {
-        remindersToInsert.push({
-          user_id: sessionUser.id,
+        candidateReminders.push({
           title: "Car Repayment",
           description: "Monthly vehicle finance repayment",
           amount: carRepayment,
           due_date: dueDateStr,
-          category: "Transport",
+          category: "Car Finance/Transport",
           priority: "high",
-          recurring: "monthly",
-          status: "pending"
+          recurring: "monthly"
         });
       }
 
       if (carInsurance > 0) {
-        remindersToInsert.push({
-          user_id: sessionUser.id,
+        candidateReminders.push({
           title: "Car Insurance",
           description: "Monthly car insurance premium",
           amount: carInsurance,
           due_date: dueDateStr,
-          category: "Transport",
+          category: "Insurance",
           priority: "medium",
-          recurring: "monthly",
-          status: "pending"
+          recurring: "monthly"
         });
       }
 
@@ -506,39 +589,57 @@ export default function App() {
         answers.debts.forEach((d: any) => {
           const repaymentAmt = parseFloat(d.repayment || "0");
           if (repaymentAmt > 0) {
-            remindersToInsert.push({
-              user_id: sessionUser.id,
+            candidateReminders.push({
               title: `${d.name} Repayment`,
-              description: `Monthly payment obligation for ${d.type}`,
+              description: `Monthly payment obligation for ${d.category || "Debt"}`,
               amount: repaymentAmt,
               due_date: dueDateStr,
               category: "Debt Payments",
               priority: "high",
-              recurring: "monthly",
-              status: "pending"
+              recurring: "monthly"
             });
           }
         });
       }
 
-      if (remindersToInsert.length > 0) {
-        const { error: remindersError } = await supabase.from('reminders').insert(remindersToInsert);
-        if (remindersError) console.error("Error creating onboarding reminders:", remindersError);
-      }
+      if (candidateReminders.length > 0) {
+        const { data: existingReminders } = await supabase
+          .from('reminders')
+          .select('id, title')
+          .eq('user_id', sessionUser.id)
+          .eq('status', 'pending');
 
-      // 4. Save to native debts table (if table exists)
-      if (answers.hasDebt === "Yes" && answers.debts && answers.debts.length > 0) {
-        const debtsToInsert = answers.debts.map((d: any) => ({
-          user_id: sessionUser.id,
-          name: d.name,
-          category: d.type || "Other",
-          monthly_repayment: parseFloat(d.repayment || "0") || 0,
-          outstanding_balance: parseFloat(d.balance || "0") || 0
-        }));
-
-        const { error: debtsError } = await supabase.from('debts').insert(debtsToInsert);
-        if (debtsError) {
-          console.warn("Could not insert into native debts table (it may not exist yet):", debtsError.message);
+        for (const rem of candidateReminders) {
+          const matchedRem = existingReminders?.find((er: any) => er.title.toLowerCase().trim() === rem.title.toLowerCase().trim());
+          if (matchedRem) {
+            const { error: updateRemErr } = await supabase
+              .from('reminders')
+              .update({
+                amount: rem.amount,
+                due_date: rem.due_date,
+                description: rem.description,
+                category: rem.category,
+                priority: rem.priority,
+                recurring: rem.recurring
+              })
+              .eq('id', matchedRem.id);
+            if (updateRemErr) console.error("Error updating reminder:", updateRemErr);
+          } else {
+            const { error: insertRemErr } = await supabase
+              .from('reminders')
+              .insert({
+                user_id: sessionUser.id,
+                title: rem.title,
+                description: rem.description,
+                amount: rem.amount,
+                due_date: rem.due_date,
+                category: rem.category,
+                priority: rem.priority,
+                recurring: rem.recurring,
+                status: "pending"
+              });
+            if (insertRemErr) console.error("Error inserting reminder:", insertRemErr);
+          }
         }
       }
 

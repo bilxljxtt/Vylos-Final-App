@@ -53,14 +53,14 @@ export const V2TimePicker: React.FC<V2TimePickerProps> = ({
       document.addEventListener("mousedown", handleClickOutside);
       document.addEventListener("keydown", handleEsc);
       updateCoords();
-      window.addEventListener("scroll", updateCoords, true);
+      window.addEventListener("scroll", updateCoords, { capture: true, passive: true });
       window.addEventListener("resize", updateCoords);
     }
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleEsc);
-      window.removeEventListener("scroll", updateCoords, true);
+      window.removeEventListener("scroll", updateCoords, { capture: true });
       window.removeEventListener("resize", updateCoords);
     };
   }, [isOpen]);

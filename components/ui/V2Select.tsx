@@ -54,14 +54,14 @@ export const V2Select: React.FC<V2SelectProps> = ({
       document.addEventListener("mousedown", handleClickOutside);
       window.addEventListener("keydown", handleKeyDown);
       updateCoords();
-      window.addEventListener("scroll", updateCoords, true);
+      window.addEventListener("scroll", updateCoords, { capture: true, passive: true });
       window.addEventListener("resize", updateCoords);
     }
     
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
       window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("scroll", updateCoords, true);
+      window.removeEventListener("scroll", updateCoords, { capture: true });
       window.removeEventListener("resize", updateCoords);
     };
   }, [isOpen]);

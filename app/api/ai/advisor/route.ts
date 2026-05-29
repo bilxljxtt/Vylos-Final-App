@@ -152,13 +152,32 @@ export async function POST(req: NextRequest) {
       - Do not give regulated financial advice.
     `;
 
-    // 7. Call AI or Fallback
+    // 7. Call Railway AI Backend or Fallback
     let reply = "";
     try {
-      if (!process.env.GOOGLE_AI_API_KEY) throw new Error("No AI API Key");
-      reply = await AIService.getSimpleAIResponse(fullPrompt);
+      const apiUrl = process.env.NEXT_PUBLIC_VYLOS_AI_API_URL;
+      if (!apiUrl) throw new Error("Vylos AI URL is not configured");
+
+      const backendResponse = await fetch(`${apiUrl}/bot/ask`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ 
+          question: lastMessage, 
+          user_id: user.id 
+        }),
+      });
+
+      if (!backendResponse.ok) {
+        const errorText = await backendResponse.text();
+        throw new Error(`Backend error: ${errorText}`);
+      }
+
+      const data = await backendResponse.json();
+      reply = data.reply || data.answer || "";
     } catch (aiErr) {
-      console.log("Falling back to Logic Engine...");
+      console.error("Railway AI Backend failed, falling back to Logic Engine:", aiErr);
       reply = LogicAdvisor.getFallbackResponse(lastMessage, context);
     }
 
