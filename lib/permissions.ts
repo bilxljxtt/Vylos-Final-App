@@ -127,17 +127,6 @@ export class Permissions {
    * Helper for general AI access gating (subscription & rules)
    */
   static canUseAI(user: UserProfile): boolean {
-    // Admin/developer/internal testing users: AI access allowed
-    if (this.isPrivileged(user) || user.role === 'tester') {
-      return true;
-    }
-
-    // Free trial users: no AI access unless explicitly allowed by admin rule
-    if (user.subscription_status === 'trialing') {
-      return !!user.onboardingAnswers?.allowTrialAI || !!(user as any).allow_trial_ai;
-    }
-
-    // Free users: now allowed with daily limit
     return true;
   }
 
