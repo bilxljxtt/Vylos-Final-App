@@ -106,8 +106,33 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
         remarkPlugins={[remarkGfm]}
         components={{
           a: ({ href, children, ...props }: any) => {
-            if (href?.startsWith("vylos-page://")) {
-              const targetPage = href.replace("vylos-page://", "");
+            let targetPage = "";
+            if (href) {
+              const cleanHref = href
+                .replace(/^(vylos-page:\/\/|\/)/, "")
+                .replace(/\/$/, "")
+                .toLowerCase();
+
+              const pageMap: Record<string, string> = {
+                goals: "goals",
+                budget: "budget",
+                transactions: "transactions",
+                calendar: "calendar",
+                reminders: "reminders",
+                progress: "analytics",
+                analytics: "analytics",
+                dashboard: "dashboard",
+                home: "dashboard",
+                ai: "ai",
+                advisor: "ai",
+              };
+              
+              if (pageMap[cleanHref]) {
+                targetPage = pageMap[cleanHref];
+              }
+            }
+
+            if (targetPage) {
               return (
                 <button 
                   onClick={() => setPage(targetPage)}
@@ -216,7 +241,7 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
                         <MarkdownRenderer content={msg.content} />
                       )}
                     </div>
-                    {!isUser && (msg.source || msg.layer !== undefined) && (
+                    {!isUser && (msg.source || msg.layer !== undefined) && (process.env.NODE_ENV === "development" || Permissions.isPrivileged(userProfile)) && (
                       <div className="flex items-center gap-2 px-1 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 opacity-60">
                         {msg.layer !== undefined && <span>Layer {msg.layer}</span>}
                         {msg.source && msg.layer !== undefined && <span>•</span>}

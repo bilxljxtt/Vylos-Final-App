@@ -1,19 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
-import { AIService } from "@/lib/services/import/AIService";
 import { AdvisorEngine } from "@/lib/services/AdvisorEngine";
+
+interface ChatMessage {
+  role: string;
+  content: string;
+}
+
+interface OnboardingDebt {
+  name: string;
+  type: string;
+  repayment: string;
+  balance: string;
+}
 import { LogicAdvisor } from "@/lib/services/LogicAdvisor";
 import { createClient } from "@/utils/supabase/server";
 import { Permissions } from "@/lib/permissions";
 
 export async function POST(req: NextRequest) {
+  const startTime = Date.now();
+  let intent = "unknown_query";
+  let aiNeeded = false;
+  let promptSize = 0;
+  let ollamaTime = 0;
+  let fallbackUsed = "None";
+
   try {
-    const { messages } = await req.json();
+    const { messages } = (await req.json()) as { messages?: ChatMessage[] };
+    if (!messages || messages.length === 0) {
+      return NextResponse.json({ reply: "No messages provided." });
+    }
     const lastMessage = messages[messages.length - 1].content;
 
     // 1. Authenticate User
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
+    const token = session?.access_token;
+
     if (!user) {
       return NextResponse.json({ reply: "I need you to be logged in to help with your finances." });
     }
@@ -24,8 +47,8 @@ export async function POST(req: NextRequest) {
 
     // 3. Subscription Block check
     if (!Permissions.canUseAIAdvisor(profile)) {
-      return NextResponse.json({ 
-        reply: "Vylos Advisor is currently unavailable. Please check your account settings." 
+      return NextResponse.json({
+        reply: "Vylos Advisor is currently unavailable. Please check your account settings."
       });
     }
 
@@ -45,11 +68,11 @@ export async function POST(req: NextRequest) {
           .eq('user_id', user.id)
           .eq('usage_date', today)
           .maybeSingle();
-        
+
         dailyUsed = dailyUsage?.message_count || 0;
         if (dailyUsed >= 5) {
-          return NextResponse.json({ 
-            reply: "Daily AI limit reached. Please try again tomorrow." 
+          return NextResponse.json({
+            reply: "Daily AI limit reached. Please try again tomorrow."
           }, { status: 429 });
         }
       } else {
@@ -62,8 +85,8 @@ export async function POST(req: NextRequest) {
 
         monthlyUsed = usageData?.messages_used || 0;
         if (monthlyUsed >= monthlyLimit) {
-          return NextResponse.json({ 
-            reply: `You have reached your Vylos Advisor limit of ${monthlyLimit} messages for this month. Upgrade your plan or wait until your limit resets next month.` 
+          return NextResponse.json({
+            reply: `You have reached your Vylos Advisor limit of ${monthlyLimit} messages for this month. Upgrade your plan or wait until your limit resets next month.`
           }, { status: 429 });
         }
       }
@@ -72,17 +95,61 @@ export async function POST(req: NextRequest) {
     // 5. Fetch Real Data Context
     const context = await AdvisorEngine.getContext(user.id);
 
-    // 6. Construct AI Prompt
+    // Fetch user health score from Supabase
+    let healthScore = 70;
+    try {
+      const { data: scoreData } = await supabase
+        .from('user_health_scores')
+        .select('score')
+        .eq('user_id', user.id)
+        .order('calculated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (scoreData?.score !== undefined) {
+        healthScore = scoreData.score;
+      }
+    } catch (err) {
+      console.warn("Failed to fetch health score from DB:", err);
+    }
+
+    // 6. Intent Detection & Logic templates first
+    const logicStartTime = Date.now();
+    intent = LogicAdvisor.detectIntent(lastMessage);
+    const calculatedData = LogicAdvisor.calculateAnswer(intent, lastMessage, context, healthScore);
+    const templateReply = LogicAdvisor.getTemplateResponse(intent, calculatedData, context);
+    const logicTime = Date.now() - logicStartTime;
+
+    aiNeeded = LogicAdvisor.shouldUseAI(intent, lastMessage);
+
+    const routeTimeout = 30000; // 30 seconds total route timeout
+    let reply = "";
+    let source = "Logic Engine";
+    let layer = 3;
+
+    if (!aiNeeded) {
+      // Return Logic template instantly
+      await incrementUsage(supabase, profile, user.id, isDeveloper, today, currentMonth, dailyUsed, monthlyUsed);
+      const totalTime = Date.now() - startTime;
+      console.log(`[AI Performance Log] Intent: ${intent} | Logic Calc Time: ${logicTime}ms | AI Needed: false | Total Time: ${totalTime}ms`);
+      return NextResponse.json({ reply: templateReply, source: "Logic Engine", layer: 3 });
+    }
+
+    // AI is needed to polish wording / explain
+    const summarisedData = `
+      Intent: ${intent}
+      Logic Result: ${calculatedData.calculatedAnswer}
+      Supporting Data: ${JSON.stringify(calculatedData.supportingData)}
+      
+      Income: ${context.currency}${context.income.toLocaleString()}
+      Expenses: ${context.currency}${context.expenses.toLocaleString()}
+      Net Cash Flow: ${context.currency}${context.netCashFlow.toLocaleString()}
+      Total Saved: ${context.currency}${context.goalProgress.reduce((acc, g) => acc + g.current, 0).toLocaleString()}
+      Financial Health Score: ${healthScore}/100
+    `;
+
     const systemInstruction = `
       You are Vylos Advisor, a financial guidance assistant inside the Vylos app. 
-      You help users understand their spending, budgets, goals, and financial habits using their Vylos data provided in the summary.
-      
-      RULES FOR GOALS:
-      - If a user asks about a goal (e.g., "MacBook", "S63"), check the "Goal Progress" section below.
-      - Use the EXACT numbers from that goal (Target, Saved, Remaining, Deadline, Recommended Contribution).
-      - Do NOT ask the user for information that is already in the summary.
-      - If they ask "How much do I need to save monthly for X?", give them the 'Recommended Contribution' from the summary for that specific goal.
-      - Match goal names case-insensitively (e.g., "macbook" matches "MacBook").
+      Answer in 3-5 short bullet points. Do not calculate anything. Use only the provided calculated data. If data is missing, say what is missing.
       
       RULES FOR STATEMENTS / PDF / EXPORTS:
       - If the user asks to download, export, print, or get a PDF of their statement, finances, transactions, or report, you MUST output a Markdown link: [Download PDF Statement](download-statement) in your response. Do not output any other link or invent a URL.
@@ -95,118 +162,197 @@ export async function POST(req: NextRequest) {
       - Keep answers short, simple, practical, and supportive.
     `;
 
-    const onboarding = profile.onboarding_answers || {};
-    const hasOnboarding = onboarding && Object.keys(onboarding).length > 0;
-    const onboardingSummary = hasOnboarding ? `
-      User Profile Context (Onboarding Answers):
-      - User Type: ${profile.user_type || onboarding.userType || "N/A"}
-      - Age: ${profile.age || onboarding.age || "N/A"}
-      - Budget Target Scope: ${onboarding.budgetTarget || "N/A"}
-      - Prior Tracking Method: ${onboarding.trackingMethod || "N/A"}
-      - Take-Home Monthly Income: ${context.currency}${parseFloat(onboarding.takeHomePay || "0").toLocaleString()}
-      - Selected Hobbies & Outings: ${onboarding.hobbies ? onboarding.hobbies.join(", ") : "None"}
-      - Monthly Outings Spend: ${context.currency}${parseFloat(onboarding.hobbiesSpend || "0").toLocaleString()}
-      - Active Investing types: ${onboarding.investingTypes ? onboarding.investingTypes.join(", ") : "None"}
-      - Survival Baseline essentials: ${context.currency}${parseFloat(onboarding.survivalBaseline || "0").toLocaleString()}
-      - Debts/ Freedom Blockers: ${onboarding.debts && onboarding.debts.length > 0 ? onboarding.debts.map((d: any) => `${d.name} (${d.type}): Repayment ${context.currency}${parseFloat(d.repayment).toLocaleString()}/mo, Balance ${context.currency}${parseFloat(d.balance).toLocaleString()}`).join("; ") : "None"}
-    ` : "";
-
-    const summarisedData = `
-      ${onboardingSummary}
-
-      Current Month (${context.monthName}):
-      - Income: ${context.currency}${context.income.toLocaleString()}
-      - Expenses: ${context.currency}${context.expenses.toLocaleString()}
-      - Net Cash Flow: ${context.currency}${context.netCashFlow.toLocaleString()}
-      - Savings Rate: ${context.savingsRate}%
-      
-      Top Spending:
-      ${context.topSpending.map(s => `- ${s.category}: ${context.currency}${s.amount.toLocaleString()}`).join("\n")}
-      
-      Budget Usage:
-      ${context.budgetPerformance.map(b => `- ${b.category}: ${b.percent}% utilized (${b.over ? 'OVER BUDGET' : 'OK'})`).join("\n")}
-      
-      Goal Progress:
-      ${context.goalProgress.map(g => {
-        const d = new Date(g.deadline);
-        const dateStr = d.toLocaleString('default', { month: 'short', year: 'numeric' });
-        return `- ${g.title}: Target ${context.currency}${g.target.toLocaleString()}, Saved ${context.currency}${g.current.toLocaleString()}, Remaining ${context.currency}${g.remaining.toLocaleString()}, Deadline ${dateStr}, Recommended Contribution: ${context.currency}${Math.round(g.recommendedMonthly).toLocaleString()}/month (${g.progress}% reached)`;
-      }).join("\n")}
-    `;
-
     const fullPrompt = `
       ${systemInstruction}
 
       User question:
       ${lastMessage}
 
-      User Vylos financial summary:
+      Calculated context structure:
       ${summarisedData}
-
-      Rules:
-      - Answer using the Vylos summary above.
-      - Do not make up numbers.
-      - If data is missing, say there is not enough data.
-      - Give simple next steps.
-      - Keep response concise (max 100 words).
-      - Do not give regulated financial advice.
     `;
 
-    // 7. Call Railway AI Backend or Fallback
-    let reply = "";
+    promptSize = fullPrompt.length;
+
+    // Build the messages history for Ollama, inserting the prompt context into the latest user query
+    const conversationHistory: ChatMessage[] = Array.isArray(messages) && messages.length > 0
+      ? messages.map((m: ChatMessage, idx: number) => {
+        if (idx === messages.length - 1 && m.role === 'user') {
+          return { role: m.role, content: fullPrompt };
+        }
+        return { role: m.role, content: m.content };
+      })
+      : [{ role: "user", content: fullPrompt }];
+
+    // Ollama timeout check (max 20 seconds, or remaining route time)
+    const ollamaTimeoutMs = Math.max(1000, Math.min(20000, routeTimeout - (Date.now() - startTime)));
+
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_VYLOS_AI_API_URL;
-      if (!apiUrl) throw new Error("Vylos AI URL is not configured");
+      console.log("[AI Router] Attempting to reach Local Ollama at:", process.env.LOCAL_OLLAMA_URL);
+      const ollamaStartTime = Date.now();
+      reply = await callLocalOllama(conversationHistory, ollamaTimeoutMs);
+      ollamaTime = Date.now() - ollamaStartTime;
+      source = "Local Ollama";
+      layer = 1;
+      console.log("[AI Router] Success: Response came from: Local Ollama");
+    } catch (ollamaErr) {
+      const ollamaErrMsg = ollamaErr instanceof Error ? ollamaErr.message : String(ollamaErr);
+      console.warn(`[AI Router] Local Ollama failed or timed out. Falling back to Railway backend. Error: ${ollamaErrMsg}`);
 
-      const backendResponse = await fetch(`${apiUrl}/bot/ask`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ 
-          question: lastMessage, 
-          user_id: user.id 
-        }),
-      });
+      const elapsed = Date.now() - startTime;
+      const remainingForRailway = Math.max(1000, routeTimeout - elapsed - 2000); // 2s buffer for network response overhead
+      fallbackUsed = "Railway";
 
-      if (!backendResponse.ok) {
-        const errorText = await backendResponse.text();
-        throw new Error(`Backend error: ${errorText}`);
+      try {
+        console.log(`[AI Router] Attempting to reach Railway Backend with ${remainingForRailway}ms timeout...`);
+        reply = await callRailwayChatbot(lastMessage, user.id, token, summarisedData, fullPrompt, remainingForRailway);
+        source = "Railway fallback";
+        layer = 2;
+        console.log("[AI Router] Success: Response came from: Railway fallback");
+      } catch (railwayErr) {
+        const railwayErrMsg = railwayErr instanceof Error ? railwayErr.message : String(railwayErr);
+        console.error(`[AI Router] Railway backend failed. Falling back to Logic Engine. Error: ${railwayErrMsg}`);
+        fallbackUsed = "Logic Engine Fallback";
+
+        reply = templateReply; // Fall back to logic template response directly
+        source = "Logic Engine";
+        layer = 3;
+        console.log("[AI Router] Success: Response came from: Logic Engine");
       }
-
-      const data = await backendResponse.json();
-      reply = data.reply || data.answer || "";
-    } catch (aiErr) {
-      console.error("Railway AI Backend failed, falling back to Logic Engine:", aiErr);
-      reply = LogicAdvisor.getFallbackResponse(lastMessage, context);
     }
 
     // 8. Increment Usage on Success
-    if (!isDeveloper) {
-      if (profile.subscription_tier === 'free') {
-        await supabase.from('ai_daily_usage').upsert({
-          user_id: user.id,
-          usage_date: today,
-          message_count: dailyUsed + 1,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id,usage_date'
-        });
-      } else {
-        await supabase.from('ai_usage').upsert({
-          user_id: user.id,
-          billing_month: currentMonth,
-          messages_used: monthlyUsed + 1,
-          last_used_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id,billing_month'
-        });
-      }
-    }
+    await incrementUsage(supabase, profile, user.id, isDeveloper, today, currentMonth, dailyUsed, monthlyUsed);
 
-    return NextResponse.json({ reply });
-  } catch (err: any) {
+    const totalTime = Date.now() - startTime;
+    console.log(`[AI Performance Log] Intent: ${intent} | Logic Calc Time: ${logicTime}ms | AI Needed: true | Prompt Size: ${promptSize} chars | Ollama Time: ${ollamaTime}ms | Fallback: ${fallbackUsed} | Total Time: ${totalTime}ms`);
+
+    return NextResponse.json({ reply, source, layer });
+  } catch (err) {
     console.error("AI Advisor Route Error:", err);
     return NextResponse.json({ reply: "Vylos Logic Engine: I'm currently unable to access your data to generate a response. Please try again." });
+  }
+}
+
+async function incrementUsage(
+  supabase: any,
+  profile: any,
+  userId: string,
+  isDeveloper: boolean,
+  today: string,
+  currentMonth: string,
+  dailyUsed: number,
+  monthlyUsed: number
+) {
+  if (isDeveloper) return;
+  if (profile.subscription_tier === 'free') {
+    await supabase.from('ai_daily_usage').upsert({
+      user_id: userId,
+      usage_date: today,
+      message_count: dailyUsed + 1,
+      updated_at: new Date().toISOString()
+    }, {
+      onConflict: 'user_id,usage_date'
+    });
+  } else {
+    await supabase.from('ai_usage').upsert({
+      user_id: userId,
+      billing_month: currentMonth,
+      messages_used: monthlyUsed + 1,
+      last_used_at: new Date().toISOString()
+    }, {
+      onConflict: 'user_id,billing_month'
+    });
+  }
+}
+
+async function callLocalOllama(conversationHistory: ChatMessage[], timeoutMs: number = 20000): Promise<string> {
+  const ollamaUrl = process.env.LOCAL_OLLAMA_URL;
+  if (!ollamaUrl) {
+    throw new Error("LOCAL_OLLAMA_URL is not configured in environment variables");
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(ollamaUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gemma2:2b",
+        messages: conversationHistory,
+        stream: false,
+        options: {
+          num_predict: 120,
+          temperature: 0.3,
+          num_ctx: 2048
+        }
+      }),
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      throw new Error(`Local Ollama returned status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const content = data.message?.content || data.response;
+    if (!content) {
+      throw new Error("No content in Ollama response");
+    }
+    return content;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function callRailwayChatbot(
+  lastMessage: string, 
+  userId: string, 
+  token?: string, 
+  contextData?: string, 
+  fullPrompt?: string, 
+  timeoutMs: number = 10000
+): Promise<string> {
+  const apiUrl = process.env.NEXT_PUBLIC_VYLOS_AI_API_URL;
+  if (!apiUrl) {
+    throw new Error("Vylos AI URL is not configured");
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${apiUrl}/bot/ask`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        question: lastMessage,
+        user_id: userId,
+        context: contextData,
+        full_prompt: fullPrompt
+      }),
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Railway backend returned status ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data.reply || data.answer || "";
+  } finally {
+    clearTimeout(timeoutId);
   }
 }

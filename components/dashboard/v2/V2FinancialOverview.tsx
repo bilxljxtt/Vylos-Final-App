@@ -107,11 +107,11 @@ export const V2FinancialOverview: React.FC<V2FinancialOverviewProps> = ({
             {/* Total Balance */}
             <div className="flex flex-col">
               <p className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.3em] mb-4">Net Worth / Liquidity</p>
-              <div className="flex items-baseline gap-1">
-                <span className="text-7xl font-black text-slate-900 dark:text-white tracking-tighter leading-none">
+              <div className="flex flex-wrap items-baseline gap-1 min-w-0 max-w-full overflow-hidden">
+                <span className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-slate-900 dark:text-white tracking-tighter leading-none break-all" title={formatCurrency(netWorth)}>
                   {formatCurrency(netWorth).split('.')[0]}
                 </span>
-                <span className="text-3xl font-bold text-slate-400 dark:text-slate-500">
+                <span className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-400 dark:text-slate-500">
                   .{formatCurrency(netWorth).split('.')[1] || "00"}
                 </span>
               </div>
@@ -126,12 +126,12 @@ export const V2FinancialOverview: React.FC<V2FinancialOverviewProps> = ({
 
             {/* Cash Flow Bars */}
             <div className="flex flex-col bg-white/40 dark:bg-black/20 p-8 rounded-[32px] border border-white/40 dark:border-white/10 shadow-inner">
-              <div className="flex items-center justify-between mb-8">
-                <div>
-                  <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">Cash Flow Index</p>
-                  <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{formatCurrency(stats.cashFlowIndex)}</p>
+              <div className="flex items-center justify-between mb-8 min-w-0">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest truncate">Cash Flow Index</p>
+                  <p className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 dark:text-white mt-1 truncate max-w-full" title={formatCurrency(stats.cashFlowIndex)}>{formatCurrency(stats.cashFlowIndex)}</p>
                 </div>
-                <div className="p-3 bg-primary/10 rounded-2xl text-primary">
+                <div className="p-3 bg-primary/10 rounded-2xl text-primary shrink-0">
                   <BarChart3 size={24} />
                 </div>
               </div>
@@ -204,16 +204,18 @@ export const V2FinancialOverview: React.FC<V2FinancialOverviewProps> = ({
           { label: "Savings", val: formatCurrency(stats.totalSaved), trend: "Accumulating", color: "text-emerald-500", icon: <ShieldCheck size={20} /> },
           { label: "Goals", val: `${stats.activeGoalsCount} Active`, trend: "Tracking", color: "text-amber-500", icon: <Trophy size={20} /> }
         ].map((stat, i) => (
-          <div key={i} className="vylos-glass-soft p-6 flex flex-col gap-3 group hover:scale-[1.03] active:scale-95 cursor-pointer">
-            <div className="flex items-center gap-4">
-              <div className={`p-2.5 rounded-xl bg-white dark:bg-white/10 shadow-xl ${stat.color}`}>
+          <div key={i} className="vylos-glass-soft p-6 flex flex-col gap-3 group hover:scale-[1.03] active:scale-95 cursor-pointer min-w-0">
+            <div className="flex items-center gap-4 min-w-0">
+              <div className={`p-2.5 rounded-xl bg-white dark:bg-white/10 shadow-xl ${stat.color} shrink-0`}>
                 {stat.icon}
               </div>
-              <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">{stat.label}</span>
+              <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] truncate">{stat.label}</span>
             </div>
-            <div className="mt-2">
-              <span className="text-xl font-black text-slate-900 dark:text-white tracking-tighter">{stat.val}</span>
-              <p className={`text-[10px] font-black ${stat.color} mt-1.5 uppercase tracking-widest`}>{stat.trend}</p>
+            <div className="mt-2 min-w-0">
+              <span className="text-base sm:text-lg md:text-xl font-black text-slate-900 dark:text-white tracking-tighter block truncate" title={stat.val}>
+                {stat.val}
+              </span>
+              <p className={`text-[10px] font-black ${stat.color} mt-1.5 uppercase tracking-widest truncate`}>{stat.trend}</p>
             </div>
           </div>
         ))}
