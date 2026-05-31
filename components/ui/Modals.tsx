@@ -8,14 +8,6 @@ import { TransactionIcon } from "./TransactionIcon";
 import { GoalIcon } from "./GoalIcon";
 
 export function TransactionModal({ txForm, setTxForm, setShowAddTx, handleAddTransaction, autocat }: any) {
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setShowAddTx(false);
@@ -35,157 +27,11 @@ export function TransactionModal({ txForm, setTxForm, setShowAddTx, handleAddTra
     handleAddTransaction();
   };
 
-  if (isMobile) {
-    return (
-      <Portal>
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div 
-            className="absolute inset-0 bg-black/85 backdrop-blur-md cursor-pointer" 
-            onClick={() => setShowAddTx(false)} 
-          />
-          <form 
-            onSubmit={onSubmit}
-            className="relative bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-white/10 rounded-[2rem] p-6 w-full max-w-[92vw] shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden max-h-[92vh] flex flex-col"
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between mb-4 shrink-0 border-b border-slate-200 dark:border-white/5 pb-4">
-              <div>
-                <h3 className="text-xl font-black tracking-tight text-slate-900 dark:text-white">Add Transaction</h3>
-                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Record your income or expense</p>
-              </div>
-              <button 
-                type="button" 
-                onClick={() => setShowAddTx(false)} 
-                className="p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl transition-all"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Body */}
-            <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar space-y-5 pb-2">
-              {/* Type Switcher */}
-              <div className="flex bg-slate-100 dark:bg-white/5 p-1 rounded-xl border border-slate-200 dark:border-white/5">
-                {["expense", "income"].map(t => (
-                  <button 
-                    key={t} 
-                    type="button"
-                    onClick={() => {
-                      const newType = t as "income" | "expense";
-                      setTxForm((f: any) => ({ 
-                        ...f, 
-                        type: newType, 
-                        cat: autocat(f.desc, newType) 
-                      }));
-                    }} 
-                    className={`flex-1 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
-                      txForm.type === t 
-                        ? 'bg-white dark:bg-white/20 text-primary dark:text-white shadow border border-slate-200/10' 
-                        : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-                    }`}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-
-              {/* Description */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Description</label>
-                <div className="flex gap-3 items-center">
-                  <div className="flex-1">
-                    <input 
-                      className="w-full bg-slate-100/50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:border-primary focus:bg-white/10 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white outline-none transition-all placeholder-slate-400" 
-                      value={txForm.desc} 
-                      onChange={handleDescChange} 
-                      placeholder="e.g. Starbucks, Rent, Salary..."
-                      required
-                    />
-                  </div>
-                  <div className="shrink-0 bg-slate-100 dark:bg-white/5 p-2 rounded-xl border border-slate-200 dark:border-white/5">
-                    <TransactionIcon 
-                      merchant={txForm.desc} 
-                      category={txForm.cat} 
-                      type={txForm.type}
-                      size="sm"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Category & Date */}
-              <div className="grid grid-cols-2 gap-4">
-                <V2Select 
-                  label="Category"
-                  value={txForm.cat}
-                  onChange={v => setTxForm((f: any) => ({ ...f, cat: v as TransactionCategory }))}
-                  options={TRANSACTION_CATEGORIES.map(c => ({ value: c, label: c }))}
-                />
-                <div className="space-y-2">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Date</label>
-                  <V2DatePicker 
-                    value={txForm.date}
-                    onChange={v => setTxForm((f: any) => ({ ...f, date: v }))}
-                  />
-                </div>
-              </div>
-
-              {/* Amount */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Amount</label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-primary font-black text-sm">R</span>
-                  <input 
-                    className="w-full bg-slate-100/50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:border-primary focus:bg-white/10 rounded-xl pl-9 pr-4 py-3 text-sm font-bold text-slate-900 dark:text-white outline-none transition-all" 
-                    type="number" 
-                    step="0.01"
-                    value={txForm.amount} 
-                    onChange={e => setTxForm((f: any) => ({ ...f, amount: e.target.value }))} 
-                    placeholder="R0.00"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Notes */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Notes (Optional)</label>
-                <textarea 
-                  className="w-full bg-slate-100/50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:border-primary focus:bg-white/10 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white outline-none transition-all placeholder-slate-400 min-h-[70px] resize-none" 
-                  value={txForm.notes} 
-                  onChange={e => setTxForm((f: any) => ({ ...f, notes: e.target.value }))} 
-                  placeholder="Add comments about this transaction..."
-                />
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="flex flex-col gap-3 pt-4 border-t border-slate-200 dark:border-white/5 shrink-0">
-              <button 
-                type="submit" 
-                className="w-full py-3.5 bg-primary hover:bg-primary/95 text-white text-xs font-black rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-98"
-              >
-                Save
-              </button>
-              <button 
-                type="button" 
-                className="w-full py-3.5 bg-transparent text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-black rounded-xl transition-colors" 
-                onClick={() => setShowAddTx(false)}
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
-      </Portal>
-    );
-  }
-
   return (
     <Portal>
       <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 md:p-6 animate-in fade-in duration-300">
         <div 
-          className="absolute inset-0 bg-black/60 backdrop-blur-md cursor-pointer" 
+          className="absolute inset-0 bg-black/60 backdrop-blur-xl cursor-pointer" 
           onClick={() => setShowAddTx(false)} 
         />
         <form 
@@ -293,14 +139,6 @@ export function TransactionModal({ txForm, setTxForm, setShowAddTx, handleAddTra
 }
 
 export function GoalModal({ goalForm, setGoalForm, setShowAddGoal, handleAddGoal }: any) {
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setShowAddGoal(false);
@@ -317,164 +155,11 @@ export function GoalModal({ goalForm, setGoalForm, setShowAddGoal, handleAddGoal
   const icons = ["Target", "Shield", "Car", "Home", "Plane", "GraduationCap", "Heart", "Baby", "Rocket"];
   const colors = ["#00D8A5", "#3B82F6", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899"];
 
-  if (isMobile) {
-    return (
-      <Portal>
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div 
-            className="absolute inset-0 bg-black/85 backdrop-blur-md cursor-pointer" 
-            onClick={() => setShowAddGoal(false)} 
-          />
-          <form 
-            onSubmit={onSubmit}
-            className="relative bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-white/10 rounded-[2rem] p-6 w-full max-w-[92vw] shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden max-h-[92vh] flex flex-col"
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between mb-4 shrink-0 border-b border-slate-200 dark:border-white/5 pb-4">
-              <div>
-                <h3 className="text-xl font-black tracking-tight text-slate-900 dark:text-white">New Savings Goal</h3>
-                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Set a target to save money</p>
-              </div>
-              <button 
-                type="button" 
-                onClick={() => setShowAddGoal(false)} 
-                className="p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl transition-all"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Body */}
-            <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar space-y-5 pb-2">
-              {/* Title */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Goal Title</label>
-                <div className="relative">
-                  <Target className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <input 
-                    className="w-full bg-slate-100/50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:border-primary focus:bg-white/10 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-900 dark:text-white outline-none transition-all placeholder-slate-400" 
-                    value={goalForm.name} 
-                    onChange={e => setGoalForm((f: any) => ({ ...f, name: e.target.value }))} 
-                    placeholder="e.g. Dream House"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Target Amount */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Target Amount</label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-primary font-black text-sm">R</span>
-                  <input 
-                    className="w-full bg-slate-100/50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:border-primary focus:bg-white/10 rounded-xl pl-9 pr-4 py-3 text-sm font-bold text-slate-900 dark:text-white outline-none transition-all" 
-                    type="number" 
-                    value={goalForm.target} 
-                    onChange={e => setGoalForm((f: any) => ({ ...f, target: e.target.value }))} 
-                    placeholder="R0.00"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Deadline & Category */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Deadline</label>
-                  <V2DatePicker 
-                    value={goalForm.deadline}
-                    onChange={v => setGoalForm((f: any) => ({ ...f, deadline: v }))}
-                  />
-                </div>
-                <V2Select 
-                  label="Category"
-                  value={goalForm.category}
-                  onChange={v => setGoalForm((f: any) => ({ ...f, category: v }))}
-                  options={[
-                    { value: "Travel", label: "Travel" },
-                    { value: "Property", label: "Property" },
-                    { value: "Emergency", label: "Emergency Fund" },
-                    { value: "Vehicle", label: "Vehicle" },
-                    { value: "Other", label: "Other" },
-                  ]}
-                />
-              </div>
-
-              {/* Icon & Color selection */}
-              <div className="space-y-3">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Icon & Color</label>
-                <div className="grid grid-cols-5 gap-2">
-                  {icons.map(icon => (
-                    <button 
-                      key={icon}
-                      type="button"
-                      onClick={() => setGoalForm((f: any) => ({ ...f, icon }))}
-                      className={`h-11 rounded-xl flex items-center justify-center transition-all ${
-                        goalForm.icon === icon 
-                          ? 'bg-primary/10 border border-primary text-primary' 
-                          : 'bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 text-slate-500'
-                      }`}
-                    >
-                      <GoalIcon iconName={icon} size={18} className={goalForm.icon === icon ? "text-primary" : "text-slate-500"} />
-                    </button>
-                  ))}
-                </div>
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {colors.map(color => (
-                    <button 
-                      key={color}
-                      type="button"
-                      onClick={() => setGoalForm((f: any) => ({ ...f, color }))}
-                      className={`w-8 h-8 rounded-full transition-all ${
-                        goalForm.color === color 
-                          ? 'ring-2 ring-offset-2 ring-primary scale-110' 
-                          : 'scale-100'
-                      }`}
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Notes */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Notes (Optional)</label>
-                <textarea 
-                  className="w-full bg-slate-100/50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:border-primary focus:bg-white/10 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white outline-none transition-all placeholder-slate-400 min-h-[70px] resize-none" 
-                  value={goalForm.notes} 
-                  onChange={e => setGoalForm((f: any) => ({ ...f, notes: e.target.value }))} 
-                  placeholder="Why are you saving for this?"
-                />
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="flex flex-col gap-3 pt-4 border-t border-slate-200 dark:border-white/5 shrink-0">
-              <button 
-                type="submit" 
-                className="w-full py-3.5 bg-primary hover:bg-primary/95 text-white text-xs font-black rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-98"
-              >
-                Create Goal
-              </button>
-              <button 
-                type="button" 
-                className="w-full py-3.5 bg-transparent text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-black rounded-xl transition-colors" 
-                onClick={() => setShowAddGoal(false)}
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
-      </Portal>
-    );
-  }
-
   return (
     <Portal>
       <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 md:p-6 animate-in fade-in duration-300">
         <div 
-          className="absolute inset-0 bg-black/60 backdrop-blur-md cursor-pointer" 
+          className="absolute inset-0 bg-black/60 backdrop-blur-xl cursor-pointer" 
           onClick={() => setShowAddGoal(false)} 
         />
         <form 
@@ -601,14 +286,6 @@ export function GoalModal({ goalForm, setGoalForm, setShowAddGoal, handleAddGoal
 }
 
 export function BudgetModal({ budgetForm, setBudgetForm, setShowAddBudget, handleAddBudget }: any) {
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setShowAddBudget(false);
@@ -624,84 +301,11 @@ export function BudgetModal({ budgetForm, setBudgetForm, setShowAddBudget, handl
 
   const categories = TRANSACTION_CATEGORIES.filter(c => !["Salary", "Business Income", "Refund", "Other Income"].includes(c));
   
-  if (isMobile) {
-    return (
-      <Portal>
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div 
-            className="absolute inset-0 bg-black/85 backdrop-blur-md cursor-pointer" 
-            onClick={() => setShowAddBudget(false)} 
-          />
-          <form 
-            onSubmit={onSubmit}
-            className="relative bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-white/10 rounded-[2rem] p-6 w-full max-w-[92vw] shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden max-h-[92vh] flex flex-col"
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between mb-4 shrink-0 border-b border-slate-200 dark:border-white/5 pb-4">
-              <div>
-                <h3 className="text-xl font-black tracking-tight text-slate-900 dark:text-white">Set Budget</h3>
-                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Limit spending for a category</p>
-              </div>
-              <button 
-                type="button" 
-                onClick={() => setShowAddBudget(false)} 
-                className="p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl transition-all"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Body */}
-            <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar space-y-5 pb-2">
-              <V2Select 
-                label="Category"
-                value={budgetForm.cat}
-                onChange={v => setBudgetForm((f: any) => ({ ...f, cat: v }))}
-                options={categories.map(c => ({ value: c, label: c }))}
-              />
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Monthly Limit</label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-primary font-black text-sm">R</span>
-                  <input 
-                    className="w-full bg-slate-100/50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:border-primary focus:bg-white/10 rounded-xl pl-9 pr-4 py-3 text-sm font-bold text-slate-900 dark:text-white outline-none transition-all" 
-                    type="number" 
-                    value={budgetForm.limit} 
-                    onChange={e => setBudgetForm((f: any) => ({ ...f, limit: e.target.value }))} 
-                    placeholder="R0.00"
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="flex flex-col gap-3 pt-4 border-t border-slate-200 dark:border-white/5 shrink-0">
-              <button 
-                type="submit" 
-                className="w-full py-3.5 bg-primary hover:bg-primary/95 text-white text-xs font-black rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-98"
-              >
-                Set Budget
-              </button>
-              <button 
-                type="button" 
-                className="w-full py-3.5 bg-transparent text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-black rounded-xl transition-colors" 
-                onClick={() => setShowAddBudget(false)}
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
-      </Portal>
-    );
-  }
-
   return (
     <Portal>
       <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 md:p-6 animate-in fade-in duration-300">
         <div 
-          className="absolute inset-0 bg-black/60 backdrop-blur-md cursor-pointer" 
+          className="absolute inset-0 bg-black/60 backdrop-blur-xl cursor-pointer" 
           onClick={() => setShowAddBudget(false)} 
         />
         <form 
@@ -746,4 +350,3 @@ export function BudgetModal({ budgetForm, setBudgetForm, setShowAddBudget, handl
     </Portal>
   );
 }
-export {};

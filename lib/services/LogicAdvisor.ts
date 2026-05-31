@@ -240,42 +240,10 @@ export class LogicAdvisor {
     healthScore: number
   ): { calculatedAnswer: string; supportingData: any } {
     const currency = context.currency || "R";
-    const name = context.userName || "there";
-    const income = context.income || 0;
-    const expenses = context.expenses || 0;
-    const netCashFlow = context.netCashFlow || 0;
-    const savingsRate = context.savingsRate || 0;
     const totalSaved = context.goalProgress.reduce((acc, g) => acc + g.current, 0);
 
-    // Get top spending categories
-    const topCategory = context.topSpending[0]?.category || "None";
-    const topAmount = context.topSpending[0]?.amount || 0;
-    const topPct = expenses > 0 ? Math.round((topAmount / expenses) * 100) : 0;
-
-    const secondCategory = context.topSpending[1]?.category || "";
-    const secondAmount = context.topSpending[1]?.amount || 0;
-
-    const thirdCategory = context.topSpending[2]?.category || "";
-    const thirdAmount = context.topSpending[2]?.amount || 0;
-
     let calculatedAnswer = "";
-    let supportingData: any = {
-      name,
-      currency,
-      income,
-      expenses,
-      netCashFlow,
-      savingsRate,
-      totalSaved,
-      topCategory,
-      topAmount,
-      topPct,
-      secondCategory,
-      secondAmount,
-      thirdCategory,
-      thirdAmount,
-      healthScore
-    };
+    let supportingData: any = {};
 
     switch (intent) {
       case "navigation_query": {
@@ -284,7 +252,7 @@ export class LogicAdvisor {
         let pageName = "Home";
         if (q.includes("goal")) { page = "goals"; pageName = "Goals"; }
         else if (q.includes("budget")) { page = "budget"; pageName = "Budget"; }
-        else if (q.includes("transaction") || q.includes("activity")) { page = "transactions"; pageName = "Transactions"; }
+        else if (q.includes("transaction")) { page = "transactions"; pageName = "Transactions"; }
         else if (q.includes("calendar")) { page = "calendar"; pageName = "Calendar"; }
         else if (q.includes("reminder")) { page = "reminders"; pageName = "Reminders"; }
         else if (q.includes("setting")) { page = "settings"; pageName = "Settings"; }
@@ -292,21 +260,38 @@ export class LogicAdvisor {
         else if (q.includes("advisor") || q.includes("ai")) { page = "ai"; pageName = "Vylos Advisor"; }
         
         calculatedAnswer = `Navigate to ${pageName}.`;
-        supportingData.page = page;
-        supportingData.pageName = pageName;
+        supportingData = { page, pageName };
         break;
       }
       case "savings_advice_query": {
-        calculatedAnswer = `Advice on saving more requested.`;
+        calculatedAnswer = `Advice on saving more requested. Monthly Income: ${currency}${context.income.toLocaleString()}, Expenses: ${currency}${context.expenses.toLocaleString()}, Net Cash Flow: ${currency}${context.netCashFlow.toLocaleString()}, Total Saved: ${currency}${totalSaved.toLocaleString()}, Savings Rate: ${context.savingsRate}%.`;
+        supportingData = {
+          income: `${currency}${context.income.toLocaleString()}`,
+          expenses: `${currency}${context.expenses.toLocaleString()}`,
+          netCashFlow: `${currency}${context.netCashFlow.toLocaleString()}`,
+          totalSaved: `${currency}${totalSaved.toLocaleString()}`,
+          savingsRate: `${context.savingsRate}%`
+        };
         break;
       }
       case "saved_amount_query":
       case "savings_query": {
         calculatedAnswer = `User saved ${currency}${totalSaved.toLocaleString()} this month.`;
+        supportingData = {
+          totalSaved: `${currency}${totalSaved.toLocaleString()}`,
+          savingsRate: `${context.savingsRate}%`
+        };
         break;
       }
       case "top_expenses_query": {
-        calculatedAnswer = `Top expense is ${topCategory} at ${currency}${topAmount.toLocaleString()}.`;
+        const top = context.topSpending[0] || { category: "None", amount: 0 };
+        const pct = context.expenses > 0 ? Math.round((top.amount / context.expenses) * 100) : 0;
+        calculatedAnswer = `Top expense is ${top.category} at ${currency}${top.amount.toLocaleString()}.`;
+        supportingData = {
+          category: top.category,
+          amount: `${currency}${top.amount.toLocaleString()}`,
+          percentage: `${pct}`
+        };
         break;
       }
       case "spending_category_query": {
@@ -323,18 +308,14 @@ export class LogicAdvisor {
         const match = context.budgetPerformance.find(
           b => b.category.toLowerCase() === targetCategory
         );
-        const spent = match ? match.spent : (context.topSpending.find(s => s.category.toLowerCase() === targetCategory)?.amount || 0);
-        const limit = match ? match.limit : 0;
-        const over = match ? match.over : false;
-        const percent = match ? match.percent : 0;
+        const amount = match ? match.spent : (context.topSpending.find(s => s.category.toLowerCase() === targetCategory)?.amount || 0);
         const prettyCat = targetCategory ? targetCategory.charAt(0).toUpperCase() + targetCategory.slice(1) : "None";
 
-        calculatedAnswer = `Spending on ${prettyCat} is ${currency}${spent.toLocaleString()}.`;
-        supportingData.category = prettyCat;
-        supportingData.spent = spent;
-        supportingData.limit = limit;
-        supportingData.over = over;
-        supportingData.percent = percent;
+        calculatedAnswer = `Spending on ${prettyCat} is ${currency}${amount.toLocaleString()}.`;
+        supportingData = {
+          category: prettyCat,
+          amount: `${currency}${amount.toLocaleString()}`
+        };
         break;
       }
       case "overspending_query":
@@ -343,24 +324,39 @@ export class LogicAdvisor {
         if (overList.length > 0) {
           const list = overList.map(b => `${b.category} (${currency}${(b.spent - b.limit).toLocaleString()} over)`).join(", ");
           calculatedAnswer = `Over budget in: ${list}.`;
-          supportingData.isOver = true;
-          supportingData.overCategories = list;
+          supportingData = {
+            isOver: true,
+            overCategories: list
+          };
         } else {
           calculatedAnswer = "Staying within all budget limits.";
-          supportingData.isOver = false;
+          supportingData = {
+            isOver: false
+          };
         }
         break;
       }
       case "cash_flow_query": {
-        calculatedAnswer = `Cash flow is ${currency}${netCashFlow.toLocaleString()}.`;
+        calculatedAnswer = `Cash flow is ${currency}${context.netCashFlow.toLocaleString()}.`;
+        supportingData = {
+          cashFlow: `${currency}${context.netCashFlow.toLocaleString()}`,
+          income: `${currency}${context.income.toLocaleString()}`,
+          expenses: `${currency}${context.expenses.toLocaleString()}`
+        };
         break;
       }
       case "income_query": {
-        calculatedAnswer = `Income is ${currency}${income.toLocaleString()}.`;
+        calculatedAnswer = `Income is ${currency}${context.income.toLocaleString()}.`;
+        supportingData = {
+          income: `${currency}${context.income.toLocaleString()}`
+        };
         break;
       }
       case "expense_query": {
-        calculatedAnswer = `Expenses are ${currency}${expenses.toLocaleString()}.`;
+        calculatedAnswer = `Expenses are ${currency}${context.expenses.toLocaleString()}.`;
+        supportingData = {
+          expenses: `${currency}${context.expenses.toLocaleString()}`
+        };
         break;
       }
       case "goal_progress_query": {
@@ -370,43 +366,62 @@ export class LogicAdvisor {
 
         if (goal) {
           calculatedAnswer = `Goal '${goal.title}' is ${goal.progress}% complete.`;
-          supportingData.hasGoal = true;
-          supportingData.title = goal.title;
-          supportingData.progress = goal.progress;
-          supportingData.current = goal.current;
-          supportingData.target = goal.target;
-          supportingData.remaining = goal.remaining;
-          supportingData.recommendedMonthly = Math.round(goal.recommendedMonthly);
+          supportingData = {
+            title: goal.title,
+            progress: `${goal.progress}%`,
+            current: `${currency}${goal.current.toLocaleString()}`,
+            target: `${currency}${goal.target.toLocaleString()}`,
+            remaining: `${currency}${goal.remaining.toLocaleString()}`,
+            recommendedMonthly: `${currency}${Math.round(goal.recommendedMonthly).toLocaleString()}`
+          };
         } else {
           calculatedAnswer = "No goals configured.";
-          supportingData.hasGoal = false;
+          supportingData = {
+            hasGoal: false
+          };
         }
         break;
       }
       case "subscription_query": {
         const subBudget = context.budgetPerformance.find(b => b.category === "Subscriptions");
-        const spent = subBudget ? subBudget.spent : (context.topSpending.find(s => s.category === "Subscriptions")?.amount || 0);
+        const spent = subBudget ? subBudget.spent : 0;
         calculatedAnswer = `Subscription spending is ${currency}${spent.toLocaleString()}.`;
-        supportingData.spent = spent;
+        supportingData = {
+          spent: `${currency}${spent.toLocaleString()}`
+        };
         break;
       }
       case "reminder_query":
       case "calendar_query": {
         calculatedAnswer = "Calendar reminders available.";
+        supportingData = {
+          message: "Check your upcoming bills and calendar."
+        };
         break;
       }
       case "transaction_search_query": {
         calculatedAnswer = "Activity history available.";
+        supportingData = {
+          message: "Full transaction search is active in Transactions."
+        };
         break;
       }
       case "health_score_query": {
-        const status = healthScore >= 85 ? "Excellent" : healthScore >= 70 ? "Good" : healthScore >= 40 ? "Fair" : "Poor";
-        calculatedAnswer = `Financial health score is ${healthScore}/100 (${status}).`;
-        supportingData.status = status;
+        calculatedAnswer = `Financial health score is ${healthScore}/100 (${healthScore >= 85 ? "Excellent" : healthScore >= 70 ? "Good" : healthScore >= 40 ? "Fair" : "Poor"}).`;
+        supportingData = {
+          score: `${healthScore}/100`,
+          status: healthScore >= 85 ? "Excellent" : healthScore >= 70 ? "Good" : healthScore >= 40 ? "Fair" : "Poor"
+        };
         break;
       }
       default: {
         calculatedAnswer = "Factual data calculated.";
+        supportingData = {
+          income: `${currency}${context.income.toLocaleString()}`,
+          expenses: `${currency}${context.expenses.toLocaleString()}`,
+          netCashFlow: `${currency}${context.netCashFlow.toLocaleString()}`,
+          healthScore: `${healthScore}/100`
+        };
         break;
       }
     }
@@ -420,96 +435,60 @@ export class LogicAdvisor {
     context: AdvisorContext
   ): string {
     const data = calculatedData.supportingData;
-    const name = data.name;
-    const currency = data.currency;
-    const totalSaved = data.totalSaved;
-    const savingsRate = data.savingsRate;
-    const income = data.income;
-    const expenses = data.expenses;
-    const netCashFlow = data.netCashFlow;
-    const topCategory = data.topCategory;
-    const topAmount = data.topAmount;
-    const topPct = data.topPct;
-    const secondCategory = data.secondCategory;
-    const secondAmount = data.secondAmount;
-    const thirdCategory = data.thirdCategory;
-    const thirdAmount = data.thirdAmount;
-    const healthScore = data.healthScore;
-
     switch (intent) {
       case "navigation_query":
-        return `Sure, ${name}! Let's head over to your ${data.pageName} view. [Open ${data.pageName}](/${data.page})`;
+        return `Sure! Let's head over to your ${data.pageName} view. [Open ${data.pageName}](/${data.page})`;
 
       case "savings_advice_query":
-        return `Hi ${name}, based on your current numbers, you have a monthly income of **${currency}${income.toLocaleString()}** and expenses of **${currency}${expenses.toLocaleString()}**, leaving you with a net cash flow of **${currency}${netCashFlow.toLocaleString()}**.\n\nTo save more efficiently:\n- **Focus on the biggest leak**: Your highest category is **${topCategory}** at **${currency}${topAmount.toLocaleString()}**. Reducing this is your quickest win.\n- **Pay yourself first**: Move a fixed amount into your goals immediately after you receive your income rather than saving what is left over.\n- **Review budget targets**: Set limits on flexible categories like Entertainment or Dining to protect your cash flow. [Open Goals](/goals)`;
+        return `Based on your Vylos data: monthly income is ${data.income}, expenses are ${data.expenses}, and net cash flow is ${data.netCashFlow}. To save more: 1) Review over-budget categories, 2) Set a concrete goals target, and 3) Automate a monthly savings contribution. [Open Goals](/goals)`;
 
       case "saved_amount_query":
       case "savings_query":
-        if (totalSaved === 0) {
-          return `Hi ${name}, you haven't set up any savings goals yet, which makes it hard to track your exact savings. I recommend establishing your first goal (like an Emergency Fund) so we can track your progress. [Open Goals](/goals)`;
-        }
-        return `Hi ${name}, you've saved a total of **${currency}${totalSaved.toLocaleString()}** this month across your goals. This puts your savings rate at **${savingsRate}%**.\n\n${netCashFlow > 0 ? "That's a strong position because your current cash flow is positive." : "⚠️ Since your cash flow is currently negative, you should review your flexible spending to keep these savings secure."} Your next best move is to keep this amount protected and avoid pulling from it for spending categories like **${topCategory || 'Entertainment'}**. [Open Goals](/goals)`;
+        return `You have saved a total of ${data.totalSaved} this month across your goals, achieving a ${data.savingsRate} savings rate. [Open Goals](/goals)`;
 
       case "top_expenses_query":
-        if (expenses === 0) {
-          return `Hi ${name}, you haven't recorded any expenses for this month yet. Start tracking your transactions to see your top categories! [View Transactions](/transactions)`;
-        }
-        return `Hi ${name}, your biggest spending category this month is **${topCategory}** at **${currency}${topAmount.toLocaleString()}**, which accounts for **${topPct}%** of your total monthly expenses.\n\n${secondCategory ? `Your next largest categories are **${secondCategory}** (${currency}${secondAmount.toLocaleString()}) and **${thirdCategory}** (${currency}${thirdAmount.toLocaleString()}).\n\n` : ""}To improve your cash flow quickly, review your flexible spending in **${topCategory}** and see where you can make quick cuts. [View Transactions](/transactions)`;
+        return `Your top spending category is ${data.category} at ${data.amount}. This accounts for ${data.percentage}% of your monthly expenses. [View Transactions](/transactions)`;
 
-      case "spending_category_query": {
-        const spent = data.spent || 0;
-        const limit = data.limit || 0;
-        const percent = data.percent || 0;
-        const over = data.over || false;
-        const category = data.category || "None";
-        if (limit > 0) {
-          return `Hi ${name}, you have spent **${currency}${spent.toLocaleString()}** on **${category}** this month.\n\nThis represents **${percent}%** of your set limit of ${currency}${limit.toLocaleString()}.\n\n${over ? `⚠️ You are currently **over budget** by ${currency}${(spent - limit).toLocaleString()} in this category.` : `You have ${currency}${(limit - spent).toLocaleString()} remaining before reaching your limit.`} [View Transactions](/transactions)`;
-        }
-        return `Hi ${name}, we didn't find a set budget for **${category}**. However, you have spent **${currency}${spent.toLocaleString()}** in this category this month. I recommend creating a budget limit for it to stay on track. [Open Budget](/budget)`;
-      }
+      case "spending_category_query":
+        return `You have spent ${data.amount} on ${data.category} this month. [View Transactions](/transactions)`;
 
       case "overspending_query":
       case "budget_analysis_query":
         if (data.isOver) {
-          return `Hi ${name}, you are currently over budget in: **${data.overCategories}**.\n\nThis overspending is reducing your available net cash flow. I recommend reviewing these categories immediately and cutting back on non-essentials for the remainder of the month. [Open Budget](/budget)`;
+          return `You are over budget in: ${data.overCategories}. Reducing spending in these categories will help improve your cash flow. [Open Budget](/budget)`;
         }
-        return `Hi ${name}, your budget is currently stable overall and you are staying within all your set limits! Great job. ${topCategory && topAmount > 0 ? `However, your largest category is **${topCategory}** (${currency}${topAmount.toLocaleString()}), which you should continue to monitor to protect your net cash flow.` : ""} [Open Budget](/budget)`;
+        return `You are staying within all your budget limits. Great job! [Open Budget](/budget)`;
 
       case "cash_flow_query":
-        if (netCashFlow >= 0) {
-          return `Hi ${name}, your net cash flow is **positive** at **${currency}${netCashFlow.toLocaleString()}** this month (Income: ${currency}${income.toLocaleString()}, Expenses: ${currency}${expenses.toLocaleString()}).\n\nThis is a healthy position! I recommend allocating some of this positive surplus toward your active savings goals to accelerate your progress. [View Transactions](/transactions)`;
-        }
-        return `⚠️ Hi ${name}, your net cash flow is **negative** at **-${currency}${Math.abs(netCashFlow).toLocaleString()}** this month (Income: ${currency}${income.toLocaleString()}, Expenses: ${currency}${expenses.toLocaleString()}).\n\nThis means you are spending more than you earn. I recommend reviewing your flexible spending in categories like **${topCategory || 'Shopping'}** immediately to balance your cash flow. [View Transactions](/transactions)`;
+        return `Your net cash flow is ${data.cashFlow} this month. (Income: ${data.income}, Expenses: ${data.expenses}). [View Transactions](/transactions)`;
 
       case "income_query":
-        return `Hi ${name}, your total income recorded this month is **${currency}${income.toLocaleString()}**.\n\n${netCashFlow >= 0 ? `Your net cash flow is positive at **${currency}${netCashFlow.toLocaleString()}**, which indicates positive financial health.` : `⚠️ However, your expenses are higher than this income, putting your cash flow in the negative. Let's look at reducing flexible costs.`} [View Transactions](/transactions)`;
+        return `Your total income recorded this month is ${data.income}. [View Transactions](/transactions)`;
 
       case "expense_query":
-        return `Hi ${name}, your total expenses recorded this month are **${currency}${expenses.toLocaleString()}**.\n\nThis represents **${income > 0 ? Math.round((expenses / income) * 100) : 100}%** of your total monthly income (${currency}${income.toLocaleString()}).\n\n${netCashFlow >= 0 ? "You have a positive cash flow remaining, which is excellent." : "⚠️ You are spending more than your income, resulting in a negative net cash flow. Consider reviewing your top categories."} [View Transactions](/transactions)`;
+        return `Your total expenses recorded this month are ${data.expenses}. [View Transactions](/transactions)`;
 
       case "goal_progress_query":
-        if (data.hasGoal) {
-          return `Hi ${name}, your goal **'${data.title}'** is **${data.progress}%** complete.\n\nYou have saved **${currency}${data.current.toLocaleString()}** of **${currency}${data.target.toLocaleString()}** (remaining: **${currency}${data.remaining.toLocaleString()}**).\n\nTo stay on track and hit your target on schedule, you should contribute **${currency}${data.recommendedMonthly.toLocaleString()}/month**. [Open Goals](/goals)`;
+        if (data.title) {
+          return `Your goal '${data.title}' is ${data.progress} complete. You have saved ${data.current} of ${data.target} (remaining: ${data.remaining}). To stay on track, save ${data.recommendedMonthly}/month. [Open Goals](/goals)`;
         }
-        return `Hi ${name}, you don't have any active savings goals set up. Setting up a goal is the best way to track your savings progress and build financial stability. Let's create your first goal today! [Open Goals](/goals)`;
+        return `You don't have any active savings goals set up. Set one up to start tracking your progress! [Open Goals](/goals)`;
 
-      case "subscription_query": {
-        const spent = data.spent || 0;
-        return `Hi ${name}, you have spent **${currency}${spent.toLocaleString()}** on subscriptions this month, which represents **${expenses > 0 ? Math.round((spent / expenses) * 100) : 0}%** of your total monthly expenses.\n\nIf you want to free up cash flow, consider auditing these for any unused services. [Open Budget](/budget)`;
-      }
+      case "subscription_query":
+        return `You have spent ${data.spent} on your Subscriptions category this month. [Open Budget](/budget)`;
 
       case "reminder_query":
       case "calendar_query":
-        return `Hi ${name}, you can view and manage all your upcoming bills, tasks, and financial reminders in your calendar. Staying ahead of these keeps your budget stable. [Open Calendar](/calendar)`;
+        return `You can view and manage all your upcoming bills, tasks, and due dates in the calendar view. [Open Calendar](/calendar)`;
 
       case "transaction_search_query":
-        return `Hi ${name}, to search, filter, or audit your transaction logs, head over to the transactions view. Tracking every entry ensures accurate budgeting. [View Transactions](/transactions)`;
+        return `To inspect or filter your full transaction logs, head over to the transactions view. [View Transactions](/transactions)`;
 
       case "health_score_query":
-        return `Hi ${name}, your Vylos Financial Health Score is **${healthScore}/100**, which is considered **${data.status}**.\n\nHere is a quick breakdown of your indicators:\n- **Cash Flow**: ${netCashFlow >= 0 ? "✅ Positive (healthy surplus)" : "❌ Negative (spending exceeds income)"}\n- **Savings Rate**: ${savingsRate >= 20 ? `✅ Strong (${savingsRate}%)` : `⚠️ Low (${savingsRate}% - aim for 20%)`}\n- **Budget Limits**: ${data.overCategories ? "⚠️ Some categories are over budget" : "✅ Staying within limits"}\n\nTo improve your score, focus on keeping your cash flow positive and reducing spending in your top categories. [View Health Report](/analytics)`;
+        return `Your Vylos financial health score is ${data.score}, which is considered ${data.status}. [View Health Report](/analytics)`;
 
       default:
-        return `Hi ${name}, I'm the Vylos Logic Engine. I can help you understand your budget, goals, spending, and cash flow. Try asking "How is my budget?" or "What is my goal progress?".`;
+        return `Vylos Logic Engine: I can help you understand your budget, goals, spending, and cash flow. Try asking "How is my budget?" or "What is my goal progress?".`;
     }
   }
 }

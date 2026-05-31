@@ -12,8 +12,6 @@ import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { VylosLoadingScreen } from "@/components/ui/VylosLoadingScreen";
 
-
-
 interface ImportTransactionsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -33,14 +31,6 @@ interface ImportedTransaction {
 }
 
 export function ImportTransactionsModal({ isOpen, onClose }: ImportTransactionsModalProps) {
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
   const { state, addTransaction, formatCurrency } = useAppStore();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -344,252 +334,394 @@ export function ImportTransactionsModal({ isOpen, onClose }: ImportTransactionsM
 
   return (
     <Portal>
-      {isMobile ? (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className="absolute inset-0 bg-black/85 backdrop-blur-md cursor-pointer" onClick={onClose} />
-          <form onSubmit={(e) => e.preventDefault()} className="relative bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-white/10 rounded-[2rem] p-6 w-full max-w-[92vw] shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden max-h-[92vh] flex flex-col">
-            <div className="flex items-center justify-between mb-4 shrink-0 border-b border-slate-200 dark:border-white/5 pb-4">
-              <div>
-                <h3 className="text-xl font-black tracking-tight text-slate-900 dark:text-white">Import Transactions</h3>
-                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Upload CSV or Excel statements</p>
+      <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
+        <div className="absolute inset-0 bg-black/80 backdrop-blur-xl cursor-pointer" onClick={onClose} />
+        
+        <div className="relative vylos-modal-glass w-full max-w-5xl rounded-[2.5rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-500">
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent pointer-events-none" />
+          
+          {/* Header */}
+          <div className="px-8 py-6 border-b border-border-main flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-600/20">
+                <Upload size={24} />
               </div>
-              <button type="button" onClick={onClose} className="p-2 text-primary hover:text-primary-dark bg-white/20 hover:bg-white/30 rounded-xl transition-all">
-                <X size={20} />
-              </button>
+              <div>
+                <h2 className="text-xl font-black text-text-main tracking-tight">
+                  {step === "preview" ? "Review Imported Transactions" : "Import Transactions"}
+                </h2>
+                <p className="text-[10px] font-black text-text-muted uppercase tracking-widest opacity-60">
+                  {step === "preview" ? "Review and categorize before saving" : "Upload CSV or Excel statements"}
+                </p>
+              </div>
             </div>
+            <button 
+              onClick={onClose} 
+              className="p-2 text-text-muted hover:text-text-main hover:bg-border-main rounded-xl transition-all"
+            >
+              <X size={20} />
+            </button>
+          </div>
 
-            <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar space-y-5 pb-2">
-              {step === "upload" && (
-                <div className="p-12 flex flex-col items-center justify-center text-center space-y-6">
-                  <div onClick={() => fileInputRef.current?.click()} className="w-full max-w-lg aspect-video border-2 border-dashed border-border-main rounded-[2rem] flex flex-col items-center justify-center gap-4 cursor-pointer hover:border-blue-500 hover:bg-blue-500/5 transition-all">
-                    <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-400">
-                      <FileText size={32} />
-                    </div>
+          <div className="flex-1 overflow-y-auto custom-scrollbar">
+            {step === "upload" && (
+              <div className="p-12 flex flex-col items-center justify-center text-center space-y-6">
+                <div 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full max-w-lg aspect-video border-2 border-dashed border-border-main rounded-[2rem] flex flex-col items-center justify-center gap-4 cursor-pointer hover:border-blue-500 hover:bg-blue-500/5 transition-all group"
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const file = e.dataTransfer.files?.[0];
+                    if (file) {
+                      setLoading(true);
+                      const fileName = file.name.toLowerCase();
+                      if (fileName.endsWith(".csv") || fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
+                        handleParse(file);
+                      } else {
+                        setError("Unsupported file format. Please use CSV or Excel.");
+                        setLoading(false);
+                      }
+                    }
+                  }}
+                >
+                  <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-400 group-hover:text-blue-600 transition-colors">
+                    <FileText size={32} />
+                  </div>
+                  <div>
                     <p className="text-sm font-black text-text-main mb-1">Drag and drop your bank statement here</p>
                     <p className="text-xs font-bold text-text-muted">or browse files</p>
-                    <button className="mt-2 px-6 py-2 bg-blue-600 text-white rounded-xl text-[11px] font-black uppercase tracking-widest shadow-lg hover:bg-blue-700 transition-all">Choose File</button>
-                    <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" className="hidden" />
                   </div>
-                  {loading && <VylosLoadingScreen variant="inline" text="Reading file..." />}
-                  {error && <div className="flex items-center gap-2 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-xs font-bold"><AlertCircle size={16} />{error}</div>}
+                  <button className="mt-2 px-6 py-2 bg-blue-600 text-white rounded-xl text-[11px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 group-hover:bg-blue-700 transition-all">
+                    Choose File
+                  </button>
+                  <input 
+                    type="file" 
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                    className="hidden"
+                  />
                 </div>
-              )}
-              {step === "mapping" && (
-                <div className="p-4 space-y-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-text-muted uppercase tracking-widest">Date Column</label>
-                    <select value={mapping.date} onChange={(e) => setMapping({...mapping, date: e.target.value})} className="w-full bg-slate-100 dark:bg-white/5 border border-border-main rounded-2xl px-4 py-3 text-sm font-bold outline-none">
-                      <option value="">Select Date</option>
-                      {headers.map(h => <option key={h} value={h}>{h}</option>)}
-                    </select>
+
+                {loading && (
+                  <VylosLoadingScreen variant="inline" text="Reading file..." />
+                )}
+
+                {error && (
+                  <div className="flex items-center gap-2 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-xs font-bold">
+                    <AlertCircle size={16} />
+                    {error}
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-text-muted uppercase tracking-widest">Merchant Column</label>
-                    <select value={mapping.merchant} onChange={(e) => setMapping({...mapping, merchant: e.target.value})} className="w-full bg-slate-100 dark:bg-white/5 border border-border-main rounded-2xl px-4 py-3 text-sm font-bold outline-none">
-                      <option value="">Select Merchant</option>
-                      {headers.map(h => <option key={h} value={h}>{h}</option>)}
-                    </select>
-                  </div>
-                </div>
-              )}
-              {step === "preview" && (
-                <div className="space-y-4">
-                  {transactions.map(tx => (
-                    <div key={tx.id} className="p-4 border border-border-main rounded-2xl flex justify-between items-center">
-                      <div className="truncate pr-4">
-                        <p className="text-xs font-bold truncate">{tx.merchant}</p>
-                        <p className="text-[10px] text-text-muted">{tx.date}</p>
-                      </div>
-                      <p className={`text-sm font-black ${tx.type === 'income' ? 'text-emerald-600' : 'text-text-main'}`}>
-                        {formatCurrency(tx.amount)}
-                      </p>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-3xl pt-8">
+                  {[
+                    { title: "Smart Mapping", desc: "We automatically detect columns" },
+                    { title: "Auto-Categorize", desc: "Rule-based engine labels rows" },
+                    { title: "Safe Review", desc: "Review and edit before saving" }
+                  ].map((feature, i) => (
+                    <div key={i} className="flex flex-col gap-1 p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-border-main">
+                      <span className="text-[11px] font-black text-text-main uppercase tracking-widest">{feature.title}</span>
+                      <span className="text-[10px] font-medium text-text-muted leading-relaxed">{feature.desc}</span>
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-            
+              </div>
+            )}
+
+            {step === "mapping" && (
+              <div className="p-12 space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+                <div className="text-center max-w-2xl mx-auto space-y-2">
+                  <h3 className="text-2xl font-black text-text-main tracking-tight">We need help matching your file</h3>
+                  <p className="text-sm font-bold text-text-muted">We couldn't automatically detect all columns. Please tell us which columns contain your transaction details.</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">Date Column</label>
+                      <select 
+                        value={mapping.date}
+                        onChange={(e) => setMapping({ ...mapping, date: e.target.value })}
+                        className="w-full bg-slate-100 dark:bg-white/5 border border-border-main rounded-2xl px-5 py-4 text-sm font-bold text-text-main focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
+                      >
+                        <option value="">Select Date Column</option>
+                        {headers.map(h => <option key={h} value={h}>{h}</option>)}
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">Merchant / Description</label>
+                      <select 
+                        value={mapping.merchant}
+                        onChange={(e) => setMapping({ ...mapping, merchant: e.target.value })}
+                        className="w-full bg-slate-100 dark:bg-white/5 border border-border-main rounded-2xl px-5 py-4 text-sm font-bold text-text-main focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
+                      >
+                        <option value="">Select Merchant Column</option>
+                        {headers.map(h => <option key={h} value={h}>{h}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="p-6 bg-blue-500/5 rounded-3xl border border-blue-500/10 space-y-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-blue-600 uppercase tracking-widest ml-1">Which column shows the amount?</label>
+                        <div className="grid grid-cols-2 gap-2 bg-slate-100 dark:bg-black/20 p-1 rounded-2xl">
+                          <button 
+                            onClick={() => setMapping({ ...mapping, debit: "", credit: "" })}
+                            className={`py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${!mapping.debit && !mapping.credit ? 'bg-white dark:bg-slate-800 shadow-sm text-blue-600' : 'text-text-muted hover:text-text-main'}`}
+                          >
+                            Single Column
+                          </button>
+                          <button 
+                            onClick={() => setMapping({ ...mapping, amount: "" })}
+                            className={`py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${mapping.debit || mapping.credit ? 'bg-white dark:bg-slate-800 shadow-sm text-blue-600' : 'text-text-muted hover:text-text-main'}`}
+                          >
+                            Debit / Credit
+                          </button>
+                        </div>
+                      </div>
+
+                      {(!mapping.debit && !mapping.credit) ? (
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">Amount Column</label>
+                          <select 
+                            value={mapping.amount}
+                            onChange={(e) => setMapping({ ...mapping, amount: e.target.value })}
+                            className="w-full bg-white dark:bg-white/5 border border-border-main rounded-2xl px-5 py-4 text-sm font-bold text-text-main focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
+                          >
+                            <option value="">Select Amount Column</option>
+                            {headers.map(h => <option key={h} value={h}>{h}</option>)}
+                          </select>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">Date Column</label>
+                            <select 
+                              value={mapping.debit}
+                              onChange={(e) => setMapping({ ...mapping, debit: e.target.value })}
+                              className="w-full bg-white dark:bg-white/5 border border-border-main rounded-2xl px-5 py-4 text-sm font-bold text-text-main focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
+                            >
+                              <option value="">Select Debit Column</option>
+                              {headers.map(h => <option key={h} value={h}>{h}</option>)}
+                            </select>
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">Credit Column (In)</label>
+                            <select 
+                              value={mapping.credit}
+                              onChange={(e) => setMapping({ ...mapping, credit: e.target.value })}
+                              className="w-full bg-white dark:bg-white/5 border border-border-main rounded-2xl px-5 py-4 text-sm font-bold text-text-main focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
+                            >
+                              <option value="">Select Credit Column</option>
+                              {headers.map(h => <option key={h} value={h}>{h}</option>)}
+                            </select>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-center pt-8">
+                   <div className="flex items-center gap-2 p-4 bg-amber-500/5 border border-amber-500/10 rounded-2xl max-w-xl text-[11px] font-medium text-amber-700 leading-relaxed">
+                     <AlertCircle size={16} className="shrink-0" />
+                     <span>Ensure your column mapping is accurate. Incorrect mapping may lead to inaccurate financial insights and budget calculations.</span>
+                   </div>
+                </div>
+              </div>
+            )}
+
+            {step === "preview" && (
+              <div className="p-0 flex flex-col h-full">
+                <div className="p-6 bg-slate-50 dark:bg-white/5 border-b border-border-main flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex flex-wrap items-center gap-6">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">Transactions Found</span>
+                      <span className="text-sm font-black text-text-main">{transactions.length}</span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Total Income</span>
+                      <span className="text-sm font-black text-emerald-600">{formatCurrency(transactions.filter(t => t.selected && t.type === 'income').reduce((sum, t) => sum + t.amount, 0))}</span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">Total Expenses</span>
+                      <span className="text-sm font-black text-red-500">{formatCurrency(transactions.filter(t => t.selected && t.type === 'expense').reduce((sum, t) => sum + Math.abs(t.amount), 0))}</span>
+                    </div>
+                    {transactions.filter(t => t.warning).length > 0 && (
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Needs Review</span>
+                        <span className="text-sm font-black text-amber-600">{transactions.filter(t => t.warning).length} rows</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center gap-4">
+                    <button 
+                      onClick={() => setTransactions(prev => prev.map(tx => ({ ...tx, selected: true })))}
+                      className="text-[10px] font-black text-text-muted hover:text-text-main uppercase tracking-widest px-2 py-1 hover:bg-slate-100 dark:hover:bg-white/5 rounded-md transition-all"
+                    >
+                      Select All
+                    </button>
+                    <button 
+                      onClick={() => setTransactions(prev => prev.map(tx => ({ ...tx, selected: false })))}
+                      className="text-[10px] font-black text-text-muted hover:text-text-main uppercase tracking-widest px-2 py-1 hover:bg-slate-100 dark:hover:bg-white/5 rounded-md transition-all"
+                    >
+                      Deselect All
+                    </button>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto overflow-y-visible">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="sticky top-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md z-10">
+                      <tr className="border-b border-border-main">
+                        <th className="p-4 w-10"></th>
+                        <th className="p-4 text-[10px] font-black text-text-muted uppercase tracking-widest">Date</th>
+                        <th className="p-4 text-[10px] font-black text-text-muted uppercase tracking-widest">Merchant / Description</th>
+                        <th className="p-4 text-[10px] font-black text-text-muted uppercase tracking-widest">Category</th>
+                        <th className="p-4 text-[10px] font-black text-text-muted uppercase tracking-widest">Amount</th>
+                        <th className="p-4 w-10"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {transactions.map((tx) => (
+                        <tr 
+                          key={tx.id} 
+                          className={`border-b border-border-main/50 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors ${!tx.selected ? 'opacity-40 grayscale-[0.5]' : ''}`}
+                        >
+                          <td className="p-4">
+                            <button 
+                              onClick={() => handleToggleSelect(tx.id)}
+                              className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${tx.selected ? 'bg-blue-600 border-blue-600 text-white' : 'border-border-main'}`}
+                            >
+                              {tx.selected && <CheckCircle2 size={12} />}
+                            </button>
+                          </td>
+                          <td className="p-4">
+                            <input 
+                              type="date" 
+                              value={tx.date}
+                              onChange={(e) => handleUpdateTx(tx.id, { date: e.target.value })}
+                              className="bg-transparent border-none text-[13px] font-bold text-text-main focus:ring-0 w-32"
+                            />
+                          </td>
+                          <td className="p-4">
+                            <input 
+                              type="text" 
+                              value={tx.merchant}
+                              onChange={(e) => handleUpdateTx(tx.id, { merchant: e.target.value })}
+                              className="bg-transparent border-none text-[13px] font-black text-text-main focus:ring-0 w-full"
+                            />
+                          </td>
+                          <td className="p-4 min-w-[160px]">
+                            <select
+                              value={tx.category}
+                              onChange={(e) => handleUpdateTx(tx.id, { category: e.target.value as TransactionCategory })}
+                              className="bg-slate-100 dark:bg-white/5 border border-border-main rounded-xl px-3 py-1.5 text-[11px] font-bold text-text-main outline-none"
+                            >
+                              {TRANSACTION_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                          </td>
+                          <td className="p-4">
+                            <div className="flex items-center gap-2">
+                               <button 
+                                 onClick={() => handleUpdateTx(tx.id, { 
+                                   type: tx.type === 'income' ? 'expense' : 'income',
+                                   amount: -tx.amount
+                                 })}
+                                 className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${tx.type === 'income' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-500'}`}
+                               >
+                                 {tx.type}
+                               </button>
+                               <input 
+                                 type="number" 
+                                 value={Math.abs(tx.amount)}
+                                 onChange={(e) => {
+                                   const val = parseFloat(e.target.value) || 0;
+                                   handleUpdateTx(tx.id, { amount: tx.type === 'income' ? val : -val });
+                                 }}
+                                 className="bg-transparent border-none text-[13px] font-black text-text-main focus:ring-0 w-24 text-right"
+                               />
+                               {tx.warning && (
+                                 <div className="flex items-center gap-1 text-[9px] font-black text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-full animate-pulse shrink-0">
+                                   <AlertCircle size={10} />
+                                   {tx.warning}
+                                 </div>
+                               )}
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <button 
+                              onClick={() => handleRemove(tx.id)}
+                              className="p-2 text-text-muted hover:text-red-500 transition-colors"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             {step === "processing" && (
               <VylosLoadingScreen variant="inline" text="Syncing your finances to Supabase..." />
             )}
+          </div>
 
-            {/* Footer */}
-            <div className="px-8 py-6 bg-border-main/20 border-t border-border-main flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">
+          {/* Footer */}
+          <div className="px-8 py-6 bg-border-main/20 border-t border-border-main flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-2">
+               <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">
                   {step === "upload" && "Select a statement file"}
                   {step === "mapping" && "Configure columns"}
                   {step === "preview" && `${transactions.filter(t => t.selected).length} transactions ready`}
                   {step === "processing" && "Importing..."}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={onClose}
-                  className="px-6 py-3 text-[12px] font-black text-text-muted hover:text-text-main uppercase tracking-widest transition-colors"
-                >
-                  Cancel
-                </button>
-
-                {step === "mapping" && (
-                  <button
-                    onClick={() => applyMapping(rawRows, mapping)}
-                    disabled={!mapping.date || !mapping.merchant || (!mapping.amount && !mapping.debit && !mapping.credit)}
-                    className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[12px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 transition-all active:scale-95 disabled:opacity-50"
-                  >
-                    Apply Mapping
-                    <ArrowRight size={16} />
-                  </button>
-                )}
-
-                {step === "preview" && (
-                  <button
-                    onClick={handleConfirmImport}
-                    className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[12px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 transition-all active:scale-95"
-                  >
-                    Import Selected Transactions
-                    <ArrowRight size={16} />
-                  </button>
-                )}
-              </div>
+               </span>
             </div>
-            </form>
-          </div>
-        ) : (!isMobile ? (
-          <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 animate-in fade-in duration-300">
-            <div className="absolute inset-0 bg-black/85 backdrop-blur-md cursor-pointer" onClick={onClose} />
-            <form onSubmit={(e) => e.preventDefault()} className="relative bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-white/10 rounded-[2rem] p-6 w-full max-w-[92vw] shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden max-h-[92vh] flex flex-col">
-              <div className="flex items-center justify-between mb-4 shrink-0 border-b border-slate-200 dark:border-white/5 pb-4">
-                <div>
-                  <h3 className="text-xl font-black tracking-tight text-slate-900 dark:text-white">Import Transactions</h3>
-                  <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Upload CSV or Excel statements</p>
-                </div>
-                <button type="button" onClick={onClose} className="p-2 text-primary hover:text-primary-dark bg-white/20 hover:bg-white/30 rounded-xl transition-all">
-                  <X size={20} />
+            
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={onClose}
+                className="px-6 py-3 text-[12px] font-black text-text-muted hover:text-text-main uppercase tracking-widest transition-colors"
+              >
+                Cancel
+              </button>
+              
+              {step === "mapping" && (
+                <button 
+                  onClick={() => applyMapping(rawRows, mapping)}
+                  disabled={!mapping.date || !mapping.merchant || (!mapping.amount && !mapping.debit && !mapping.credit)}
+                  className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[12px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  Apply Mapping
+                  <ArrowRight size={16} />
                 </button>
-              </div>
-              <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar space-y-5 pb-2">
-                {step === "upload" && (
-                  <div className="p-12 flex flex-col items-center justify-center text-center space-y-6">
-                    <div onClick={() => fileInputRef.current?.click()} className="w-full max-w-lg aspect-video border-2 border-dashed border-border-main rounded-[2rem] flex flex-col items-center justify-center gap-4 cursor-pointer hover:border-blue-500 hover:bg-blue-500/5 transition-all">
-                      <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-400">
-                        <FileText size={32} />
-                      </div>
-                      <p className="text-sm font-black text-text-main mb-1">Drag and drop your bank statement here</p>
-                      <p className="text-xs font-bold text-text-muted">or browse files</p>
-                      <button className="mt-2 px-6 py-2 bg-blue-600 text-white rounded-xl text-[11px] font-black uppercase tracking-widest shadow-lg hover:bg-blue-700 transition-all">Choose File</button>
-                      <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" className="hidden" />
-                    </div>
-                    {loading && <VylosLoadingScreen variant="inline" text="Reading file..." />}
-                    {error && <div className="flex items-center gap-2 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-xs font-bold"><AlertCircle size={16} />{error}</div>}
-                  </div>
-                )}
-                {step === "mapping" && (
-                  <div className="p-4 space-y-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-text-muted uppercase tracking-widest">Date Column</label>
-                      <select value={mapping.date} onChange={(e) => setMapping({ ...mapping, date: e.target.value })} className="w-full bg-slate-100 dark:bg-white/5 border border-border-main rounded-2xl px-4 py-3 text-sm font-bold outline-none">
-                        <option value="">Select Date</option>
-                        {headers.map(h => <option key={h} value={h}>{h}</option>)}
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-text-muted uppercase tracking-widest">Merchant Column</label>
-                      <select value={mapping.merchant} onChange={(e) => setMapping({ ...mapping, merchant: e.target.value })} className="w-full bg-slate-100 dark:bg-white/5 border border-border-main rounded-2xl px-4 py-3 text-sm font-bold outline-none">
-                        <option value="">Select Merchant</option>
-                        {headers.map(h => <option key={h} value={h}>{h}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                )}
-                {step === "preview" && (
-                  <div className="p-0 flex flex-col h-full">
-                    <div className="p-6 bg-slate-50 dark:bg-white/5 border-b border-border-main flex flex-wrap items-center justify-between gap-4">
-                      <div className="flex flex-wrap items-center gap-6">
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">Transactions Found</span>
-                          <span className="text-sm font-black text-text-main">{transactions.length}</span>
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Total Income</span>
-                          <span className="text-sm font-black text-emerald-600">{formatCurrency(transactions.filter(t => t.selected && t.type === 'income').reduce((sum, t) => sum + t.amount, 0))}</span>
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">Total Expenses</span>
-                          <span className="text-sm font-black text-red-500">{formatCurrency(transactions.filter(t => t.selected && t.type === 'expense').reduce((sum, t) => sum + Math.abs(t.amount), 0))}</span>
-                        </div>
-                        {transactions.filter(t => t.warning).length > 0 && (
-                          <div className="flex flex-col">
-                            <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Needs Review</span>
-                            <span className="text-sm font-black text-amber-600">{transactions.filter(t => t.warning).length} rows</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <button onClick={() => setTransactions(prev => prev.map(tx => ({ ...tx, selected: true })))} className="text-[10px] font-black text-text-muted hover:text-text-main uppercase tracking-widest px-2 py-1 hover:bg-slate-100 dark:hover:bg-white/5 rounded-md transition-all">Select All</button>
-                        <button onClick={() => setTransactions(prev => prev.map(tx => ({ ...tx, selected: false })))} className="text-[10px] font-black text-text-muted hover:text-text-main uppercase tracking-widest px-2 py-1 hover:bg-slate-100 dark:hover:bg-white/5 rounded-md transition-all">Deselect All</button>
-                      </div>
-                    </div>
-                    <div className="overflow-x-auto overflow-y-visible">
-                      <table className="w-full text-left border-collapse">
-                        <thead className="sticky top-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md z-10">
-                          <tr className="border-b border-border-main">
-                            <th className="p-4 w-10"></th>
-                            <th className="p-4 text-[10px] font-black text-text-muted uppercase tracking-widest">Date</th>
-                            <th className="p-4 text-[10px] font-black text-text-muted uppercase tracking-widest">Merchant / Description</th>
-                            <th className="p-4 text-[10px] font-black text-text-muted uppercase tracking-widest">Category</th>
-                            <th className="p-4 text-[10px] font-black text-text-muted uppercase tracking-widest">Amount</th>
-                            <th className="p-4 w-10"></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {transactions.map((tx) => (
-                            <tr key={tx.id} className={`border-b border-border-main/50 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors ${!tx.selected ? 'opacity-40 grayscale-[0.5]' : ''}`}>
-                              <td className="p-4">
-                                <button onClick={() => handleToggleSelect(tx.id)} className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${tx.selected ? 'bg-blue-600 border-blue-600 text-white' : 'border-border-main'}`}>
-                                  {tx.selected && <CheckCircle2 size={12} />}
-                                </button>
-                              </td>
-                              <td className="p-4"><input type="date" value={tx.date} onChange={(e) => handleUpdateTx(tx.id, { date: e.target.value })} className="bg-transparent border-none text-[13px] font-bold text-text-main focus:ring-0 w-32" /></td>
-                              <td className="p-4"><input type="text" value={tx.merchant} onChange={(e) => handleUpdateTx(tx.id, { merchant: e.target.value })} className="bg-transparent border-none text-[13px] font-black text-text-main focus:ring-0 w-full" /></td>
-                              <td className="p-4 min-w-[160px]"><select value={tx.category} onChange={(e) => handleUpdateTx(tx.id, { category: e.target.value as TransactionCategory })} className="bg-slate-100 dark:bg-white/5 border border-border-main rounded-xl px-3 py-1.5 text-[11px] font-bold text-text-main outline-none">
-                                {TRANSACTION_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                              </select></td>
-                              <td className="p-4"><div className="flex items-center gap-2"><button onClick={() => handleUpdateTx(tx.id, { type: tx.type === 'income' ? 'expense' : 'income', amount: -tx.amount })} className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${tx.type === 'income' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-500'}`}>{tx.type}</button><input type="number" value={Math.abs(tx.amount)} onChange={(e) => { const val = parseFloat(e.target.value) || 0; handleUpdateTx(tx.id, { amount: tx.type === 'income' ? val : -val }); }} className="bg-transparent border-none text-[13px] font-black text-text-main focus:ring-0 w-24 text-right" />{tx.warning && (<div className="flex items-center gap-1 text-[9px] font-black text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-full animate-pulse shrink-0"><AlertCircle size={10} />{tx.warning}</div>)}</div></td>
-                              <td className="p-4"><button onClick={() => handleRemove(tx.id)} className="p-2 text-text-muted hover:text-red-500 transition-colors"><Trash2 size={16} /></button></td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-                {step === "processing" && (<VylosLoadingScreen variant="inline" text="Syncing your finances to Supabase..." />)}
-              </div>
-              <div className="px-8 py-6 bg-border-main/20 border-t border-border-main flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">
-                    {step === "upload" && "Select a statement file"}
-                    {step === "mapping" && "Configure columns"}
-                    {step === "preview" && `${transactions.filter(t => t.selected).length} transactions ready`}
-                    {step === "processing" && "Importing..."}
-                  </span>
-                </div>
-                <div className="flex items-center gap-4">
-                  <button onClick={onClose} className="px-6 py-3 text-[12px] font-black text-text-muted hover:text-text-main uppercase tracking-widest transition-colors">Cancel</button>
-                  {step === "mapping" && (
-                    <button onClick={() => applyMapping(rawRows, mapping)} disabled={!mapping.date || !mapping.merchant || (!mapping.amount && !mapping.debit && !mapping.credit)} className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[12px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 transition-all active:scale-95 disabled:opacity-50">Apply Mapping<ArrowRight size={16} /></button>
-                  )}
-                  {step === "preview" && (
-                    <button onClick={handleConfirmImport} className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[12px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 transition-all active:scale-95">Import Selected Transactions<ArrowRight size={16} /></button>
-                  )}
-                </div>
-              </div>
-            </form>
+              )}
+              
+              {step === "preview" && (
+                <button 
+                  onClick={handleConfirmImport}
+                  className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[12px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 transition-all active:scale-95"
+                >
+                  Import Selected Transactions
+                  <ArrowRight size={16} />
+                </button>
+              )}
+            </div>
           </div>
-        ) : null)}
-      </Portal>
-      
+        </div>
+      </div>
+    </Portal>
   );
 }

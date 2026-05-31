@@ -61,7 +61,7 @@ export default function RootLayout({
                 try {
                   const theme = JSON.parse(localStorage.getItem('vylos-storage') || '{}')?.state?.userProfile?.theme;
                   const savedTheme = localStorage.getItem('vylos-theme');
-                  const isDark = savedTheme !== 'light' && theme !== 'Light';
+                  const isDark = savedTheme === 'dark' || theme === 'Dark' || (!savedTheme && !theme && window.matchMedia('(prefers-color-scheme: dark)').matches);
                   if (isDark) {
                     document.documentElement.classList.add('dark');
                   } else {

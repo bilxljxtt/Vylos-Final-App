@@ -101,16 +101,6 @@ export function RemindersModal({ isOpen, onClose, editingReminder }: RemindersMo
   // Override mode for recurring instances
   const [overrideMode, setOverrideMode] = useState<"this" | "all">("this");
 
-  const [isMobile, setIsMobile] = useState(false);
-  const [mobileCatChoice, setMobileCatChoice] = useState<string>("Bill");
-
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
   useEffect(() => {
     if (editingReminder) {
       const standardCategories = [
@@ -134,14 +124,6 @@ export function RemindersModal({ isOpen, onClose, editingReminder }: RemindersMo
         amount: editingReminder.amount?.toString() || "",
         customCategory: isStandard ? "" : editingReminder.category
       });
-
-      let mappedMobileCat = "Other";
-      if (editingReminder.category === "Bills") mappedMobileCat = "Bill";
-      else if (editingReminder.category === "Savings") mappedMobileCat = "Saving";
-      else if (["Subscriptions", "Rent / Housing", "Transport"].includes(editingReminder.category)) mappedMobileCat = "Bill";
-      else if (editingReminder.category === "Health") mappedMobileCat = "Other";
-      else mappedMobileCat = editingReminder.category;
-      setMobileCatChoice(mappedMobileCat);
     } else {
       setFormData({
         title: "",
@@ -154,7 +136,6 @@ export function RemindersModal({ isOpen, onClose, editingReminder }: RemindersMo
         amount: "",
         customCategory: ""
       });
-      setMobileCatChoice("Bill");
     }
   }, [editingReminder?.id, isOpen]);
 
@@ -242,239 +223,10 @@ export function RemindersModal({ isOpen, onClose, editingReminder }: RemindersMo
   };
 
 
-  if (isMobile) {
-    return (
-      <Portal>
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-md cursor-pointer" onClick={onClose} />
-          
-          <form 
-            onSubmit={handleSubmit} 
-            className="relative bg-white/90 dark:bg-slate-900/90 border border-slate-200 dark:border-white/10 w-full max-w-[92vw] rounded-[2rem] shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-500"
-          >
-            {/* Modal Header */}
-            <div className="px-6 py-5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between bg-primary/5 shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-[1rem] bg-primary flex items-center justify-center text-white shadow-xl shadow-primary/20 shrink-0">
-                  <Bell size={20} strokeWidth={2.5} />
-                </div>
-                <div>
-                  <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">
-                    {editingReminder ? "Edit Reminder" : "Create Reminder"}
-                  </h2>
-                  <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider opacity-90">
-                    Set a reminder for bills, goals, or money tasks
-                  </p>
-                </div>
-              </div>
-              <button 
-                type="button" 
-                onClick={onClose} 
-                className="p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl transition-all"
-                aria-label="Close modal"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Modal Body - Scrollable */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6 bg-transparent">
-              {/* Reminder Name */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Reminder Name</label>
-                <input 
-                  required
-                  type="text" 
-                  placeholder="e.g. Rent, Gym Membership..."
-                  className="w-full bg-slate-100/50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white outline-none focus:border-primary transition-all placeholder-slate-400"
-                  value={formData.title}
-                  onChange={e => setFormData({...formData, title: e.target.value})}
-                />
-              </div>
-
-              {/* Description */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Notes (Optional)</label>
-                <textarea 
-                  rows={2}
-                  placeholder="Add details about this reminder..."
-                  className="w-full bg-slate-100/50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white outline-none focus:border-primary transition-all placeholder-slate-400 resize-none"
-                  value={formData.description}
-                  onChange={e => setFormData({...formData, description: e.target.value})}
-                />
-              </div>
-
-              {/* Category Chips */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Category</label>
-                <div className="flex flex-wrap gap-2">
-                  {["Bill", "Goal", "Payment", "Saving", "Other"].map(cat => {
-                    const isSelected = mobileCatChoice === cat;
-                    return (
-                      <button
-                        key={cat}
-                        type="button"
-                        onClick={() => {
-                          setMobileCatChoice(cat);
-                          if (cat === "Bill" || cat === "Payment") {
-                            setFormData(prev => ({ ...prev, category: "Bills" }));
-                          } else if (cat === "Goal" || cat === "Saving") {
-                            setFormData(prev => ({ ...prev, category: "Savings" }));
-                          } else {
-                            setFormData(prev => ({ ...prev, category: "Other" }));
-                          }
-                        }}
-                        className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest border transition-all ${
-                          isSelected
-                            ? 'bg-primary border-primary text-white shadow-md shadow-primary/20'
-                            : 'bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/5 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
-                        }`}
-                      >
-                        {cat}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Date */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Date</label>
-                <V2DatePicker 
-                  value={formData.due_date}
-                  onChange={val => setFormData({...formData, due_date: val})}
-                />
-              </div>
-
-              {/* Repeat Chips */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Repeat</label>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { label: "Once", value: "none" },
-                    ...(formData.recurring === "daily" ? [{ label: "Daily", value: "daily" }] : []),
-                    { label: "Weekly", value: "weekly" },
-                    { label: "Monthly", value: "monthly" }
-                  ].map(opt => {
-                    const isSelected = formData.recurring === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => setFormData(prev => ({ ...prev, recurring: opt.value as any }))}
-                        className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest border transition-all ${
-                          isSelected
-                            ? 'bg-primary border-primary text-white shadow-md shadow-primary/20'
-                            : 'bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/5 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Priority Chips */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Priority</label>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { label: "Low", value: "low" },
-                    { label: "Normal", value: "medium" },
-                    { label: "Important", value: "high" }
-                  ].map(opt => {
-                    const isSelected = formData.priority === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => setFormData(prev => ({ ...prev, priority: opt.value as any }))}
-                        className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest border transition-all ${
-                          isSelected
-                            ? 'bg-primary border-primary text-white shadow-md shadow-primary/20'
-                            : 'bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/5 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Amount */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Amount</label>
-                  <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Optional</span>
-                </div>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-primary font-black text-sm">R</span>
-                  <input 
-                    type="number" 
-                    step="0.01"
-                    placeholder="R0.00"
-                    className="w-full bg-slate-100/50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl pl-9 pr-4 py-3 text-sm font-bold text-slate-900 dark:text-white outline-none focus:border-primary transition-all placeholder-slate-400"
-                    value={formData.amount}
-                    onChange={e => setFormData({...formData, amount: e.target.value})}
-                  />
-                </div>
-              </div>
-
-              {/* Recurring override options */}
-              {editingReminder && (editingReminder as any).is_recurring_instance && (
-                <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-white/10">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Edit Options</label>
-                  <div className="flex gap-3">
-                    <button 
-                      type="button"
-                      onClick={() => setOverrideMode("this")}
-                      className={`flex-1 p-3 rounded-xl border-2 text-left transition-all ${overrideMode === "this" ? "border-primary bg-primary/10 text-primary" : "border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5 text-slate-700 dark:text-slate-300"}`}
-                    >
-                      <span className="block text-xs font-black">This Month Only</span>
-                      <span className="block text-[9px] uppercase tracking-wider opacity-70">Creates override</span>
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={() => setOverrideMode("all")}
-                      className={`flex-1 p-3 rounded-xl border-2 text-left transition-all ${overrideMode === "all" ? "border-primary bg-primary/10 text-primary" : "border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5 text-slate-700 dark:text-slate-300"}`}
-                    >
-                      <span className="block text-xs font-black">All Future Months</span>
-                      <span className="block text-[9px] uppercase tracking-wider opacity-70">Changes rule</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            <div className="px-6 py-4 bg-slate-50 dark:bg-white/5 border-t border-slate-200 dark:border-white/10 flex flex-col gap-3 shrink-0">
-              <button 
-                type="submit"
-                disabled={loading}
-                className="w-full py-3.5 bg-primary hover:bg-primary/95 text-white font-black rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98] disabled:opacity-50 uppercase tracking-widest text-xs flex items-center justify-center gap-2"
-              >
-                {loading ? "Saving..." : "Save Reminder"}
-              </button>
-              <button 
-                type="button"
-                onClick={onClose}
-                className="w-full py-3.5 bg-transparent text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-black rounded-xl transition-all uppercase tracking-widest text-xs"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
-      </Portal>
-    );
-  }
-
   return (
     <Portal>
       <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
-        <div className="absolute inset-0 bg-black/80 backdrop-blur-md cursor-pointer" onClick={onClose} />
+        <div className="absolute inset-0 bg-black/80 backdrop-blur-xl cursor-pointer" onClick={onClose} />
         
         <form onSubmit={handleSubmit} className="relative vylos-glass-modal w-full max-w-5xl rounded-[3rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-500">
           {/* Subtle top glow effect */}

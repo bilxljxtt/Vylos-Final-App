@@ -19,7 +19,6 @@ export interface AdvisorContext {
   }[];
   monthName: string;
   currency: string;
-  userName?: string;
 }
 
 export class AdvisorEngine {
@@ -32,14 +31,13 @@ export class AdvisorEngine {
       supabase.from('transactions').select('*').eq('user_id', userId).filter('date', 'gte', `${currentMonthStr}-01`),
       supabase.from('budgets').select('*').eq('user_id', userId),
       supabase.from('goals').select('*').eq('user_id', userId),
-      supabase.from('user_profiles').select('currency, name').eq('id', userId).single()
+      supabase.from('user_profiles').select('currency').eq('id', userId).single()
     ]);
 
     const txs = txsRes.data || [];
     const budgets = budgetsRes.data || [];
     const goals = goalsRes.data || [];
     const currency = profileRes.data?.currency || "R";
-    const userName = profileRes.data?.name || "";
 
     // 1. Basic Totals
     let income = 0;
@@ -113,8 +111,7 @@ export class AdvisorEngine {
       budgetPerformance: budgetPerf,
       goalProgress: goalPerf,
       monthName: now.toLocaleString('default', { month: 'long' }),
-      currency,
-      userName
+      currency
     };
   }
 

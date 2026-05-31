@@ -56,19 +56,19 @@ export function LandingPage() {
       </nav>
 
       {/* ─── Hero Section ─── */}
-      <section className="relative pt-40 pb-20 lg:pt-56 lg:pb-32 px-6">
+      <section className="relative pt-40 pb-20 lg:pt-56 lg:pb-32 px-6 overflow-hidden">
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
           
           {/* Left Content */}
           <div className="relative z-10">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-              <Sparkles size={12} className="text-blue-400" />
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/10 backdrop-blur-md mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+              <Sparkles size={12} className="text-blue-300" />
               <span className="text-[9px] font-black text-white uppercase tracking-[0.3em]">The Intelligent Wealth Companion</span>
             </div>
 
             <h1 className="text-4xl sm:text-6xl md:text-8xl font-black text-white leading-[0.9] tracking-tighter mb-8 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-100">
               <span className="text-gradient">Govern your</span> <br />
-              <span className="text-blue-400 italic font-serif">financial destiny.</span>
+              <span className="text-blue-200/90 italic font-serif">financial destiny.</span>
             </h1>
 
             <p className="text-lg md:text-xl text-white/70 font-medium leading-relaxed max-w-lg mb-12 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200">
@@ -78,7 +78,7 @@ export function LandingPage() {
             <div className="flex flex-col sm:flex-row items-center gap-6 animate-in fade-in slide-in-from-bottom-10 duration-700 delay-300">
               <Link 
                 href="/signup" 
-                className="w-full sm:w-auto inline-flex items-center justify-center px-10 py-5 bg-blue-600 hover:bg-blue-500 text-white font-black text-[14px] uppercase tracking-[0.2em] rounded-xl shadow-2xl shadow-blue-600/30 transition-all active:scale-95 group"
+                className="w-full sm:w-auto inline-flex items-center justify-center px-10 py-5 bg-blue-600 hover:bg-blue-500 text-white font-black text-[14px] uppercase tracking-[0.2em] rounded-[22px] shadow-2xl shadow-blue-600/30 transition-all active:scale-95 group"
               >
                 Open Your Account
                 <ChevronRight size={20} className="ml-2 group-hover:translate-x-1 transition-transform" strokeWidth={3} />
@@ -99,63 +99,59 @@ export function LandingPage() {
           {/* Right Visuals (Dashboard Preview) */}
           <div className="relative hidden lg:block animate-in fade-in zoom-in duration-1000 delay-200">
              {/* Main Card Wrapper */}
-             <div className="relative z-10 w-full aspect-[4/3] rounded-[32px] border border-white/10 bg-white/5 backdrop-blur-3xl shadow-[0_30px_70px_rgba(0,0,0,0.5)] overflow-hidden rotate-[-2deg] hover:rotate-0 transition-all duration-700 p-8">
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-transparent to-blue-400/5 pointer-events-none" />
+             <div className="relative z-10 w-full aspect-[4/3] rounded-[40px] border border-white/20 bg-white/5 backdrop-blur-3xl shadow-[0_40px_100px_rgba(0,0,0,0.4)] overflow-hidden rotate-[-2deg] hover:rotate-0 transition-all duration-700 p-8">
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-transparent to-blue-400/5" />
                 
                 {/* Mock UI Elements */}
                 <div className="relative z-10 flex flex-col h-full">
-                    <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-4">
+                    <div className="flex justify-between items-center mb-10">
                         <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-blue-500/15 flex items-center justify-center text-blue-400 border border-blue-500/10">
-                              <Activity size={16} />
-                            </div>
-                            <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Dashboard V3</span>
+                            <div className="w-8 h-8 rounded-lg bg-blue-500/20" />
+                            <div className="w-24 h-2 bg-white/20 rounded-full" />
                         </div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-[9px] font-black text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2.5 py-1 rounded-full uppercase tracking-widest">Live Engine</span>
-                        </div>
+                        <div className="w-12 h-12 rounded-full bg-white/10" />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-5 flex-1">
-                        <div className="glass-card p-5 border-white/5">
-                            <div className="flex items-center justify-between mb-3">
-                                <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">Health Score</span>
-                                <Activity size={14} className="text-emerald-400" />
+                    <div className="grid grid-cols-2 gap-6 flex-1">
+                        <div className="glass-card p-6 border-white/10">
+                            <div className="flex items-center justify-between mb-4">
+                                <Activity size={18} className="text-emerald-400" />
+                                <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Health</span>
                             </div>
-                            <div className="text-2xl font-black text-white">84%</div>
-                            <div className="mt-3.5 h-1.5 bg-white/5 rounded-full">
-                                <div className="h-full w-[84%] bg-emerald-400 rounded-full" />
+                            <div className="text-3xl font-black text-white">84%</div>
+                            <div className="mt-4 h-1.5 bg-white/5 rounded-full">
+                                <div className="h-full w-[84%] bg-emerald-400 rounded-full shadow-[0_0_10px_rgba(52,211,153,0.4)]" />
                             </div>
                         </div>
-                        <div className="glass-card p-5 border-white/5">
-                            <div className="flex items-center justify-between mb-3">
-                                <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">Growth</span>
-                                <TrendingUp size={14} className="text-blue-400" />
+                        <div className="glass-card p-6 border-white/10">
+                            <div className="flex items-center justify-between mb-4">
+                                <TrendingUp size={18} className="text-blue-400" />
+                                <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Growth</span>
                             </div>
-                            <div className="text-2xl font-black text-white">+12.4%</div>
-                            <div className="mt-3.5 flex gap-1 h-3 items-end">
+                            <div className="text-3xl font-black text-white">+12.4%</div>
+                            <div className="mt-4 flex gap-1">
                                 {[30, 50, 40, 70, 55, 90].map((h, i) => (
-                                    <div key={i} className="flex-1 bg-blue-400/30 rounded-full" style={{ height: `${h}%` }} />
+                                    <div key={i} className="flex-1 bg-blue-400/40 rounded-full" style={{ height: `${h}%` }} />
                                 ))}
                             </div>
                         </div>
-                        <div className="col-span-2 glass-card p-5 border-white/5">
-                            <div className="flex justify-between items-center mb-3">
-                                <div className="flex items-center gap-2">
-                                    <div className="p-1.5 bg-blue-500/10 border border-blue-500/10 rounded-lg text-blue-400">
-                                         <Wallet size={14} />
+                        <div className="col-span-2 glass-card p-6 border-white/10">
+                            <div className="flex justify-between items-center mb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-blue-500/20 rounded-lg text-blue-400">
+                                        <Wallet size={16} />
                                     </div>
-                                    <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">Total Net Worth</span>
+                                    <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Total Net Worth</span>
                                 </div>
-                                <span className="text-base font-black text-white">R124,500.00</span>
+                                <span className="text-lg font-black text-white">R124,500.00</span>
                             </div>
-                            <div className="space-y-2">
-                                <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                                     <div className="h-full w-[65%] bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full" />
+                            <div className="space-y-3">
+                                <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                                    <div className="h-full w-[65%] bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full" />
                                 </div>
-                                <div className="flex justify-between text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">
-                                     <span>Assets</span>
-                                     <span>Liabilities</span>
+                                <div className="flex justify-between text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">
+                                    <span>Assets</span>
+                                    <span>Liabilities</span>
                                 </div>
                             </div>
                         </div>
@@ -164,26 +160,26 @@ export function LandingPage() {
              </div>
 
              {/* Floating Elements */}
-             <div className="absolute -top-6 -right-6 glass-card p-4.5 animate-float z-20 border-white/10 shadow-2xl">
-                <div className="flex items-center gap-3.5">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/10 flex items-center justify-center text-emerald-400">
-                        <Shield size={18} />
+             <div className="absolute -top-10 -right-10 glass-card p-6 animate-float z-20 border-white/20">
+                <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+                        <Shield size={20} />
                     </div>
                     <div>
-                        <div className="text-[9px] font-black text-white/40 uppercase tracking-widest">Security</div>
-                        <div className="text-xs font-black text-white">Encrypted</div>
+                        <div className="text-[10px] font-black text-white/40 uppercase tracking-widest">Security</div>
+                        <div className="text-sm font-black text-white">Encrypted</div>
                     </div>
                 </div>
              </div>
 
-             <div className="absolute -bottom-4 -left-8 glass-card p-4.5 animate-float z-20 border-white/10 shadow-2xl" style={{ animationDelay: '1s' }}>
-                <div className="flex items-center gap-3.5">
-                    <div className="w-9 h-9 rounded-xl bg-amber-400/10 border border-amber-400/10 flex items-center justify-center text-amber-400">
-                        <Sparkles size={18} />
+             <div className="absolute -bottom-6 -left-12 glass-card p-6 animate-float z-20 border-white/20" style={{ animationDelay: '1s' }}>
+                <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-amber-400/20 flex items-center justify-center text-amber-400">
+                        <Sparkles size={20} />
                     </div>
                     <div>
-                        <div className="text-[9px] font-black text-white/40 uppercase tracking-widest">AI Insights</div>
-                        <div className="text-xs font-black text-white">Active</div>
+                        <div className="text-[10px] font-black text-white/40 uppercase tracking-widest">AI Insights</div>
+                        <div className="text-sm font-black text-white">Active</div>
                     </div>
                 </div>
              </div>

@@ -1084,14 +1084,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     let prof = profRes.data;
-    if (prof && (prof.theme === "System Default" || prof.theme === "System" || !prof.theme)) {
-      prof.theme = "Dark";
-      // Background migration to Dark in Supabase DB
-      supabase.from('user_profiles').update({ theme: "Dark" }).eq('id', user.id).then(({ error }) => {
-        if (error) console.error("Failed to migrate theme to Dark in database:", error);
-      });
-    }
-
     if (!prof && user && isNoRowFound) {
       // Auto-create default user profile row in database since it is confirmed missing
       const defaultProf = {
@@ -1099,7 +1091,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         name: user.user_metadata?.full_name || user.email?.split('@')[0] || "User",
         email: user.email || "",
         avatar_url: user.user_metadata?.avatar_url || "",
-        theme: "Dark",
+        theme: "System Default",
         language: "en",
         currency: "R",
         monthly_income: 0,
@@ -1220,7 +1212,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           email: prof.email || "",
           phone: prof.phone || "",
           avatarUrl: prof.avatar_url || "",
-          theme: prof.theme || "Dark",
+          theme: prof.theme || "System Default",
           language: prof.language || "en",
           currency: prof.currency || "R",
           monthlyIncome: parseFloat(prof.monthly_income),

@@ -56,7 +56,7 @@ export const V2FinancialOverview: React.FC<V2FinancialOverviewProps> = ({
   const allocation = useMemo(() => VylosCalculations.getAllocationPercentages({ transactions: state.transactions, budgets: state.budgets, goals: state.goals } as any, selectedMonth), [state.transactions, state.budgets, state.goals, selectedMonth]);
 
   return (
-    <div className="vylos-glass-readable p-6 sm:p-8 md:p-10 lg:p-8 xl:p-12 flex flex-col relative w-full h-full min-h-[500px] mb-12">
+    <div className="vylos-glass-readable p-8 md:p-12 flex flex-col relative w-full h-full min-h-[500px] mb-12">
       {/* Background Accent Wrapper */}
       <div className="absolute inset-0 overflow-hidden rounded-[32px] pointer-events-none">
         <div className="absolute -top-24 -right-24 w-80 h-80 bg-blue-400/20 blur-[120px] rounded-full" />
@@ -100,18 +100,18 @@ export const V2FinancialOverview: React.FC<V2FinancialOverviewProps> = ({
         </V2Popover>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-8 lg:gap-10 xl:gap-12 flex-1 relative z-10">
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-12 flex-1 relative z-10">
         {/* Balance & Charts */}
         <div className="md:col-span-7 lg:col-span-8 flex flex-col justify-center">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 xl:gap-12 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             {/* Total Balance */}
             <div className="flex flex-col">
               <p className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.3em] mb-4">Net Worth / Liquidity</p>
-              <div className="flex items-baseline gap-0.5 min-w-0 max-w-full overflow-hidden whitespace-nowrap">
-                <span className="text-3xl sm:text-4xl md:text-5xl lg:text-4xl xl:text-5xl 2xl:text-6xl font-black text-slate-900 dark:text-white tracking-tighter leading-none whitespace-nowrap tabular-nums min-w-0 max-w-full truncate" title={formatCurrency(netWorth)}>
+              <div className="flex flex-wrap items-baseline gap-1 min-w-0 max-w-full overflow-hidden">
+                <span className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-slate-900 dark:text-white tracking-tighter leading-none break-all" title={formatCurrency(netWorth)}>
                   {formatCurrency(netWorth).split('.')[0]}
                 </span>
-                <span className="text-lg sm:text-xl md:text-2xl font-bold text-slate-400 dark:text-slate-500 whitespace-nowrap tabular-nums shrink-0">
+                <span className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-400 dark:text-slate-500">
                   .{formatCurrency(netWorth).split('.')[1] || "00"}
                 </span>
               </div>
@@ -125,11 +125,11 @@ export const V2FinancialOverview: React.FC<V2FinancialOverviewProps> = ({
             </div>
 
             {/* Cash Flow Bars */}
-            <div className="flex flex-col bg-white/40 dark:bg-black/20 p-5 sm:p-8 rounded-[32px] border border-white/40 dark:border-white/10 shadow-inner">
+            <div className="flex flex-col bg-white/40 dark:bg-black/20 p-8 rounded-[32px] border border-white/40 dark:border-white/10 shadow-inner">
               <div className="flex items-center justify-between mb-8 min-w-0">
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest truncate">Cash Flow Index</p>
-                  <p className="text-base sm:text-lg md:text-xl lg:text-lg xl:text-2xl font-black text-slate-900 dark:text-white mt-1 truncate max-w-full whitespace-nowrap tabular-nums" title={formatCurrency(stats.cashFlowIndex)}>{formatCurrency(stats.cashFlowIndex)}</p>
+                  <p className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 dark:text-white mt-1 truncate max-w-full" title={formatCurrency(stats.cashFlowIndex)}>{formatCurrency(stats.cashFlowIndex)}</p>
                 </div>
                 <div className="p-3 bg-primary/10 rounded-2xl text-primary shrink-0">
                   <BarChart3 size={24} />
@@ -150,7 +150,7 @@ export const V2FinancialOverview: React.FC<V2FinancialOverviewProps> = ({
         </div>
 
         {/* Spending Allocation */}
-        <div className="md:col-span-5 lg:col-span-4 border-t md:border-t-0 md:border-l border-slate-200/20 pt-8 md:pt-0 md:pl-6 lg:pl-10 xl:pl-12 flex flex-col justify-center">
+        <div className="md:col-span-5 lg:col-span-4 border-l border-slate-200/20 pl-12 flex flex-col justify-center">
           <div className="flex items-center justify-between mb-6">
             <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Monthly Allocation</p>
           </div>
@@ -197,25 +197,25 @@ export const V2FinancialOverview: React.FC<V2FinancialOverviewProps> = ({
       </div>
 
       {/* Bottom Row of Overview: Small Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 lg:gap-6 xl:gap-8 mt-14 relative z-10">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mt-14 relative z-10">
         {[
           { label: "Portfolio", val: formatCurrency(stats.portfolioTotal), trend: growth >= 0 ? "Expanding" : "Declining", color: growth >= 0 ? "text-blue-500" : "text-amber-500", icon: <TrendingUp size={20} /> },
           { label: "Net Worth", val: formatCurrency(stats.netWorth), trend: `${growth >= 0 ? '+' : ''}${growth.toFixed(1)}%`, color: "text-indigo-500", icon: <Wallet size={20} /> },
           { label: "Savings", val: formatCurrency(stats.totalSaved), trend: "Accumulating", color: "text-emerald-500", icon: <ShieldCheck size={20} /> },
           { label: "Goals", val: `${stats.activeGoalsCount} Active`, trend: "Tracking", color: "text-amber-500", icon: <Trophy size={20} /> }
         ].map((stat, i) => (
-          <div key={i} className="vylos-glass-soft p-4 sm:p-5 lg:p-4 xl:p-6 flex flex-col gap-2 sm:gap-3 group hover:scale-[1.03] active:scale-[0.97] cursor-pointer min-w-0">
-            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-              <div className={`p-2 sm:p-2.5 rounded-xl bg-white dark:bg-white/10 shadow-xl ${stat.color} shrink-0`}>
+          <div key={i} className="vylos-glass-soft p-6 flex flex-col gap-3 group hover:scale-[1.03] active:scale-95 cursor-pointer min-w-0">
+            <div className="flex items-center gap-4 min-w-0">
+              <div className={`p-2.5 rounded-xl bg-white dark:bg-white/10 shadow-xl ${stat.color} shrink-0`}>
                 {stat.icon}
               </div>
-              <span className="text-[9px] sm:text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em] sm:tracking-[0.2em] truncate">{stat.label}</span>
+              <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] truncate">{stat.label}</span>
             </div>
-            <div className="mt-1 sm:mt-2 min-w-0">
-              <span className="text-sm sm:text-base md:text-lg lg:text-base xl:text-xl font-black text-slate-900 dark:text-white tracking-tighter block truncate" title={stat.val}>
+            <div className="mt-2 min-w-0">
+              <span className="text-base sm:text-lg md:text-xl font-black text-slate-900 dark:text-white tracking-tighter block truncate" title={stat.val}>
                 {stat.val}
               </span>
-              <p className={`text-[9px] sm:text-[10px] font-black ${stat.color} mt-1 sm:mt-1.5 uppercase tracking-widest truncate`}>{stat.trend}</p>
+              <p className={`text-[10px] font-black ${stat.color} mt-1.5 uppercase tracking-widest truncate`}>{stat.trend}</p>
             </div>
           </div>
         ))}
