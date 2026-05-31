@@ -191,7 +191,7 @@ export function CalendarEventModal({ isOpen, onClose, editingEvent }: CalendarEv
   return (
     <Portal>
       <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
-        <div className="absolute inset-0 bg-black/80 backdrop-blur-xl cursor-pointer" onClick={onClose} />
+        <div className="absolute inset-0 bg-black/80 backdrop-blur-md cursor-pointer" onClick={onClose} />
         
         <form 
           onSubmit={handleSubmit} 

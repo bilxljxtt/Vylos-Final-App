@@ -37,6 +37,15 @@ import { TermsAcceptanceView } from "@/components/views/TermsAcceptanceView";
 import { TransactionModal, GoalModal } from "@/components/ui/Modals";
 import { ExportTransactionsModal } from "@/components/modals/ExportTransactionsModal";
 import { HealthDetailModal } from "@/components/modals/HealthDetailModal";
+
+// Mobile Views
+import { HomeMobile } from "@/components/views/mobile/HomeMobile";
+import { TransactionsMobile } from "@/components/views/mobile/TransactionsMobile";
+import { GoalsMobile } from "@/components/views/mobile/GoalsMobile";
+import { AdvisorMobile } from "@/components/views/mobile/AdvisorMobile";
+import { RemindersMobile } from "@/components/views/mobile/RemindersMobile";
+import { CalendarMobile } from "@/components/views/mobile/CalendarMobile";
+import { BudgetMobile } from "@/components/views/mobile/BudgetMobile";
 import { RemindersModal } from "@/components/modals/RemindersModal";
 import { EditBudgetModal } from "@/components/modals/EditBudgetModal";
 import { FundCategoryModal } from "@/components/modals/FundCategoryModal";
@@ -63,7 +72,7 @@ export default function App() {
     const savedTheme = localStorage.getItem('vylos-theme');
     if (savedTheme === 'light') return false;
     if (savedTheme === 'dark') return true;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return true;
   });
 
   // Sync theme to document element
@@ -85,35 +94,29 @@ export default function App() {
     } else if (userTheme === "Light") {
       setDark(false);
     } else if (userTheme === "System Default" || userTheme === "System" || !userTheme) {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setDark(prefersDark);
-    }
-  }, [state.userProfile?.theme]);
-
-  // Listen for OS color scheme changes if theme is System Default
-  useEffect(() => {
-    const userTheme = state.userProfile?.theme as string | undefined;
-    if (userTheme === "System Default" || userTheme === "System" || !userTheme) {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      const handleChange = (e: MediaQueryListEvent) => {
-        setDark(e.matches);
-      };
-      
-      if (mediaQuery.addEventListener) {
-        mediaQuery.addEventListener('change', handleChange);
-        return () => mediaQuery.removeEventListener('change', handleChange);
-      } else {
-        mediaQuery.addListener(handleChange);
-        return () => mediaQuery.removeListener(handleChange);
+      setDark(true);
+      if (sessionUser) {
+        updateProfile({ theme: "Dark" });
       }
     }
-  }, [state.userProfile?.theme]);
+  }, [state.userProfile?.theme, sessionUser, updateProfile]);
 
   const [page, setPage] = useState<string>(() => {
     if (typeof window === "undefined") return "dashboard";
     const savedPage = localStorage.getItem('vylos-last-page');
     return savedPage || "dashboard";
   });
+
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   // Daily XP and Consistency Check
   const dailyXPProcessed = useRef(false);
@@ -1087,49 +1090,89 @@ export default function App() {
     <div className="vylos-bg-premium min-h-screen w-full flex flex-col pt-2 pb-8 px-4 md:pt-4 md:px-6 lg:pt-4 lg:px-8 font-inter relative overflow-x-hidden">
       
       {/* ─── Global App Header ─── */}
-      <V2Header 
-        firstName={firstName} 
-        avatarUrl={state.userProfile?.avatarUrl} 
-        onPageChange={setPage} 
-        onShowFeedback={() => setShowFeedback(true)}
-      />
+      {!isMobile && (
+        <V2Header 
+          firstName={firstName} 
+          avatarUrl={state.userProfile?.avatarUrl} 
+          onPageChange={setPage} 
+          onShowFeedback={() => setShowFeedback(true)}
+        />
+      )}
 
       {/* ─── Main Content Area ─── */}
       <main className="flex-1 w-full max-w-[1400px] mx-auto flex flex-col gap-2 md:gap-4 pb-32 relative z-10">
         {page === "dashboard" && (
-          <DashboardV3
-            income={income}
-            expense={expense}
-            netWorth={netWorth}
-            savingsRate={savingsRate}
-            transactions={sortedTransactions}
-            goals={state.goals}
-            healthScore={engineOutput.healthScore}
-            userName={state.userProfile.name}
-            userProfile={state.userProfile}
-            selectedMonth={currentMonthStr}
-            onMonthChange={(m) => setSelectedMonth(m)}
-            budgetSummary={BudgetService.calculateBudgetSummary(state, currentMonthStr)}
-            formatCurrency={formatCurrency}
-            setPage={setPage}
-            onXPClick={() => setShowXPSystem(true)}
-            onHealthClick={() => setShowHealthDetail(true)}
-          />
+          isMobile ? (
+            <HomeMobile
+              income={income}
+              expense={expense}
+              netWorth={netWorth}
+              savingsRate={savingsRate}
+              transactions={sortedTransactions}
+              goals={state.goals}
+              healthScore={engineOutput.healthScore}
+              userName={state.userProfile.name}
+              userProfile={state.userProfile}
+              selectedMonth={currentMonthStr}
+              onMonthChange={(m) => setSelectedMonth(m)}
+              budgetSummary={BudgetService.calculateBudgetSummary(state, currentMonthStr)}
+              formatCurrency={formatCurrency}
+              setPage={setPage}
+              onXPClick={() => setShowXPSystem(true)}
+              onHealthClick={() => setShowHealthDetail(true)}
+            />
+          ) : (
+            <DashboardV3
+              income={income}
+              expense={expense}
+              netWorth={netWorth}
+              savingsRate={savingsRate}
+              transactions={sortedTransactions}
+              goals={state.goals}
+              healthScore={engineOutput.healthScore}
+              userName={state.userProfile.name}
+              userProfile={state.userProfile}
+              selectedMonth={currentMonthStr}
+              onMonthChange={(m) => setSelectedMonth(m)}
+              budgetSummary={BudgetService.calculateBudgetSummary(state, currentMonthStr)}
+              formatCurrency={formatCurrency}
+              setPage={setPage}
+              onXPClick={() => setShowXPSystem(true)}
+              onHealthClick={() => setShowHealthDetail(true)}
+            />
+          )
         )}
 
         {page === "transactions" && (
-          <TransactionsView 
-            transactions={state.transactions} filterCat={filterCat} setFilterCat={setFilterCat} 
-            setShowAddTx={setShowAddTx} deleteTx={handleDeleteTx} setPage={setPage}
-            setShowExportModal={setShowExportModal}
-            trends={trends}
-          />
+          isMobile ? (
+            <TransactionsMobile 
+              transactions={state.transactions} filterCat={filterCat} setFilterCat={setFilterCat} 
+              setShowAddTx={setShowAddTx} deleteTx={handleDeleteTx} setPage={setPage}
+              setShowExportModal={setShowExportModal}
+              trends={trends}
+            />
+          ) : (
+            <TransactionsView 
+              transactions={state.transactions} filterCat={filterCat} setFilterCat={setFilterCat} 
+              setShowAddTx={setShowAddTx} deleteTx={handleDeleteTx} setPage={setPage}
+              setShowExportModal={setShowExportModal}
+              trends={trends}
+            />
+          )
         )}
         {page === "calendar" && (
-          <CalendarView setPage={setPage} />
+          isMobile ? (
+            <CalendarMobile setPage={setPage} />
+          ) : (
+            <CalendarView setPage={setPage} />
+          )
         )}
         {page === "reminders" && (
-          <RemindersView setShowAddReminder={setShowAddReminder} />
+          isMobile ? (
+            <RemindersMobile setShowAddReminder={setShowAddReminder} setPage={setPage} />
+          ) : (
+            <RemindersView setShowAddReminder={setShowAddReminder} />
+          )
         )}
 
         {page === "pricing" && (
@@ -1140,16 +1183,31 @@ export default function App() {
         )}
 
         {page === "budget" && (
-          <BudgetView 
-            setShowNewBudget={setShowNewBudget} 
-            handleDeleteCategory={handleDeleteCategory}
-            onQuickAddTx={handleQuickAddTransaction}
-            setShowFundCategory={setShowFundCategory}
-            setShowHealthDetail={setShowHealthDetail}
-          />
+          isMobile ? (
+            <BudgetMobile
+              setShowNewBudget={setShowNewBudget} 
+              handleDeleteCategory={handleDeleteCategory}
+              onQuickAddTx={handleQuickAddTransaction}
+              setShowFundCategory={setShowFundCategory}
+              setShowHealthDetail={setShowHealthDetail}
+              setPage={setPage}
+            />
+          ) : (
+            <BudgetView 
+              setShowNewBudget={setShowNewBudget} 
+              handleDeleteCategory={handleDeleteCategory}
+              onQuickAddTx={handleQuickAddTransaction}
+              setShowFundCategory={setShowFundCategory}
+              setShowHealthDetail={setShowHealthDetail}
+            />
+          )
         )}
         {page === "goals" && (
-          <GoalsView goals={state.goals} setShowAddGoal={setShowAddGoal} deleteGoal={deleteGoal} showToast={showToast} />
+          isMobile ? (
+            <GoalsMobile goals={state.goals} setShowAddGoal={setShowAddGoal} deleteGoal={deleteGoal} showToast={showToast} setPage={setPage} />
+          ) : (
+            <GoalsView goals={state.goals} setShowAddGoal={setShowAddGoal} deleteGoal={deleteGoal} showToast={showToast} />
+          )
         )}
 
         {page === "activity" && (
@@ -1157,19 +1215,35 @@ export default function App() {
         )}
 
         {page === "ai" && (
-          <AIAdvisorView 
-            aiMessages={aiMessages} 
-            aiInput={aiInput} 
-            setAiInput={setAiInput} 
-            sendAI={sendAI} 
-            aiLoading={aiLoading} 
-            showToast={showToast}
-            userProfile={state.userProfile}
-            setPage={setPage}
-            setAiMessages={setAiMessages}
-            dailyUsed={dailyUsed}
-            monthlyUsed={monthlyUsed}
-          />
+          isMobile ? (
+            <AdvisorMobile
+              aiMessages={aiMessages} 
+              aiInput={aiInput} 
+              setAiInput={setAiInput} 
+              sendAI={sendAI} 
+              aiLoading={aiLoading} 
+              showToast={showToast}
+              userProfile={state.userProfile}
+              setPage={setPage}
+              setAiMessages={setAiMessages}
+              dailyUsed={dailyUsed}
+              monthlyUsed={monthlyUsed}
+            />
+          ) : (
+            <AIAdvisorView 
+              aiMessages={aiMessages} 
+              aiInput={aiInput} 
+              setAiInput={setAiInput} 
+              sendAI={sendAI} 
+              aiLoading={aiLoading} 
+              showToast={showToast}
+              userProfile={state.userProfile}
+              setPage={setPage}
+              setAiMessages={setAiMessages}
+              dailyUsed={dailyUsed}
+              monthlyUsed={monthlyUsed}
+            />
+          )
         )}
 
         {page === "analytics" && (
@@ -1189,6 +1263,8 @@ export default function App() {
             importPreview={importPreview} 
             setImportPreview={setImportPreview} 
             confirmImport={confirmImport} 
+            setPage={setPage}
+            isMobile={isMobile}
           />
         )}
         {page === "settings" && (
@@ -1201,14 +1277,17 @@ export default function App() {
             setPage={setPage} 
             onUpgrade={(title: string) => setShowComingSoon({ isOpen: true, source: "settings_page", title })}
             onShowFeedback={() => setShowFeedback(true)}
+            isMobile={isMobile}
           />
         )}
-        {page === "privacy" && <LegalView type="privacy" onBack={() => setPage("dashboard")} />}
-        {page === "terms" && <LegalView type="terms" onBack={() => setPage("dashboard")} />}
+        {page === "privacy" && <LegalView type="privacy" onBack={() => setPage("dashboard")} isMobile={isMobile} />}
+        {page === "terms" && <LegalView type="terms" onBack={() => setPage("dashboard")} isMobile={isMobile} />}
       </main>
 
       {/* ─── Global Floating Navigation Dock ─── */}
-      <V2ShortcutDock onPageChange={setPage} currentPage={page} userProfile={state.userProfile} />
+      {!isMobile && (
+        <V2ShortcutDock onPageChange={setPage} currentPage={page} userProfile={state.userProfile} />
+      )}
 
       {/* Abstract Background Shapes */}
       <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-blue-600/20 rounded-full blur-[160px] pointer-events-none animate-pulse" />

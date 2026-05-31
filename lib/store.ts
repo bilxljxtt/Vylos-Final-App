@@ -95,7 +95,7 @@ export interface UserProfile {
   name: string;
   email: string;
   phone: string;
-  theme: "Light" | "Dark" | "System Default";
+  theme: "Light" | "Dark";
   language: string;
   currency: string;
   avatarUrl?: string;
@@ -282,7 +282,7 @@ export const initialState: AppState = {
     name: "",
     email: "",
     phone: "",
-    theme: "Light",
+    theme: "Dark",
     language: "English (US)",
     avatarUrl: "",
     monthlyIncome: 0,

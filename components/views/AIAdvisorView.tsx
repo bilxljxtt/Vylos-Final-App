@@ -136,7 +136,7 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
               return (
                 <button 
                   onClick={() => setPage(targetPage)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 mx-1 mt-2 mb-1 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/40 text-[12px] font-black uppercase tracking-widest text-white rounded-lg transition-all active:scale-95"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 mx-1 mt-2 mb-1 bg-blue-50/80 dark:bg-white/10 hover:bg-blue-100 dark:hover:bg-white/20 border border-blue-200 dark:border-white/20 hover:border-blue-300 dark:hover:border-white/40 text-[12px] font-black uppercase tracking-widest text-blue-700 dark:text-white rounded-lg transition-all active:scale-95 shadow-sm"
                 >
                   {children} <ArrowRight size={14} />
                 </button>
@@ -293,7 +293,7 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
                   key={p} 
                   onClick={() => handleQuickPrompt(p)}
                   disabled={isLimitReached}
-                  className="px-4 py-2 bg-white/5 hover:bg-primary/10 border border-white/10 hover:border-primary/30 text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-white/60 hover:text-primary rounded-xl transition-all whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-slate-100 hover:bg-blue-50/80 dark:bg-white/5 dark:hover:bg-primary/10 border border-slate-200 dark:border-white/10 hover:border-blue-300 dark:hover:border-primary/30 text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-white/60 hover:text-primary dark:hover:text-primary rounded-xl transition-all whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed shadow-sm dark:shadow-none"
                 >
                   {p}
                 </button>

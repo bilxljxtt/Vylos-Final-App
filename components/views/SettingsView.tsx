@@ -12,6 +12,7 @@ import { useAppStore } from "@/lib/AppContext";
 import { AppState, UserProfile, NotificationPrefs } from "@/lib/store";
 import { createClient } from "@/utils/supabase/client";
 import { VylosAvatar } from "../ui/VylosAvatar";
+import { MobilePageHeader } from "../ui/MobilePageHeader";
 
 interface SettingsViewProps {
   state: AppState;
@@ -22,6 +23,7 @@ interface SettingsViewProps {
   setPage: (val: string) => void;
   onUpgrade: (title: string) => void;
   onShowFeedback: () => void;
+  isMobile?: boolean;
 }
 
 export function SettingsView({ 
@@ -32,10 +34,12 @@ export function SettingsView({
   setDark, 
   setPage, 
   onUpgrade,
-  onShowFeedback
+  onShowFeedback,
+  isMobile = false
 }: SettingsViewProps) {
   const { updateNotifications } = useAppStore();
   const supabase = createClient();
+  const [subSection, setSubSection] = useState<"account" | "appearance" | "blueprint" | "security" | "notifications" | "subscription" | null>(null);
 
   const [profile, setProfile] = useState({
     name: state.userProfile.name || "",
@@ -68,6 +72,33 @@ export function SettingsView({
   });
 
   const [saving, setSaving] = useState(false);
+
+  const hasChanges = 
+    profile.name !== (state.userProfile.name || "") ||
+    profile.phone !== (state.userProfile.phone || "") ||
+    profile.currency !== (state.userProfile.currency || "R") ||
+    profile.theme !== (state.userProfile.theme || "Dark") ||
+    bluePrint.takeHomePay !== String(state.userProfile.monthlyIncome || "0") ||
+    bluePrint.survivalBaseline !== String(onboarding.survivalBaseline || "0") ||
+    bluePrint.age !== String(state.userProfile.age || "0") ||
+    bluePrint.budgetTarget !== (onboarding.budgetTarget || "individual") ||
+    bluePrint.trackingMethod !== (onboarding.trackingMethod || "none") ||
+    bluePrint.kids !== (onboarding.householdBreakdown?.kids || "0") ||
+    bluePrint.teens !== (onboarding.householdBreakdown?.teens || "0") ||
+    bluePrint.youngAdults !== (onboarding.householdBreakdown?.youngAdults || "0") ||
+    bluePrint.adults !== (onboarding.householdBreakdown?.adults || "1") ||
+    bluePrint.elders !== (onboarding.householdBreakdown?.elders || "0") ||
+    toggles.budgetAlerts !== state.notifications.budgetAlerts ||
+    toggles.billReminders !== state.notifications.billReminders ||
+    toggles.goalUpdates !== state.notifications.goalUpdates ||
+    toggles.securityAlerts !== state.notifications.securityAlerts;
+
+  React.useEffect(() => {
+    const currentTheme = profile.theme as string;
+    if (currentTheme === "System" || currentTheme === "System Default") {
+      setProfile(prev => ({ ...prev, theme: "Dark" }));
+    }
+  }, [profile.theme]);
 
   const handleToggle = (key: keyof NotificationPrefs) => {
     setToggles(prev => ({ ...prev, [key]: !prev[key] }));
@@ -129,18 +160,14 @@ export function SettingsView({
     }
   };
 
-  const handleThemeChange = async (newTheme: string) => {
-    setProfile(prev => ({ ...prev, theme: newTheme as any }));
+  const handleThemeChange = async (newTheme: "Light" | "Dark") => {
+    setProfile(prev => ({ ...prev, theme: newTheme }));
     if (newTheme === "Dark") setDark(true);
     else if (newTheme === "Light") setDark(false);
-    else {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setDark(prefersDark);
-    }
 
     try {
-      await updateProfile({ theme: newTheme as any });
-      localStorage.setItem('vylos-theme', newTheme === "System Default" ? "" : (newTheme === "Dark" ? "dark" : "light"));
+      await updateProfile({ theme: newTheme });
+      localStorage.setItem('vylos-theme', newTheme === "Dark" ? "dark" : "light");
     } catch (err: any) {
       showToast("Failed to save theme settings: " + err.message, "error");
     }
@@ -156,18 +183,602 @@ export function SettingsView({
     </button>
   );
 
+  if (isMobile) {
+    return (
+      <div className="flex flex-col gap-5 w-full pb-24 max-w-md mx-auto px-1 animate-in fade-in duration-500">
+        {subSection === null ? (
+          <>
+            <MobilePageHeader 
+              title="Settings" 
+              onBack={() => setPage("dashboard")} 
+              rightAction={
+                hasChanges && (
+                  <button 
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="text-xs font-black text-white bg-primary px-3 py-1.5 rounded-full shadow-md shadow-primary/20 active:scale-95 transition-transform"
+                  >
+                    {saving ? "..." : "Save"}
+                  </button>
+                )
+              }
+            />
+
+            {/* Profile Summary Card */}
+            <div className="vylos-glass-readable p-4 flex items-center gap-4 border border-white/20 shadow-md rounded-[1.8rem] mb-2">
+              <VylosAvatar url={state.userProfile.avatarUrl} name={state.userProfile.name || "User"} size="xl" className="!rounded-2xl border border-white/10 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-black mobile-heading tracking-tight truncate">{state.userProfile.name || "Vylos User"}</h3>
+                <p className="text-[10px] font-bold mobile-muted truncate mt-0.5">{state.userProfile.email}</p>
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <span className="text-[8px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-full uppercase tracking-widest">
+                    {state.userProfile.subscription_tier === 'free' ? 'Standard Plan' : 'Premium Member'}
+                  </span>
+                  <span className="text-[8px] font-black mobile-subheading bg-black/5 dark:bg-white/5 border border-white/5 px-2 py-0.5 rounded-full">
+                    {state.userProfile.totalXp?.toLocaleString() || 0} XP
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Account Settings Section */}
+            <div className="flex flex-col gap-2.5">
+              <span className="text-[9px] font-black mobile-label uppercase tracking-widest px-2 pl-3">Account Configuration</span>
+              <div className="vylos-glass-readable overflow-hidden rounded-[1.8rem] border border-white/25 shadow-md divide-y divide-slate-100 dark:divide-white/5">
+                <button 
+                  type="button" 
+                  onClick={() => setSubSection("account")}
+                  className="w-full flex items-center justify-between p-4 hover:bg-black/5 dark:hover:bg-white/5 transition-all text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-500/10 text-blue-500 rounded-xl"><User size={18} /></div>
+                    <div className="flex flex-col">
+                      <span className="text-[13px] font-black mobile-subheading">Personal Profile</span>
+                      <span className="text-[9px] font-medium mobile-muted mt-0.5">Name, contact info, currency</span>
+                    </div>
+                  </div>
+                  <ChevronRight size={16} className="mobile-muted" />
+                </button>
+
+                <button 
+                  type="button" 
+                  onClick={() => setSubSection("appearance")}
+                  className="w-full flex items-center justify-between p-4 hover:bg-black/5 dark:hover:bg-white/5 transition-all text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-indigo-500/10 text-indigo-500 rounded-xl"><Palette size={18} /></div>
+                    <div className="flex flex-col">
+                      <span className="text-[13px] font-black mobile-subheading">Appearance</span>
+                      <span className="text-[9px] font-medium mobile-muted mt-0.5">Theme display preferences</span>
+                    </div>
+                  </div>
+                  <ChevronRight size={16} className="mobile-muted" />
+                </button>
+
+                <button 
+                  type="button" 
+                  onClick={() => setSubSection("blueprint")}
+                  className="w-full flex items-center justify-between p-4 hover:bg-black/5 dark:hover:bg-white/5 transition-all text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-amber-500/10 text-amber-500 rounded-xl"><Zap size={18} /></div>
+                    <div className="flex flex-col">
+                      <span className="text-[13px] font-black mobile-subheading">Financial Blueprint</span>
+                      <span className="text-[9px] font-medium mobile-muted mt-0.5">Monthly income, survival baseline</span>
+                    </div>
+                  </div>
+                  <ChevronRight size={16} className="mobile-muted" />
+                </button>
+              </div>
+            </div>
+
+            {/* Security & Alerts Section */}
+            <div className="flex flex-col gap-2.5 mt-2">
+              <span className="text-[9px] font-black mobile-label uppercase tracking-widest px-2 pl-3">Security & Preferences</span>
+              <div className="vylos-glass-readable overflow-hidden rounded-[1.8rem] border border-white/25 shadow-md divide-y divide-slate-100 dark:divide-white/5">
+                <button 
+                  type="button" 
+                  onClick={() => setSubSection("security")}
+                  className="w-full flex items-center justify-between p-4 hover:bg-black/5 dark:hover:bg-white/5 transition-all text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-red-500/10 text-red-500 rounded-xl"><Lock size={18} /></div>
+                    <div className="flex flex-col">
+                      <span className="text-[13px] font-black mobile-subheading">Security</span>
+                      <span className="text-[9px] font-medium mobile-muted mt-0.5">Update account password</span>
+                    </div>
+                  </div>
+                  <ChevronRight size={16} className="mobile-muted" />
+                </button>
+
+                <button 
+                  type="button" 
+                  onClick={() => setSubSection("notifications")}
+                  className="w-full flex items-center justify-between p-4 hover:bg-black/5 dark:hover:bg-white/5 transition-all text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-xl"><Bell size={18} /></div>
+                    <div className="flex flex-col">
+                      <span className="text-[13px] font-black mobile-subheading">Notifications</span>
+                      <span className="text-[9px] font-medium mobile-muted mt-0.5">Configure budget & bill alerts</span>
+                    </div>
+                  </div>
+                  <ChevronRight size={16} className="mobile-muted" />
+                </button>
+              </div>
+            </div>
+
+            {/* Integrations & Subscription Section */}
+            <div className="flex flex-col gap-2.5 mt-2">
+              <span className="text-[9px] font-black mobile-label uppercase tracking-widest px-2 pl-3">Integrations & Plan</span>
+              <div className="vylos-glass-readable overflow-hidden rounded-[1.8rem] border border-white/25 shadow-md divide-y divide-slate-100 dark:divide-white/5">
+                <button 
+                  type="button" 
+                  onClick={() => setPage("import")}
+                  className="w-full flex items-center justify-between p-4 hover:bg-black/5 dark:hover:bg-white/5 transition-all text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-cyan-500/10 text-cyan-500 rounded-xl"><ExternalLink size={18} /></div>
+                    <div className="flex flex-col">
+                      <span className="text-[13px] font-black mobile-subheading">Import Transactions</span>
+                      <span className="text-[9px] font-medium mobile-muted mt-0.5">Synchronize CSV statement files</span>
+                    </div>
+                  </div>
+                  <ChevronRight size={16} className="mobile-muted" />
+                </button>
+
+                <button 
+                  type="button" 
+                  onClick={() => setSubSection("subscription")}
+                  className="w-full flex items-center justify-between p-4 hover:bg-black/5 dark:hover:bg-white/5 transition-all text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-purple-500/10 text-purple-500 rounded-xl"><CreditCard size={18} /></div>
+                    <div className="flex flex-col">
+                      <span className="text-[13px] font-black mobile-subheading">Subscription & Plan</span>
+                      <span className="text-[9px] font-medium mobile-muted mt-0.5">Review plan limits & premium options</span>
+                    </div>
+                  </div>
+                  <ChevronRight size={16} className="mobile-muted" />
+                </button>
+              </div>
+            </div>
+
+            {/* Support */}
+            <div className="flex flex-col gap-2.5 mt-2">
+              <span className="text-[9px] font-black mobile-label uppercase tracking-widest px-2 pl-3">Support</span>
+              <div className="vylos-glass-readable overflow-hidden rounded-[1.8rem] border border-white/25 shadow-md">
+                <button 
+                  type="button" 
+                  onClick={onShowFeedback}
+                  className="w-full flex items-center justify-between p-4 hover:bg-black/5 dark:hover:bg-white/5 transition-all text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-pink-500/10 text-pink-500 rounded-xl"><MessageCircle size={18} /></div>
+                    <div className="flex flex-col">
+                      <span className="text-[13px] font-black mobile-subheading">Submit Feedback</span>
+                      <span className="text-[9px] font-medium mobile-muted mt-0.5">Send feature requests & comments</span>
+                    </div>
+                  </div>
+                  <ChevronRight size={16} className="mobile-muted" />
+                </button>
+              </div>
+            </div>
+
+            {/* Sign Out Card */}
+            <button 
+              type="button"
+              onClick={handleLogout}
+              className="w-full flex items-center justify-between p-4 bg-red-500/5 dark:bg-red-500/10 hover:bg-red-500/10 border border-red-500/20 shadow-md rounded-[1.8rem] text-left mt-4"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-red-500/10 text-red-500 rounded-xl"><LogOut size={18} /></div>
+                <span className="text-[13px] font-black text-red-600">Sign Out</span>
+              </div>
+              <ChevronRight size={16} className="text-red-400" />
+            </button>
+          </>
+        ) : (
+          <>
+            {subSection === "account" && (
+              <>
+                <MobilePageHeader 
+                  title="Personal Profile" 
+                  onBack={() => setSubSection(null)} 
+                  rightAction={
+                    hasChanges && (
+                      <button 
+                        onClick={handleSave} 
+                        disabled={saving}
+                        className="text-xs font-black text-white bg-primary px-3 py-1.5 rounded-full shadow-md shadow-primary/20 active:scale-95 transition-transform"
+                      >
+                        {saving ? "..." : "Save"}
+                      </button>
+                    )
+                  }
+                />
+                <div className="vylos-glass-readable p-5 rounded-[1.8rem] border border-white/20 shadow-md flex flex-col gap-5">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-[9px] font-black mobile-label uppercase tracking-widest block pl-1">Display Name</label>
+                    <input 
+                      type="text" 
+                      value={profile.name} 
+                      onChange={e => setProfile({...profile, name: e.target.value})}
+                      placeholder="e.g. John Doe"
+                      className="w-full vylos-glass-input rounded-2xl px-4 py-3.5 text-sm font-bold outline-none"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-2 opacity-60">
+                    <label className="text-[9px] font-black mobile-label uppercase tracking-widest block pl-1">Email Identity (Read-Only)</label>
+                    <input 
+                      type="email" 
+                      value={profile.email} 
+                      disabled
+                      className="w-full bg-slate-100/30 dark:bg-white/5 border border-slate-200/50 dark:border-white/10 rounded-2xl px-4 py-3.5 text-sm font-bold text-slate-500 dark:text-slate-400 cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <label className="text-[9px] font-black mobile-label uppercase tracking-widest block pl-1">Phone Number</label>
+                    <input 
+                      type="tel" 
+                      value={profile.phone} 
+                      onChange={e => setProfile({...profile, phone: e.target.value})}
+                      placeholder="+27 00 000 0000"
+                      className="w-full vylos-glass-input rounded-2xl px-4 py-3.5 text-sm font-bold outline-none"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <label className="text-[9px] font-black mobile-label uppercase tracking-widest block pl-1">Default Currency</label>
+                    <div className="relative">
+                      <select 
+                        value={profile.currency}
+                        onChange={e => setProfile({...profile, currency: e.target.value})}
+                        className="w-full vylos-glass-input rounded-2xl pl-4 pr-10 py-3.5 text-sm font-bold outline-none appearance-none cursor-pointer"
+                      >
+                        <option value="R" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">ZAR (R)</option>
+                        <option value="USD" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">USD ($)</option>
+                        <option value="EUR" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">EUR (€)</option>
+                        <option value="GBP" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">GBP (£)</option>
+                      </select>
+                      <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {hasChanges && (
+                    <button
+                      onClick={handleSave}
+                      disabled={saving}
+                      className="w-full py-4 bg-primary hover:bg-emerald-400 text-white font-black rounded-2xl text-xs uppercase tracking-widest shadow-lg shadow-primary/20 transition-all active:scale-95 mt-2"
+                    >
+                      {saving ? "Saving changes..." : "Save Changes"}
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+
+            {subSection === "appearance" && (
+              <>
+                <MobilePageHeader 
+                  title="Appearance" 
+                  onBack={() => setSubSection(null)} 
+                />
+                <div className="vylos-glass-readable p-5 rounded-[1.8rem] border border-white/20 shadow-md flex flex-col gap-6">
+                  <div className="space-y-3">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-black mobile-subheading">Vylos Theme</span>
+                      <span className="text-[10px] font-medium mobile-muted mt-0.5">Toggle display theme preferences</span>
+                    </div>
+                    <div className="flex bg-slate-200/50 dark:bg-white/5 p-1 rounded-2xl border border-slate-300/30 dark:border-white/10 backdrop-blur-md">
+                      {(["Light", "Dark"] as const).map(t => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => handleThemeChange(t)}
+                          className={`flex-1 py-3 px-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all vylos-focus ${
+                            profile.theme === t 
+                              ? 'bg-primary text-white shadow-md border border-white/20' 
+                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {subSection === "blueprint" && (
+              <>
+                <MobilePageHeader 
+                  title="Blueprint" 
+                  onBack={() => setSubSection(null)} 
+                  rightAction={
+                    hasChanges && (
+                      <button 
+                        onClick={handleSave} 
+                        disabled={saving}
+                        className="text-xs font-black text-white bg-primary px-3 py-1.5 rounded-full shadow-md shadow-primary/20 active:scale-95 transition-transform"
+                      >
+                        {saving ? "..." : "Save"}
+                      </button>
+                    )
+                  }
+                />
+                <div className="vylos-glass-readable p-5 rounded-[1.8rem] border border-white/20 shadow-md flex flex-col gap-5">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-[9px] font-black mobile-label uppercase tracking-widest block pl-1">Take-Home Pay</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-sm text-slate-500 dark:text-slate-400">R</span>
+                      <input 
+                        type="number" 
+                        value={bluePrint.takeHomePay} 
+                        onChange={e => setBluePrint({...bluePrint, takeHomePay: e.target.value})}
+                        className="w-full vylos-glass-input rounded-2xl pl-8 pr-4 py-3.5 text-sm font-bold outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <label className="text-[9px] font-black mobile-label uppercase tracking-widest block pl-1">Survival Baseline Essentials</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-sm text-slate-500 dark:text-slate-400">R</span>
+                      <input 
+                        type="number" 
+                        value={bluePrint.survivalBaseline} 
+                        onChange={e => setBluePrint({...bluePrint, survivalBaseline: e.target.value})}
+                        className="w-full vylos-glass-input rounded-2xl pl-8 pr-4 py-3.5 text-sm font-bold outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[9px] font-black mobile-label uppercase tracking-widest block pl-1">Age</label>
+                      <input 
+                        type="number" 
+                        value={bluePrint.age} 
+                        onChange={e => setBluePrint({...bluePrint, age: e.target.value})}
+                        className="w-full vylos-glass-input rounded-2xl px-4 py-3.5 text-sm font-bold outline-none"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[9px] font-black mobile-label uppercase tracking-widest block pl-1">Target Scope</label>
+                      <div className="relative">
+                        <select 
+                          value={bluePrint.budgetTarget}
+                          onChange={e => setBluePrint({...bluePrint, budgetTarget: e.target.value})}
+                          className="w-full vylos-glass-input rounded-2xl pl-4 pr-10 py-3.5 text-sm font-bold outline-none appearance-none cursor-pointer"
+                        >
+                          <option value="individual" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Individual</option>
+                          <option value="household" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Household</option>
+                          <option value="business" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Business</option>
+                          <option value="both" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Both</option>
+                        </select>
+                        <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <label className="text-[9px] font-black mobile-label uppercase tracking-widest block pl-1">Prior Tracking Method</label>
+                    <div className="relative">
+                      <select 
+                        value={bluePrint.trackingMethod}
+                        onChange={e => setBluePrint({...bluePrint, trackingMethod: e.target.value})}
+                        className="w-full vylos-glass-input rounded-2xl pl-4 pr-10 py-3.5 text-sm font-bold outline-none appearance-none cursor-pointer"
+                      >
+                        <option value="none" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">I do not track yet</option>
+                        <option value="bank_app" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Banking App</option>
+                        <option value="spreadsheet" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Spreadsheet</option>
+                        <option value="notes" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Notes on phone</option>
+                        <option value="budget_app" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Budgeting App</option>
+                        <option value="mental" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Mentally</option>
+                        <option value="other" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Other</option>
+                      </select>
+                      <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {bluePrint.budgetTarget !== "individual" && (
+                    <div className="border-t border-slate-200 dark:border-white/10 pt-4 mt-2 space-y-4">
+                      <label className="text-[9px] font-black mobile-label uppercase tracking-widest block pl-1">Household Age Breakdown</label>
+                      <div className="grid grid-cols-5 gap-2">
+                        {[
+                          { k: "kids", label: "👶 Kids" },
+                          { k: "teens", label: "🎒 Teens" },
+                          { k: "youngAdults", label: "Youth" },
+                          { k: "adults", label: "Adults" },
+                          { k: "elders", label: "Elders" }
+                        ].map(field => (
+                          <div key={field.k} className="flex flex-col gap-1 items-center">
+                            <span className="text-[7px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-tight">{field.label}</span>
+                            <input 
+                              type="number" 
+                              min="0"
+                              value={bluePrint[field.k]} 
+                              onChange={e => setBluePrint({...bluePrint, [field.k]: e.target.value})}
+                              className="w-full bg-slate-100/50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl py-1 text-center text-xs font-black text-text-main focus:outline-none"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {hasChanges && (
+                    <button
+                      onClick={handleSave}
+                      disabled={saving}
+                      className="w-full py-4 bg-primary hover:bg-emerald-400 text-white font-black rounded-2xl text-xs uppercase tracking-widest shadow-lg shadow-primary/20 transition-all active:scale-95 mt-2"
+                    >
+                      {saving ? "Saving changes..." : "Save Changes"}
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+
+            {subSection === "security" && (
+              <>
+                <MobilePageHeader 
+                  title="Security" 
+                  onBack={() => setSubSection(null)} 
+                />
+                <div className="vylos-glass-readable p-5 rounded-[1.8rem] border border-white/20 shadow-md flex flex-col gap-4">
+                  <button 
+                    type="button"
+                    onClick={async () => {
+                      const password = prompt("Enter your new password (minimum 6 characters):");
+                      if (password === null) return;
+                      if (password.length < 6) {
+                        showToast("Password must be at least 6 characters long.", "error");
+                        return;
+                      }
+                      try {
+                        const { error } = await supabase.auth.updateUser({ password });
+                        if (error) throw error;
+                        showToast("Password updated successfully!", "success");
+                      } catch (err: any) {
+                        console.error("Failed to update password:", err);
+                        showToast("Failed to update password: " + err.message, "error");
+                      }
+                    }}
+                    className="flex items-center justify-between w-full p-4 bg-slate-100/50 dark:bg-white/5 hover:bg-slate-200/50 dark:hover:bg-white/10 rounded-2xl border border-slate-200 dark:border-white/10 transition-all text-left"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 bg-primary/10 text-primary rounded-xl"><Lock size={18} /></div>
+                      <span className="text-[13px] font-black mobile-subheading">Change Account Password</span>
+                    </div>
+                    <ChevronRight size={16} className="mobile-muted" />
+                  </button>
+
+                  <div className="p-4 bg-slate-100/30 dark:bg-white/5 rounded-2xl border border-slate-200/55 dark:border-white/5 mt-2 text-center">
+                    <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full uppercase tracking-widest">
+                      RLS Secured
+                    </span>
+                    <p className="text-[10px] font-medium mobile-body mt-2.5 leading-relaxed">
+                      Vylos uses Row-Level Security (RLS) policies. Your financial data is securely isolated and completely private to your credentials.
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {subSection === "notifications" && (
+              <>
+                <MobilePageHeader 
+                  title="Notifications" 
+                  onBack={() => setSubSection(null)} 
+                  rightAction={
+                    hasChanges && (
+                      <button 
+                        onClick={handleSave} 
+                        disabled={saving}
+                        className="text-xs font-black text-white bg-primary px-3 py-1.5 rounded-full shadow-md shadow-primary/20 active:scale-95 transition-transform"
+                      >
+                        {saving ? "..." : "Save"}
+                      </button>
+                    )
+                  }
+                />
+                <div className="vylos-glass-readable p-5 rounded-[1.8rem] border border-white/20 shadow-md flex flex-col gap-5">
+                  {[
+                    { k: 'budgetAlerts', t: 'Budget Alerts', d: 'Alert at 80% limit' },
+                    { k: 'billReminders', t: 'Bill Reminders', d: 'Upcoming bill alerts' },
+                    { k: 'goalUpdates', t: 'Goal Updates', d: 'Goal achievement pings' },
+                    { k: 'securityAlerts', t: 'Security Alerts', d: 'Login & auth updates' },
+                  ].map((item) => (
+                    <div key={item.k} className="flex justify-between items-center py-1">
+                      <div className="flex flex-col">
+                        <span className="text-[13px] font-black mobile-subheading leading-tight">{item.t}</span>
+                        <span className="text-[9px] font-bold mobile-muted uppercase tracking-widest mt-0.5">{item.d}</span>
+                      </div>
+                      <ToggleSwitch 
+                        checked={toggles[item.k as keyof NotificationPrefs]} 
+                        onChange={() => handleToggle(item.k as keyof NotificationPrefs)} 
+                      />
+                    </div>
+                  ))}
+
+                  {hasChanges && (
+                    <button
+                      onClick={handleSave}
+                      disabled={saving}
+                      className="w-full py-4 bg-primary hover:bg-emerald-400 text-white font-black rounded-2xl text-xs uppercase tracking-widest shadow-lg shadow-primary/20 transition-all active:scale-95 mt-2"
+                    >
+                      {saving ? "Saving changes..." : "Save Changes"}
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+
+            {subSection === "subscription" && (
+              <>
+                <MobilePageHeader 
+                  title="Subscription" 
+                  onBack={() => setSubSection(null)} 
+                />
+                <div className="vylos-glass-readable p-5 rounded-[1.8rem] border border-white/20 shadow-md flex flex-col gap-6">
+                  <div className="flex flex-col items-center text-center">
+                    <div className="p-3 bg-purple-500/10 text-purple-500 rounded-2xl mb-4">
+                      <CreditCard size={28} />
+                    </div>
+                    <h4 className="text-base font-black mobile-subheading">
+                      {state.userProfile.subscription_tier === 'free' ? 'Standard Tier' : 'Premium Membership'}
+                    </h4>
+                    <p className="text-xs font-medium mobile-body mt-2 leading-relaxed max-w-xs">
+                      {state.userProfile.subscription_tier === 'free' 
+                        ? 'Access main dashboard widgets, tracking charts, standard category budgets, and daily XP claims.' 
+                        : 'Unlimited AI Advisor interactions, small business ledger capabilities, and premium insights features.'}
+                    </p>
+                  </div>
+
+                  {state.userProfile.subscription_tier === 'free' && (
+                    <button 
+                      onClick={() => onUpgrade("premium")}
+                      className="w-full py-4 bg-purple-600 hover:bg-purple-500 text-white font-black rounded-2xl text-xs uppercase tracking-widest shadow-lg shadow-purple-600/20 active:scale-95 transition-all"
+                    >
+                      Upgrade to Premium
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col gap-8 w-full max-w-[1200px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className={`flex flex-col gap-6 sm:gap-8 w-full max-w-[1200px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 ${isMobile ? 'pb-24 max-w-md px-1' : ''}`}>
       
+      {isMobile && (
+        <MobilePageHeader 
+          title="Settings" 
+          onBack={() => setPage("dashboard")} 
+        />
+      )}
+
       {/* ─── Header Section ─── */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 mb-3">
-             <Zap size={12} className="text-primary" />
-             <span className="text-[10px] font-black text-primary uppercase tracking-widest">App Settings</span>
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6">
+        {!isMobile && (
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 mb-3">
+               <Zap size={12} className="text-primary" />
+               <span className="text-[10px] font-black text-primary uppercase tracking-widest">App Settings</span>
+            </div>
+            <h2 className="text-5xl font-black text-text-main tracking-tighter leading-none">Settings</h2>
           </div>
-          <h2 className="text-5xl font-black text-text-main tracking-tighter leading-none">Settings</h2>
-        </div>
+        )}
         <button 
           type="button"
           onClick={handleSave}
@@ -199,7 +810,7 @@ export function SettingsView({
             </div>
 
             <h3 className="text-2xl font-black text-text-main mb-1 tracking-tight">{state.userProfile.name || "Vylos User"}</h3>
-            <p className="text-sm font-bold text-text-muted mb-6 opacity-60">{state.userProfile.email}</p>
+            <p className="text-sm font-bold text-text-muted mb-6 dark:opacity-60">{state.userProfile.email}</p>
             
             <div className="flex items-center gap-2 px-6 py-2 bg-primary/10 border border-primary/20 rounded-full mb-10">
               <span className="text-[11px] font-black text-primary uppercase tracking-[0.2em]">
@@ -288,7 +899,7 @@ export function SettingsView({
               </div>
               <div>
                 <h4 className="text-xl sm:text-2xl font-black text-text-main tracking-tighter">Public Identity</h4>
-                <p className="text-xs font-bold text-text-muted opacity-60">Manage your profile visibility and contact info.</p>
+                <p className="text-xs font-bold text-text-muted dark:opacity-60">Manage your profile visibility and contact info.</p>
               </div>
             </div>
  
@@ -362,7 +973,7 @@ export function SettingsView({
               </div>
               <div>
                 <h4 className="text-xl sm:text-2xl font-black text-text-main tracking-tighter">Financial Blueprint</h4>
-                <p className="text-xs font-bold text-text-muted opacity-60">Manage your take-home pay, living baseline, and household variables.</p>
+                <p className="text-xs font-bold text-text-muted dark:opacity-60">Manage your take-home pay, living baseline, and household variables.</p>
               </div>
             </div>
 
@@ -487,10 +1098,10 @@ export function SettingsView({
                 <div className="space-y-4">
                   <div className="flex flex-col">
                     <span className="text-sm font-black text-text-main">Vylos Theme</span>
-                    <span className="text-[11px] font-bold text-text-muted opacity-60">System default or manual override</span>
+                    <span className="text-[11px] font-bold text-text-muted dark:opacity-60">Choose application appearance</span>
                   </div>
                   <div className="flex bg-black/10 dark:bg-white/5 p-1.5 rounded-2xl border border-white/10 backdrop-blur-md">
-                    {["System Default", "Light", "Dark"].map(t => (
+                    {(["Light", "Dark"] as const).map(t => (
                       <button
                         key={t}
                         type="button"
@@ -501,7 +1112,7 @@ export function SettingsView({
                             : 'text-text-muted hover:text-text-main'
                         }`}
                       >
-                        {t === "System Default" ? "System" : t}
+                        {t}
                       </button>
                     ))}
                   </div>
@@ -509,7 +1120,7 @@ export function SettingsView({
                 <div className="flex justify-between items-center bg-black/10 dark:bg-white/5 p-5 rounded-[2rem] border border-white/10 backdrop-blur-md">
                   <div className="flex flex-col">
                     <span className="text-sm font-black text-text-main">Trust Badges</span>
-                    <span className="text-[11px] font-bold text-text-muted opacity-60">Show security status in UI</span>
+                    <span className="text-[11px] font-bold text-text-muted dark:opacity-60">Show security status in UI</span>
                   </div>
                   <ToggleSwitch checked={true} onChange={() => {}} />
                 </div>
@@ -535,7 +1146,7 @@ export function SettingsView({
                   <div key={item.k} className="flex justify-between items-center">
                     <div className="flex flex-col">
                       <span className="text-[13px] font-black text-text-main leading-tight">{item.t}</span>
-                      <span className="text-[10px] font-bold text-text-muted opacity-60 uppercase tracking-widest mt-0.5">{item.d}</span>
+                      <span className="text-[10px] font-bold text-text-muted dark:opacity-60 uppercase tracking-widest mt-0.5">{item.d}</span>
                     </div>
                     <ToggleSwitch 
                       checked={toggles[item.k as keyof NotificationPrefs]} 

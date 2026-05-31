@@ -3,24 +3,33 @@
 import React from "react";
 import { ViewContainer } from "../ui/ViewContainer";
 import { Shield, FileText, ChevronLeft } from "lucide-react";
+import { MobilePageHeader } from "../ui/MobilePageHeader";
 
 interface LegalViewProps {
   type: "privacy" | "terms";
   onBack: () => void;
+  isMobile?: boolean;
 }
 
-export const LegalView: React.FC<LegalViewProps> = ({ type, onBack }) => {
+export const LegalView: React.FC<LegalViewProps> = ({ type, onBack, isMobile = false }) => {
   const isPrivacy = type === "privacy";
 
   return (
-    <ViewContainer className="flex flex-col pt-8 pb-20 max-w-3xl mx-auto">
-      <button 
-        onClick={onBack}
-        className="flex items-center gap-2 text-text-muted hover:text-text-main transition-colors mb-8 group"
-      >
-        <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-        <span className="font-bold text-sm uppercase tracking-widest">Back to Dashboard</span>
-      </button>
+    <ViewContainer className={`flex flex-col pt-4 pb-20 max-w-3xl mx-auto ${isMobile ? 'px-3 max-w-md' : ''}`}>
+      {isMobile ? (
+        <MobilePageHeader 
+          title={isPrivacy ? "Privacy Policy" : "Terms of Service"} 
+          onBack={onBack} 
+        />
+      ) : (
+        <button 
+          onClick={onBack}
+          className="flex items-center gap-2 text-text-muted hover:text-text-main transition-colors mb-8 group"
+        >
+          <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+          <span className="font-bold text-sm uppercase tracking-widest">Back to Dashboard</span>
+        </button>
+      )}
 
       <div className="flex items-center gap-4 mb-8">
         <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">

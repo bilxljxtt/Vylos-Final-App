@@ -33,6 +33,14 @@ export function EditBudgetModal({ isOpen, onClose }: EditBudgetModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   // Initialize budgets from state
   useEffect(() => {
     if (isOpen) {
@@ -101,10 +109,177 @@ export function EditBudgetModal({ isOpen, onClose }: EditBudgetModalProps) {
   const exceedsTotal = totalBudget > 0 && currentCategoriesTotal > totalBudget;
   const remainingBudget = Math.max(0, totalBudget - currentCategoriesTotal);
 
+  if (isMobile) {
+    return (
+      <Portal>
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-md cursor-pointer" onClick={onClose} />
+          
+          <form 
+            onSubmit={handleSubmit} 
+            className="relative bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-white/10 w-full max-w-[92vw] rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-500 flex flex-col max-h-[92vh]"
+          >
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between bg-emerald-500/5 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center text-white shadow-xl shadow-emerald-500/20">
+                  <PieChart size={20} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">Financial Plan</h2>
+                  <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Manage income & budgets</p>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={onClose} 
+                className="p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl transition-all" 
+                aria-label="Close modal"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
+              {error && (
+                <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-500 text-xs font-bold text-center">
+                  {error}
+                </div>
+              )}
+
+              {/* Monthly Income */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                  <DollarSign size={14} className="text-primary" />
+                  Monthly Income
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">R</span>
+                  <input 
+                    type="number" 
+                    step="1"
+                    placeholder="R0.00"
+                    className="w-full bg-slate-100/50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl pl-9 pr-4 py-3 text-sm font-black text-slate-900 dark:text-white outline-none focus:border-primary transition-all placeholder-slate-400"
+                    value={income || ""}
+                    onChange={e => setIncome(Math.max(0, parseFloat(e.target.value) || 0))}
+                  />
+                </div>
+              </div>
+
+              {/* Total Budget */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                  <PieChart size={14} className="text-primary" />
+                  Total Monthly Budget
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">R</span>
+                  <input 
+                    required
+                    type="number" 
+                    step="1"
+                    placeholder="R0.00"
+                    className="w-full bg-slate-100/50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl pl-9 pr-4 py-3 text-sm font-black text-slate-900 dark:text-white outline-none focus:border-primary transition-all placeholder-slate-400"
+                    value={totalBudget || ""}
+                    onChange={e => setTotalBudget(Math.max(0, parseFloat(e.target.value) || 0))}
+                  />
+                </div>
+              </div>
+
+              {/* Categories */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                    <Layout size={14} className="text-primary" />
+                    Category Limits
+                  </label>
+                  <button 
+                    type="button"
+                    onClick={handleAddCategory}
+                    className="flex items-center gap-1 text-[10px] font-black text-primary uppercase tracking-widest bg-primary/5 px-2.5 py-1.5 rounded-full border border-primary/10 hover:bg-primary/10 transition-all"
+                  >
+                    <Plus size={12} strokeWidth={3} />
+                    Add
+                  </button>
+                </div>
+
+                {exceedsTotal && (
+                  <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl flex items-center gap-2 text-amber-600 animate-in fade-in">
+                    <AlertTriangle size={14} className="shrink-0" />
+                    <p className="text-[10px] font-bold">Allocations exceed budget by {formatCurrency(currentCategoriesTotal - totalBudget)}</p>
+                  </div>
+                )}
+
+                <div className="space-y-3 max-h-[30vh] overflow-y-auto pr-1 scrollbar-hide">
+                  {Object.entries(budgets).map(([cat, limit]) => (
+                    <div key={cat} className="bg-slate-100/50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-xl p-3 flex items-center justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-bold text-slate-900 dark:text-white truncate block">{cat}</span>
+                      </div>
+                      <div className="relative w-28 shrink-0">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">R</span>
+                        <input 
+                          type="number"
+                          step="1"
+                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-lg pl-6 pr-2 py-1.5 text-xs font-black text-slate-900 dark:text-white outline-none focus:border-primary transition-all"
+                          value={limit || ""}
+                          onChange={e => handleUpdateLimit(cat, e.target.value)}
+                        />
+                      </div>
+                      <button 
+                        type="button" 
+                        onClick={() => handleRemoveCategory(cat)}
+                        className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
+                        aria-label={`Remove ${cat}`}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Summary */}
+              <div className={`p-4 rounded-2xl border flex items-center justify-between text-xs ${exceedsTotal ? 'bg-red-500/10 border-red-500/20 text-red-500' : 'bg-primary/5 border-primary/20 text-slate-700 dark:text-slate-300'}`}>
+                <div>
+                  <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Remaining</span>
+                  <span className="font-black text-sm">{formatCurrency(remainingBudget)}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Total Allocated</span>
+                  <span className="font-black text-sm text-slate-900 dark:text-white">{formatCurrency(currentCategoriesTotal)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 bg-slate-50 dark:bg-white/5 border-t border-slate-200 dark:border-white/10 flex flex-col gap-3 shrink-0">
+              <button 
+                type="submit"
+                disabled={loading}
+                className="w-full py-3.5 bg-primary text-white font-black rounded-xl shadow-lg shadow-primary/20 hover:bg-emerald-400 transition-all active:scale-[0.98] disabled:opacity-50 uppercase tracking-widest text-xs"
+              >
+                {loading ? "Saving..." : "Save Financial Plan"}
+              </button>
+              <button 
+                type="button"
+                onClick={onClose}
+                className="w-full py-3.5 bg-transparent text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-black rounded-xl transition-all uppercase tracking-widest text-xs"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </Portal>
+    );
+  }
+
   return (
     <Portal>
       <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 md:p-6 animate-in fade-in duration-300">
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-xl cursor-pointer" onClick={onClose} />
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-md cursor-pointer" onClick={onClose} />
         
         <form onSubmit={handleSubmit} className="relative vylos-glass-modal w-full max-w-2xl rounded-[1.5rem] sm:rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-500 flex flex-col max-h-[90vh]">
           {/* Subtle top glow effect */}

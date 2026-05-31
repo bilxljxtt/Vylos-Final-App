@@ -68,7 +68,7 @@ export function FundCategoryModal({ isOpen, onClose, showToast, initialCategory 
   return (
     <Portal>
       <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 animate-in fade-in duration-300">
-        <div className="absolute inset-0 bg-black/80 backdrop-blur-xl cursor-pointer" onClick={onClose} />
+        <div className="absolute inset-0 bg-black/80 backdrop-blur-md cursor-pointer" onClick={onClose} />
         
         <form onSubmit={handleSubmit} className="relative vylos-modal-glass w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]">
           {/* Subtle top glow effect */}
