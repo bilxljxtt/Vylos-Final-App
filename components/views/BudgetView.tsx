@@ -395,6 +395,21 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
             </div>
           </div>
 
+          {/* Planned vs Actual */}
+          <div className="vylos-glass-readable p-6 flex flex-col h-auto min-h-[360px]">
+            <h3 className="text-[15px] font-black text-slate-900 dark:text-white mb-1">Planned vs. Actual</h3>
+            <p className="text-[11px] text-slate-700 dark:text-slate-400 font-medium mb-3 leading-relaxed">
+              Track your total accumulated spending (Actual) day-by-day against your projected monthly budget limit (Planned) to ensure you don't run out of money before month-end.
+            </p>
+            <div className="flex items-center gap-4 mb-3">
+              <div className="flex items-center gap-1.5"><div className="w-3 h-0.5 border-b-2 border-dashed border-slate-400" /><span className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">Planned</span></div>
+              <div className="flex items-center gap-1.5"><div className="w-3 h-0.5 bg-blue-500" /><span className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">Actual</span></div>
+            </div>
+            <div className="flex-1 relative w-full min-h-[180px] pb-2">
+              <canvas ref={lineRef} />
+            </div>
+          </div>
+
           {/* Budget by Category Table */}
           <div id="budget-by-category-table" className="vylos-glass-readable p-5 sm:p-8 scroll-mt-24">
             <div className="flex items-center justify-between mb-6">
@@ -502,52 +517,6 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
             </button>
           </div>
 
-          {/* Budget Actions */}
-          <div className="vylos-glass-readable p-6 flex flex-col gap-4">
-            <h3 className="text-[15px] font-black text-slate-900 dark:text-white">Budget Actions</h3>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div 
-                onClick={() => setShowFundCategory?.(true)}
-                className="flex gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors border border-slate-100 dark:border-white/5 items-center"
-              >
-                <div className="w-8 h-8 rounded-[10px] bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
-                  <Divide size={16} />
-                </div>
-                <div className="flex flex-col justify-center">
-                  <span className="text-[12px] font-black text-slate-900 dark:text-white">Reallocate Budget</span>
-                  <span className="text-[9px] font-medium text-slate-700 mt-0.5 leading-tight">Move funds between categories</span>
-                </div>
-              </div>
-
-              <div 
-                onClick={() => setShowNewBudget(true)}
-                className="flex gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors border border-slate-100 dark:border-white/5 items-center"
-              >
-                <div className="w-8 h-8 rounded-[10px] bg-blue-50 dark:bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0">
-                  <MoreHorizontal size={16} />
-                </div>
-                <div className="flex flex-col justify-center">
-                  <span className="text-[12px] font-black text-slate-900 dark:text-white">Adjust Monthly Budget</span>
-                  <span className="text-[9px] font-medium text-slate-700 mt-0.5 leading-tight">Update your total monthly budget</span>
-                </div>
-              </div>
-
-              <div 
-                onClick={() => setShowNewBudget(true)}
-                className="flex gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors border border-slate-100 dark:border-white/5 items-center"
-              >
-                <div className="w-8 h-8 rounded-[10px] bg-purple-50 dark:bg-purple-500/10 text-purple-600 flex items-center justify-center shrink-0">
-                  <Plus size={16} />
-                </div>
-                <div className="flex flex-col justify-center">
-                  <span className="text-[12px] font-black text-slate-900 dark:text-white">Create Category</span>
-                  <span className="text-[9px] font-medium text-slate-700 mt-0.5 leading-tight">Add a new budget category</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
         </div>
 
         {/* Right Column (Span 4) */}
@@ -609,52 +578,77 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
             </div>
           </div>
 
-        </div>
-
-      </div>
-
-      {/* ─── Bottom Row Graphs ─── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        
-        {/* Planned vs Actual */}
-        <div className="vylos-glass-readable p-6 flex flex-col h-auto min-h-[360px]">
-          <h3 className="text-[15px] font-black text-slate-900 dark:text-white mb-1">Planned vs. Actual</h3>
-          <p className="text-[11px] text-slate-700 dark:text-slate-400 font-medium mb-3 leading-relaxed">
-            Track your total accumulated spending (Actual) day-by-day against your projected monthly budget limit (Planned) to ensure you don't run out of money before month-end.
-          </p>
-          <div className="flex items-center gap-4 mb-3">
-            <div className="flex items-center gap-1.5"><div className="w-3 h-0.5 border-b-2 border-dashed border-slate-400" /><span className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">Planned</span></div>
-            <div className="flex items-center gap-1.5"><div className="w-3 h-0.5 bg-blue-500" /><span className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">Actual</span></div>
-          </div>
-          <div className="flex-1 relative w-full min-h-[180px] pb-2">
-            <canvas ref={lineRef} />
-          </div>
-        </div>
-
-        {/* Top Spending Categories */}
-        <div className="vylos-glass-readable p-6 flex flex-col h-auto min-h-[360px]">
-          <h3 className="text-[15px] font-black text-slate-900 dark:text-white mb-6">Top Spending Categories</h3>
-          <div className="flex items-center gap-6 flex-1">
-            <div className="w-[120px] h-[120px] relative shrink-0">
-              <canvas ref={donutRef} />
+          {/* Top Spending Categories */}
+          <div className="vylos-glass-readable p-6 flex flex-col h-auto min-h-[360px]">
+            <h3 className="text-[15px] font-black text-slate-900 dark:text-white mb-6">Top Spending Categories</h3>
+            <div className="flex items-center gap-6 flex-1">
+              <div className="w-[120px] h-[120px] relative shrink-0">
+                <canvas ref={donutRef} />
+              </div>
+              <div className="flex flex-col gap-2 flex-1 justify-center">
+                {catData.map((cat, i) => {
+                  const colors = ["bg-[#10B981]", "bg-[#3B82F6]", "bg-[#8B5CF6]", "bg-[#F59E0B]", "bg-[#94A3B8]"];
+                  const pct = Math.round((cat.spent / totalSpent) * 100) || 0;
+                  return (
+                    <div key={i} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${colors[i]}`} />
+                        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 truncate max-w-[80px]">{cat.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-right">
+                        <span className="text-[10px] font-bold text-slate-400 w-6">{pct}%</span>
+                        <span className="text-[11px] font-black text-slate-900 dark:text-white w-12">{formatCurrency(cat.spent)}</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
-            <div className="flex flex-col gap-2 flex-1 justify-center">
-              {catData.map((cat, i) => {
-                const colors = ["bg-[#10B981]", "bg-[#3B82F6]", "bg-[#8B5CF6]", "bg-[#F59E0B]", "bg-[#94A3B8]"];
-                const pct = Math.round((cat.spent / totalSpent) * 100) || 0;
-                return (
-                  <div key={i} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${colors[i]}`} />
-                      <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 truncate max-w-[80px]">{cat.name}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-right">
-                      <span className="text-[10px] font-bold text-slate-400 w-6">{pct}%</span>
-                      <span className="text-[11px] font-black text-slate-900 dark:text-white w-12">{formatCurrency(cat.spent)}</span>
-                    </div>
-                  </div>
-                )
-              })}
+          </div>
+
+          {/* Budget Actions */}
+          <div className="vylos-glass-readable p-6 flex flex-col gap-4">
+            <h3 className="text-[15px] font-black text-slate-900 dark:text-white">Budget Actions</h3>
+            
+            <div className="flex flex-col gap-3">
+              <div 
+                onClick={() => setShowFundCategory?.(true)}
+                className="flex gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors border border-slate-100 dark:border-white/5 items-center"
+              >
+                <div className="w-8 h-8 rounded-[10px] bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
+                  <Divide size={16} />
+                </div>
+                <div className="flex flex-col justify-center">
+                  <span className="text-[12px] font-black text-slate-900 dark:text-white">Reallocate Budget</span>
+                  <span className="text-[9px] font-medium text-slate-700 mt-0.5 leading-tight">Move funds between categories</span>
+                </div>
+              </div>
+
+              <div 
+                onClick={() => setShowNewBudget(true)}
+                className="flex gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors border border-slate-100 dark:border-white/5 items-center"
+              >
+                <div className="w-8 h-8 rounded-[10px] bg-blue-50 dark:bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0">
+                  <MoreHorizontal size={16} />
+                </div>
+                <div className="flex flex-col justify-center">
+                  <span className="text-[12px] font-black text-slate-900 dark:text-white">Adjust Monthly Budget</span>
+                  <span className="text-[9px] font-medium text-slate-700 mt-0.5 leading-tight">Update your total monthly budget</span>
+                </div>
+              </div>
+
+              <div 
+                onClick={() => setShowNewBudget(true)}
+                className="flex gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors border border-slate-100 dark:border-white/5 items-center"
+              >
+                <div className="w-8 h-8 rounded-[10px] bg-purple-50 dark:bg-purple-500/10 text-purple-600 flex items-center justify-center shrink-0">
+                  <Plus size={16} />
+                </div>
+                <div className="flex flex-col justify-center">
+                  <span className="text-[12px] font-black text-slate-900 dark:text-white">Create Category</span>
+                  <span className="text-[9px] font-medium text-slate-700 mt-0.5 leading-tight">Add a new budget category</span>
+                </div>
+              </div>
             </div>
           </div>
 

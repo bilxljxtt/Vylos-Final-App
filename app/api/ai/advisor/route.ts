@@ -129,6 +129,7 @@ export async function POST(req: NextRequest) {
     if (!aiNeeded) {
       // Return Logic template instantly
       await incrementUsage(supabase, profile, user.id, isDeveloper, today, currentMonth, dailyUsed, monthlyUsed);
+      await logConversation(supabase, user.id, lastMessage, templateReply);
       const totalTime = Date.now() - startTime;
       console.log(`[AI Performance Log] Intent: ${intent} | Logic Calc Time: ${logicTime}ms | AI Needed: false | Total Time: ${totalTime}ms`);
       return NextResponse.json({ reply: templateReply, source: "Logic Engine", layer: 3 });
@@ -223,6 +224,7 @@ export async function POST(req: NextRequest) {
 
     // 8. Increment Usage on Success
     await incrementUsage(supabase, profile, user.id, isDeveloper, today, currentMonth, dailyUsed, monthlyUsed);
+    await logConversation(supabase, user.id, lastMessage, reply);
 
     const totalTime = Date.now() - startTime;
     console.log(`[AI Performance Log] Intent: ${intent} | Logic Calc Time: ${logicTime}ms | AI Needed: true | Prompt Size: ${promptSize} chars | Ollama Time: ${ollamaTime}ms | Fallback: ${fallbackUsed} | Total Time: ${totalTime}ms`);
@@ -266,6 +268,17 @@ async function incrementUsage(
   }
 }
 
+async function logConversation(supabase: any, userId: string, userMessage: string, aiMessage: string) {
+  try {
+    await supabase.from('ai_conversations').insert([
+      { user_id: userId, content: userMessage, role: 'user' },
+      { user_id: userId, content: aiMessage, role: 'ai' }
+    ]);
+  } catch (err) {
+    console.error("Failed to log conversation to Supabase:", err);
+  }
+}
+
 async function callLocalOllama(conversationHistory: ChatMessage[], timeoutMs: number = 20000): Promise<string> {
   const ollamaUrl = process.env.LOCAL_OLLAMA_URL;
   if (!ollamaUrl) {
@@ -282,12 +295,14 @@ async function callLocalOllama(conversationHistory: ChatMessage[], timeoutMs: nu
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gemma2:2b",
+        model: "phi3:mini",
         messages: conversationHistory,
         stream: false,
+        keep_alive: "30m",
         options: {
-          num_predict: 120,
+          keep_alive: "30m",
           temperature: 0.3,
+          num_predict: 120,
           num_ctx: 2048
         }
       }),

@@ -351,7 +351,7 @@ export function ImportTransactionsModal({ isOpen, onClose }: ImportTransactionsM
                   {step === "preview" ? "Review Imported Transactions" : "Import Transactions"}
                 </h2>
                 <p className="text-[10px] font-black text-text-muted uppercase tracking-widest opacity-60">
-                  {step === "preview" ? "Review and categorize before saving" : "Upload CSV or Excel statements"}
+                  {step === "preview" ? "Review and categorise before saving" : "Upload CSV or Excel statements"}
                 </p>
               </div>
             </div>
@@ -422,7 +422,7 @@ export function ImportTransactionsModal({ isOpen, onClose }: ImportTransactionsM
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-3xl pt-8">
                   {[
                     { title: "Smart Mapping", desc: "We automatically detect columns" },
-                    { title: "Auto-Categorize", desc: "Rule-based engine labels rows" },
+                    { title: "Auto-Categorise", desc: "Rule-based engine labels rows" },
                     { title: "Safe Review", desc: "Review and edit before saving" }
                   ].map((feature, i) => (
                     <div key={i} className="flex flex-col gap-1 p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-border-main">

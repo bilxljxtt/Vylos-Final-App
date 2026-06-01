@@ -40,7 +40,7 @@ export const LegalView: React.FC<LegalViewProps> = ({ type, onBack }) => {
             </section>
             <section>
               <h2 className="text-xl font-black text-text-main mb-3 uppercase tracking-tight">2. How We Use Your Data</h2>
-              <p>Your data is used exclusively to provide personalized financial insights, track your progress, and help you achieve your savings goals. We do not sell your personal financial records to third parties.</p>
+              <p>Your data is used exclusively to provide personalised financial insights, track your progress, and help you achieve your savings goals. We do not sell your personal financial records to third parties.</p>
             </section>
             <section>
               <h2 className="text-xl font-black text-text-main mb-3 uppercase tracking-tight">3. Data Security</h2>

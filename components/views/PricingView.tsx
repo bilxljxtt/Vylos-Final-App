@@ -202,7 +202,7 @@ export const PricingView: React.FC<PricingViewProps> = ({ onUpgrade, user }) => 
                 <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter">Vylos for Enterprise</h3>
               </div>
               <p className="text-slate-600 dark:text-slate-300 text-base font-medium leading-relaxed">
-                Empower your large-scale organization with custom integrations, dedicated account managers, 
+                Empower your large-scale organisation with custom integrations, dedicated account managers, 
                 and private AI models. Built for financial institutions and high-volume asset managers.
               </p>
             </div>

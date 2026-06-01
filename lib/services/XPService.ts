@@ -24,7 +24,7 @@ export const XP_CONFIG = {
   // Repeatable
   ADD_TRANSACTION: { xp: 20, label: "Adding Transaction", dailyLimit: 20 },
   IMPORT_TRANSACTIONS: { xp: 100, label: "Importing Data", dailyLimit: 5 },
-  CATEGORIZE_TRANSACTION: { xp: 10, label: "Categorizing Transaction", dailyLimit: 50 },
+  CATEGORIZE_TRANSACTION: { xp: 10, label: "Categorising Transaction", dailyLimit: 50 },
   
   // Planning
   CREATE_BUDGET: { xp: 75, label: "Creating Budget" },

@@ -102,7 +102,7 @@ export const DashboardV3: React.FC<DashboardV3Props> = ({
     }
     return {
       title: canUseAI ? "Vylos Intelligence" : "Financial Overview",
-      message: `Welcome ${firstName}! Start by importing your first transaction to see your personalized health score grow.`,
+      message: `Welcome ${firstName}! Start by importing your first transaction to see your personalised health score grow.`,
       icon: <Sparkles size={20} className="text-blue-500" />
     };
   };
@@ -112,7 +112,7 @@ export const DashboardV3: React.FC<DashboardV3Props> = ({
   return (
     <div className="flex-1 w-full max-w-[1400px] mx-auto flex flex-col gap-6 md:gap-8 relative z-10 pb-24">
       
-      {/* Personalized Welcome Banner */}
+      {/* Personalised Welcome Banner */}
       <div className="vylos-glass-readable !p-6 !rounded-[2rem] border-white/20 shadow-xl flex items-center gap-6 animate-in fade-in slide-in-from-top-4 duration-1000">
         <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center shrink-0 shadow-inner">
           {insight.icon}

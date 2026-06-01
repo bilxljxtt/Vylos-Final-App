@@ -123,7 +123,7 @@ export const V2Header: React.FC<V2HeaderProps> = ({ firstName, avatarUrl, onPage
                     <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-blue-600 animate-pulse" />
                   )}
                 </div>
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 group-hover:opacity-100 transition-opacity hidden sm:inline">Activity Center</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 group-hover:opacity-100 transition-opacity hidden sm:inline">Activity Centre</span>
               </button>
             }
           >

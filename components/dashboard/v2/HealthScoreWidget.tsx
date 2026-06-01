@@ -85,7 +85,7 @@ export const HealthScoreWidget: React.FC<HealthScoreWidgetProps> = ({ onDetailCl
            </div>
            <div className="flex justify-between items-center px-1">
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Efficiency</span>
-              <span className={`text-[10px] font-black uppercase tracking-widest ${colorClass}`}>{score}% Optimized</span>
+              <span className={`text-[10px] font-black uppercase tracking-widest ${colorClass}`}>{score}% Optimised</span>
            </div>
         </div>
       </div>

@@ -207,7 +207,7 @@ export default function LoginPage() {
             </div>
             <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">Welcome back</h2>
             <p className="text-sm font-medium text-slate-700 dark:text-slate-400 mt-2 max-w-[280px]">
-              Access your personalized financial dashboard and keep growing.
+              Access your personalised financial dashboard and keep growing.
             </p>
           </div>
 

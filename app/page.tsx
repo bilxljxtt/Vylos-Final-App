@@ -281,7 +281,7 @@ export default function App() {
     {
       id: "initial-assistant-msg",
       role: "assistant",
-      content: "Hello. I have analyzed your financial metrics. Feel free to ask any questions regarding your budget limits, savings targets, or spending habits.",
+      content: "Hello. I have analysed your financial metrics. Feel free to ask any questions regarding your budget limits, savings targets, or spending habits.",
       timestamp: new Date().toISOString()
     }
   ]);
@@ -647,7 +647,7 @@ export default function App() {
       await awardXP("ONBOARDING_COMPLETE", XP_CONFIG.ONBOARDING_COMPLETE.xp, "Completed Onboarding Questionnaire");
       await refreshData();
       
-      showToast(`Welcome to Vylos! +${XP_CONFIG.ONBOARDING_COMPLETE.xp} XP earned for personalizing your profile.`, "success");
+      showToast(`Welcome to Vylos! +${XP_CONFIG.ONBOARDING_COMPLETE.xp} XP earned for personalising your profile.`, "success");
     } catch (e: any) {
       showToast(e.message, "error");
     }

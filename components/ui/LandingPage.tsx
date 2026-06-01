@@ -217,7 +217,7 @@ export function LandingPage() {
                     { 
                         icon: <PieChart className="text-blue-400" />, 
                         title: "Visual Budgeting", 
-                        desc: "See exactly where your money flows with high-fidelity charts and automated categorization." 
+                        desc: "See exactly where your money flows with high-fidelity charts and automated categorisation." 
                     },
                     { 
                         icon: <Target className="text-emerald-400" />, 
@@ -227,7 +227,7 @@ export function LandingPage() {
                     { 
                         icon: <Zap className="text-amber-400" />, 
                         title: "Neural Insights", 
-                        desc: "Our AI engine analyzes your habits to find hidden growth opportunities you might miss." 
+                        desc: "Our AI engine analyses your habits to find hidden growth opportunities you might miss." 
                     },
                     { 
                         icon: <Lock className="text-indigo-400" />, 

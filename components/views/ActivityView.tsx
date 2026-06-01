@@ -84,7 +84,7 @@ export function ActivityView() {
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">Activity Center</h2>
+          <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">Activity Centre</h2>
         </div>
         
         <div className="flex items-center gap-3">
@@ -189,7 +189,7 @@ export function ActivityView() {
             </div>
             <h3 className="text-xl font-black text-slate-900 dark:text-white/80 mb-2">No active notifications</h3>
             <p className="text-[14px] font-medium text-slate-700 dark:text-slate-400 max-w-[280px] leading-relaxed">
-              Your Activity Center is currently empty. We'll alert you here for any important updates.
+              Your Activity Centre is currently empty. We'll alert you here for any important updates.
             </p>
             {filter === "unread" && (
               <button 

@@ -209,7 +209,7 @@ export function CalendarEventModal({ isOpen, onClose, editingEvent }: CalendarEv
                 <h2 className="text-xl sm:text-3xl font-black text-text-main tracking-tight leading-tight">
                   {editingEvent ? "Edit Event" : "New Event"}
                 </h2>
-                <p className="text-[9px] sm:text-xs font-black text-text-muted uppercase tracking-wider sm:tracking-[0.2em] opacity-60">Organize your financial schedule</p>
+                <p className="text-[9px] sm:text-xs font-black text-text-muted uppercase tracking-wider sm:tracking-[0.2em] opacity-60">Organise your financial schedule</p>
               </div>
             </div>
             <button 

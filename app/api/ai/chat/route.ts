@@ -31,8 +31,8 @@ export async function POST(req: NextRequest) {
 
     // Log to Supabase
     await supabase.from('ai_conversations').insert([
-      { user_id: user.id, message, role: 'user' },
-      { user_id: user.id, message: aiMessage, role: 'ai' }
+      { user_id: user.id, content: message, role: 'user' },
+      { user_id: user.id, content: aiMessage, role: 'ai' }
     ]);
 
     return NextResponse.json({ message: aiMessage });

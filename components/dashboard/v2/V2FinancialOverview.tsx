@@ -152,7 +152,7 @@ export const V2FinancialOverview: React.FC<V2FinancialOverviewProps> = ({
                 
                 {isCfiExplOpen && (
                   <p className="text-[11px] font-bold text-slate-600 dark:text-white/60 leading-relaxed animate-in fade-in slide-in-from-top-1 duration-200">
-                    Cash Flow Index measures the efficiency of your debt and lifestyle velocity. It is calculated by taking your total outstanding debt balance and dividing it by your monthly minimum repayment. A high index number means your cash flow is optimized; a low number means a specific expense is eating your financial freedom.
+                    Cash Flow Index measures the efficiency of your debt and lifestyle velocity. It is calculated by taking your total outstanding debt balance and dividing it by your monthly minimum repayment. A high index number means your cash flow is optimised; a low number means a specific expense is eating your financial freedom.
                   </p>
                 )}
               </div>

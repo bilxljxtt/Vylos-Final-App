@@ -233,7 +233,7 @@ export function GoalModal({ goalForm, setGoalForm, setShowAddGoal, handleAddGoal
              {/* Visual Customization */}
              <div className="space-y-4">
                 <div>
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-text-muted mb-3 px-1">Icon & Color</label>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-text-muted mb-3 px-1">Icon & Colour</label>
                   <div className="flex flex-wrap gap-3 mb-4">
                       {icons.map(icon => (
                           <button 

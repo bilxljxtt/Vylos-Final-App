@@ -93,7 +93,7 @@ export const ImportView: React.FC<ImportViewProps> = ({
         
         <label className="inline-flex items-center gap-2.5 sm:gap-3 bg-primary hover:bg-emerald-400 text-white font-black px-8 sm:px-12 py-4 sm:py-5 rounded-xl sm:rounded-[1.5rem] shadow-2xl shadow-primary/30 transition-all cursor-pointer select-none active:scale-95 text-xs sm:text-sm">
           {isProcessing ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FileText size={16} sm-size={20} strokeWidth={3} />}
-          {isProcessing ? "Analyzing..." : "Choose Statement"}
+          {isProcessing ? "Analysing..." : "Choose Statement"}
           <input 
             type="file" 
             accept=".csv,.xlsx,.xls" 
@@ -215,7 +215,7 @@ export const ImportView: React.FC<ImportViewProps> = ({
               onChange={e => setMapping({ ...mapping, category: e.target.value })}
               className="w-full bg-border-main/20 border border-border-main rounded-2xl p-4 text-sm font-bold text-text-main focus:ring-2 focus:ring-primary outline-none appearance-none"
             >
-              <option value="">Auto-categorize (None)</option>
+              <option value="">Auto-categorise (None)</option>
               {rawData?.headers.map(h => <option key={h} value={h}>{h}</option>)}
             </select>
           </div>

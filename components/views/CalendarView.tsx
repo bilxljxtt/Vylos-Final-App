@@ -542,7 +542,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ setPage }) => {
                         <CalendarIcon size={40} className="text-slate-300 opacity-50" />
                       </div>
                       <h4 className="text-xl font-black text-slate-900 dark:text-white mb-2">Your timeline is empty</h4>
-                      <p className="text-sm font-medium text-slate-700 max-w-[280px] leading-relaxed">Stay organized by adding upcoming bills, goals, and important events.</p>
+                      <p className="text-sm font-medium text-slate-700 max-w-[280px] leading-relaxed">Stay organised by adding upcoming bills, goals, and important events.</p>
                       <button 
                         onClick={() => setShowEventModal(true)}
                         className="mt-8 px-8 py-3 bg-blue-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/20"

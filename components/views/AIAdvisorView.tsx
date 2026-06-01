@@ -72,7 +72,7 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
   };
 
   const prompts = [
-    "Analyze my budget", 
+    "Analyse my budget", 
     "How much have I saved?", 
     "What's my top expense?", 
     "Investment tips"
@@ -136,7 +136,7 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
               return (
                 <button 
                   onClick={() => setPage(targetPage)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 mx-1 mt-2 mb-1 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/40 text-[12px] font-black uppercase tracking-widest text-white rounded-lg transition-all active:scale-95"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 mx-1 mt-2 mb-1 bg-slate-100 hover:bg-slate-200/80 dark:bg-white/10 dark:hover:bg-white/20 border border-slate-200 dark:border-white/20 hover:border-slate-300 dark:hover:border-white/40 text-[12px] font-black uppercase tracking-widest text-slate-800 dark:text-white rounded-lg transition-all active:scale-95"
                 >
                   {children} <ArrowRight size={14} />
                 </button>
