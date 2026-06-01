@@ -241,13 +241,7 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
                         <MarkdownRenderer content={msg.content} />
                       )}
                     </div>
-                    {!isUser && (msg.source || msg.layer !== undefined) && (process.env.NODE_ENV === "development" || Permissions.isPrivileged(userProfile)) && (
-                      <div className="flex items-center gap-2 px-1 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 opacity-60">
-                        {msg.layer !== undefined && <span>Layer {msg.layer}</span>}
-                        {msg.source && msg.layer !== undefined && <span>•</span>}
-                        {msg.source && <span>Source: {msg.source.replace(/_/g, ' ')}</span>}
-                      </div>
-                    )}
+                    {/* Source and layer details hidden from production UI */}
                   </div>
                 </div>
               )

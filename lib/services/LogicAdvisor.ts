@@ -8,7 +8,68 @@ export interface LogicAnswer {
 }
 
 export class LogicAdvisor {
+  static isGeneralOrEducational(query: string): boolean {
+    const q = query.toLowerCase().trim();
+
+    // 1. Navigation queries should not be treated as general advice
+    if (
+      q.includes("go to") ||
+      q.includes("take me to") ||
+      q.includes("open") ||
+      q.includes("show me") ||
+      q.includes("navigate to") ||
+      q.match(/^(goals|budget|transactions|calendar|reminders|settings|progress|analytics|home|advisor|ai)$/)
+    ) {
+      return false;
+    }
+
+    // 2. Specific personal data indicators that MUST use Logic Engine
+    const specificDataIndicators = [
+      "my budget", "my spending", "my cash flow", "my expense", "my savings", 
+      "my goals", "my transaction", "my health score", "my account", "my data",
+      "how much did i", "how much have i", "am i over", "spent most on", "my progress",
+      "analyse my", "analyze my", "show my", "what is my", "what's my"
+    ];
+
+    if (specificDataIndicators.some(indicator => q.includes(indicator))) {
+      return false;
+    }
+
+    // 3. General advice / educational terms
+    const generalKeywords = [
+      "tip", "tips", "advice", "habit", "habits", "explain", "teach me", 
+      "tutorial", "guide", "concept", "define", "what is a good", "what are good", 
+      "best practices", "how to manage money", "manage money better", "financial literacy",
+      "investment tips", "savings tip", "budgeting tip", "how do i save more money",
+      "how can i save more money", "how to save more money", "how do i reduce spending",
+      "how can i reduce spending", "how to reduce spending", "how to save more",
+      "how can i save more", "how do i save more", "explain budgeting",
+      "explain saving", "explain finance", "investment advice", "financial advice",
+      "how can i save", "how do i save", "how to save", "reduce spending", "spend less",
+      "save more", "cut down on", "habit", "habits", "tips", "suggest", "ideas", "how to"
+    ];
+
+    if (generalKeywords.some(keyword => q.includes(keyword))) {
+      return true;
+    }
+
+    // 4. Broad questions starting with how/what/why asking for advice
+    if (
+      (q.startsWith("how can i") || q.startsWith("how do i") || q.startsWith("how to") || q.startsWith("what should i")) &&
+      !q.includes("my") &&
+      !q.includes("mine")
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
   static detectIntent(query: string): string {
+    if (this.isGeneralOrEducational(query)) {
+      return "general_financial_advice_query";
+    }
+
     const q = query.toLowerCase().trim();
 
     // 1. Navigation Query
