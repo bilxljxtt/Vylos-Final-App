@@ -155,19 +155,11 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
         <div>
           <h2 className="text-[28px] font-black text-slate-900 dark:text-white tracking-tight leading-tight">Goals</h2>
         </div>
-        
-        <button 
-          onClick={() => setShowAddGoal(true)}
-          className="flex items-center gap-2 px-5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-2xl text-[13px] font-bold shadow-lg shadow-blue-500/20 hover:shadow-blue-500/35 transition-all border border-blue-400/20 active:scale-95"
-        >
-          <Plus size={16} strokeWidth={3} />
-          New Goal
-        </button>
       </div>
 
-      {/* ─── Filters & Sort ─── */}
+      {/* ─── Filters & Sort & Actions ─── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 w-full md:w-auto">
           {filters.map(f => (
             <button
               key={f}
@@ -175,30 +167,41 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
               className={`px-4 py-2 rounded-[14px] text-[13px] font-bold whitespace-nowrap transition-all ${
                 activeFilter === f 
                   ? 'bg-blue-500 dark:bg-blue-600 text-white shadow-md shadow-blue-500/20 border border-transparent' 
-                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-white/5 border border-transparent'
+                  : 'text-slate-700 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-white/5 border border-transparent'
               }`}
             >
               {f}
             </button>
           ))}
         </div>
-        <div className="w-48 shrink-0">
-          <V2Select 
-            value={sortBy} 
-            onChange={setSortBy} 
-            options={[
-              { value: "Deadline", label: "Sort by: Deadline" },
-              { value: "Progress", label: "Sort by: Progress" },
-              { value: "Target Amount", label: "Sort by: Target Amount" },
-              { value: "Recently Added", label: "Sort by: Recently Added" },
-              { value: "CompletedFirst", label: "Sort by: Completed/In Progress" }
-            ]} 
-          />
+        
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+          <div className="hidden md:block w-48 shrink-0">
+            <V2Select 
+              value={sortBy} 
+              onChange={setSortBy} 
+              options={[
+                { value: "Deadline", label: "Sort by: Deadline" },
+                { value: "Progress", label: "Sort by: Progress" },
+                { value: "Target Amount", label: "Sort by: Target Amount" },
+                { value: "Recently Added", label: "Sort by: Recently Added" },
+                { value: "CompletedFirst", label: "Sort by: Completed/In Progress" }
+              ]} 
+            />
+          </div>
+          
+          <button 
+            onClick={() => setShowAddGoal(true)}
+            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-2xl text-[13px] font-bold shadow-lg shadow-blue-500/20 hover:shadow-blue-500/35 transition-all border border-blue-400/20 active:scale-95 w-full md:w-auto"
+          >
+            <Plus size={16} strokeWidth={3} />
+            New Goal
+          </button>
         </div>
       </div>
 
       {/* ─── Main Content Grid ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-12">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-4">
         
         {/* Left Column (Span 8) - Goals List */}
         <div id="goals-list-section" className="lg:col-span-8 flex flex-col gap-6">
@@ -210,7 +213,7 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
                 </div>
                 <div>
                   <h4 className="text-lg font-black text-slate-900 dark:text-white">No Goals Found</h4>
-                  <p className="text-[13px] font-medium text-slate-500 mt-1.5 max-w-sm">
+                  <p className="text-[13px] font-medium text-slate-700 mt-1.5 max-w-sm">
                     {activeFilter === "All Goals" 
                       ? "Start planning for what matters most. Create your first goal today!" 
                       : `You don't have any goals under the "${activeFilter}" filter.`}
@@ -250,7 +253,7 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
                           
                           <div className="flex items-end gap-1 mb-4">
                             <span className="text-2xl font-black text-slate-900 dark:text-white leading-none">{formatCurrency(goal.currentAmount)}</span>
-                            <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-1">of {formatCurrency(goal.targetAmount)}</span>
+                            <span className="text-[11px] font-black text-slate-700 uppercase tracking-widest mb-1">of {formatCurrency(goal.targetAmount)}</span>
                           </div>
                           
                           <div className="h-3 bg-white/10 dark:bg-black/20 rounded-full overflow-hidden mb-4 border border-white/10">
@@ -258,8 +261,8 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
                           </div>
 
                           <div className="flex items-center justify-between">
-                            <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Target: {formatMonthYear(goal.deadline)}</span>
-                            <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10">
+                            <span className="text-[11px] font-black text-slate-700 uppercase tracking-widest">Target: {formatMonthYear(goal.deadline)}</span>
+                            <div className={`${status.label === "On track" ? "hidden md:flex" : "flex"} items-center gap-2 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10`}>
                               <div className={`w-2 h-2 rounded-full ${status.dot} shadow-[0_0_8px_rgba(16,185,129,0.5)]`} />
                               <span className={`text-[10px] font-black uppercase tracking-widest ${status.color}`}>{status.label}</span>
                             </div>
@@ -280,7 +283,7 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
                               <DollarSign size={16} />
                             </div>
                             <div className="flex flex-col">
-                              <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Contributed</span>
+                              <span className="text-[9px] font-black text-slate-700 uppercase tracking-widest">Contributed</span>
                               <span className="text-[13px] font-black text-slate-900 dark:text-white mt-0.5">{formatCurrency(monthlyContributed)}</span>
                             </div>
                           </div>
@@ -290,7 +293,7 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
                               <TrendingUp size={16} />
                             </div>
                             <div className="flex flex-col">
-                              <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Recommended</span>
+                              <span className="text-[9px] font-black text-slate-700 uppercase tracking-widest">Recommended</span>
                               <div className="flex items-end gap-0.5 mt-0.5">
                                 <span className="text-[13px] font-black text-slate-900 dark:text-white">{formatCurrency(suggested)}</span>
                                 <span className="text-[9px] font-bold text-slate-400 mb-0.5">/mo</span>
@@ -401,7 +404,7 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
                                 setAmountInput("");
                                 setNotesInput("");
                               }}
-                              className="px-4 py-3 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
+                              className="px-4 py-3 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-400 rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
                             >
                               Cancel
                             </button>
@@ -473,7 +476,7 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
             
             <div className="flex items-start justify-between mb-6">
               <div className="flex flex-col gap-1">
-                <span className="text-[11px] font-medium text-slate-500">Total Saved</span>
+                <span className="text-[11px] font-medium text-slate-700">Total Saved</span>
                 <span className="text-[32px] font-black text-slate-900 dark:text-white tracking-tighter leading-none">{formatCurrency(stats.totalSaved)}</span>
               </div>
               <div className="flex flex-col items-end gap-1 mt-1">
@@ -489,7 +492,7 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
               <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                 <div className="h-full bg-blue-600 rounded-full" style={{ width: `${stats.overallProgress}%` }} />
               </div>
-              <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
+              <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
                 <span>Across {displayGoals.length} goals</span>
                 <span>{stats.overallProgress}% complete</span>
               </div>
@@ -509,30 +512,13 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
               <span className="text-xl font-black text-slate-900 dark:text-white mb-2 leading-none">
                 {goals.filter(g => g.currentAmount >= g.targetAmount || getGoalStatus(g).label === "On track").length} of {goals.length}
               </span>
-              <p className="text-[11px] font-medium text-slate-500 leading-relaxed">
+              <p className="text-[11px] font-medium text-slate-700 leading-relaxed">
                 Great job! You're on track to achieve all your goals.
               </p>
             </div>
           </div>
 
-          {/* Smart Tip Card */}
-          <div className="vylos-glass-readable p-6 relative overflow-hidden">
-            <div className="flex flex-col relative z-10">
-              <div className="flex items-center gap-2 mb-3">
-                <Lightbulb size={16} className="text-amber-500 fill-amber-500" />
-                <h3 className="text-[13px] font-black text-slate-900 dark:text-white">Smart tip</h3>
-              </div>
-              <p className="text-[12px] font-medium text-slate-600 dark:text-slate-300 leading-relaxed mb-4">
-                Increase your monthly contribution by <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(Math.max(100, totalMonthlyNeeded * 0.1))}</span> to reach your goals sooner.
-              </p>
-              <button 
-                onClick={() => showToast(`Saving an extra ${formatCurrency(Math.max(100, totalMonthlyNeeded * 0.1))} per month will help you achieve your goals 4.2 months earlier!`, "info")}
-                className="text-[11px] font-black text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors w-fit"
-              >
-                See impact <ChevronRight size={14} />
-              </button>
-            </div>
-          </div>
+
 
           {/* Upcoming Targets Card */}
           <div className="vylos-glass-readable p-6 flex flex-col">
@@ -553,7 +539,7 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
                   <div key={i} className="flex items-center justify-between group">
                     <div className="flex flex-col">
                       <span className="text-[12px] font-black text-slate-900 dark:text-white mb-0.5 group-hover:text-blue-600 transition-colors">{goal.title}</span>
-                      <span className="text-[10px] font-medium text-slate-500">{formatMonthYear(goal.deadline)}</span>
+                      <span className="text-[10px] font-medium text-slate-700">{formatMonthYear(goal.deadline)}</span>
                     </div>
                     <span className="text-[10px] font-bold text-slate-400 bg-slate-50 dark:bg-white/5 px-2 py-1 rounded-lg">
                       {timeStr}

@@ -29,7 +29,7 @@ export const AIAdvisorWidget: React.FC<AIAdvisorWidgetProps> = ({
 
       <div className="flex-1 relative z-10">
         <h5 className="text-xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight leading-tight mb-3">Hi, {firstName}!</h5>
-        <p className="text-sm font-bold text-slate-500 dark:text-slate-400 leading-relaxed mb-8">
+        <p className="text-sm font-bold text-slate-700 dark:text-slate-400 leading-relaxed mb-8">
           Based on your activity, I've identified several ways to optimize your wealth and increase your monthly savings rate.
         </p>
 

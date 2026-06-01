@@ -68,6 +68,7 @@ export function SettingsView({
   });
 
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   const handleToggle = (key: keyof NotificationPrefs) => {
     setToggles(prev => ({ ...prev, [key]: !prev[key] }));
@@ -112,7 +113,14 @@ export function SettingsView({
         onboardingAnswers: updatedOnboardingAnswers
       });
       await updateNotifications(toggles);
-      showToast("Settings and Financial Blueprint updated!", "success");
+      
+      const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+      if (isMobile) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+      } else {
+        showToast("Settings updated!", "success");
+      }
     } catch (err: any) {
       showToast("Error saving settings: " + err.message, "error");
     } finally {
@@ -174,7 +182,7 @@ export function SettingsView({
           disabled={saving}
           className={`px-6 sm:px-10 py-3.5 sm:py-5 bg-primary hover:bg-emerald-400 text-white rounded-[22px] text-[13px] sm:text-[14px] font-black shadow-2xl shadow-primary/30 transition-all active:scale-95 flex items-center justify-center gap-3 vylos-focus uppercase tracking-widest ${saving ? 'opacity-70 cursor-not-allowed' : ''} w-full sm:w-auto`}
         >
-          {saving ? 'Synchronizing...' : 'Save Changes'}
+          {saving ? 'Synchronizing...' : (saved ? 'Saved ✓' : 'Save Changes')}
           <CheckCircle2 size={18} strokeWidth={3} />
         </button>
       </div>
@@ -355,7 +363,7 @@ export function SettingsView({
           </div>
 
           {/* Financial Blueprint Section */}
-          <div className="vylos-glass-panel p-5 sm:p-10 flex flex-col">
+          <div className="vylos-glass-panel p-5 sm:p-10 hidden md:flex flex-col">
             <div className="flex items-center gap-4 mb-8 sm:mb-10">
               <div className="p-3.5 bg-blue-600 rounded-3xl text-white shadow-2xl shadow-blue-600/30">
                 <Zap size={24} />

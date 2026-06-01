@@ -392,39 +392,39 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
       <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-blue-600/20 rounded-full blur-[160px] pointer-events-none animate-pulse" />
       <div className="absolute bottom-[-5%] right-[-5%] w-[50%] h-[50%] bg-indigo-600/15 rounded-full blur-[140px] pointer-events-none" />
 
-      <div className="flex-1 flex flex-col relative z-10 px-4 py-8 md:py-16">
+      <div className="flex-1 flex flex-col relative z-10 px-4 pt-8 pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:py-16">
         <div className="w-full max-w-[720px] mx-auto">
           
           <div className="vylos-glass rounded-[40px] p-6 md:p-12 shadow-2xl relative border border-white/20">
             
             {/* Step Counter */}
-            <div className="absolute top-8 right-8 text-[11px] font-black text-slate-500 dark:text-white/40 uppercase tracking-[0.25em]">
+            <div className="absolute top-8 right-8 text-[11px] font-black text-slate-700 dark:text-white/40 uppercase tracking-[0.25em]">
               Step {activeStepIndex + 1} of {totalStepsCount}
             </div>
-
+ 
             <div className="mb-8">
               {/* Vylos mini logo */}
               <div className="w-10 h-10 rounded-xl bg-blue-600/10 border border-blue-600/10 flex items-center justify-center text-blue-600 font-black mb-6">
                 {currentStep === 0 ? "★" : currentStep}
               </div>
-
+ 
               {/* ─────────────────────────────────────────────────────────────
                   STEP 0: Google Auth Signup Pre-Step (Profile & Budget baseline)
                   ───────────────────────────────────────────────────────────── */}
               {currentStep === 0 && (
                 <div className="space-y-6 animate-in fade-in duration-300">
                   <h2 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">Let's set up your profile</h2>
-                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Since you joined via Google, let's complete these two quick profile configurations.</p>
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-400">Since you joined via Google, let's complete these two quick profile configurations.</p>
                   
                   <div className="space-y-4">
-                    <label className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] ml-2">What best describes you?</label>
+                    <label className="text-[11px] font-black text-slate-700 dark:text-slate-400 uppercase tracking-[0.2em] ml-2">What best describes you?</label>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {[
-                        { id: "student", label: "🎓 Student" },
-                        { id: "employee", label: "💼 Employee (Salary/Wages)" },
-                        { id: "freelancer", label: "💻 Freelancer / Contractor" },
-                        { id: "business_owner", label: "🚀 Business Owner" },
-                        { id: "other", label: "❓ Other" }
+                        { id: "student", label: "Student" },
+                        { id: "employee", label: "Employee (Salary/Wages)" },
+                        { id: "freelancer", label: "Freelancer / Contractor" },
+                        { id: "business_owner", label: "Business Owner" },
+                        { id: "other", label: "Other" }
                       ].map(opt => (
                         <button
                           key={opt.id}
@@ -442,14 +442,14 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                       ))}
                     </div>
                   </div>
-
+ 
                   <div className="space-y-4 pt-4 border-t border-white/5">
-                    <label className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] ml-2">Do you already have a budget?</label>
+                    <label className="text-[11px] font-black text-slate-700 dark:text-slate-400 uppercase tracking-[0.2em] ml-2">Do you already have a budget?</label>
                     <div className="grid grid-cols-3 gap-3">
                       {[
-                        { id: "Yes", label: "Yes 📊" },
-                        { id: "No", label: "No ❌" },
-                        { id: "somewhat", label: "Somewhat 🤔" }
+                        { id: "Yes", label: "Yes" },
+                        { id: "No", label: "No" },
+                        { id: "somewhat", label: "Somewhat" }
                       ].map(opt => (
                         <button
                           key={opt.id}
@@ -476,12 +476,12 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
               {currentStep === 1 && (
                 <div className="space-y-6 animate-in fade-in duration-300">
                   <h2 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">Passions & Milestones</h2>
-                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Let's map out your lifestyle passions and future target milestones first.</p>
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-400">Let's map out your lifestyle passions and future target milestones first.</p>
                   
                   {/* HOBBIES SECTION */}
                   <div className="space-y-4 bg-white/5 p-6 rounded-3xl border border-white/5">
                     <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2"><Sparkles className="text-blue-500" size={18} /> Hobbies & Outings</h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-normal">What activities do you spend money on monthly? Add custom items below.</p>
+                    <p className="text-xs text-slate-700 dark:text-slate-400 leading-normal">What activities do you spend money on monthly? Add custom items below.</p>
                     
                     {/* Suggested list */}
                     <div className="flex flex-wrap gap-2 py-2">
@@ -566,7 +566,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                   {/* GOALS SECTION */}
                   <div className="space-y-4 bg-white/5 p-6 rounded-3xl border border-white/5">
                     <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2"><Target className="text-emerald-500" size={18} /> Financial Milestones</h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-normal">What targets are you working toward? Add custom targets below.</p>
+                    <p className="text-xs text-slate-700 dark:text-slate-400 leading-normal">What targets are you working toward? Add custom targets below.</p>
                     
                     {/* Goal suggestions */}
                     <div className="flex flex-wrap gap-2 py-2">
@@ -701,7 +701,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
               {currentStep === 2 && (
                 <div className="space-y-6 animate-in fade-in duration-300">
                   <h2 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">Life Infrastructure Costs</h2>
-                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Enter monthly amounts for your fixed living assets. Leave blank if not applicable.</p>
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-400">Enter monthly amounts for your fixed living assets. Leave blank if not applicable.</p>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* HOUSING COLUMN */}
@@ -765,7 +765,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
               {currentStep === 3 && (
                 <div className="space-y-6 animate-in fade-in duration-300">
                   <h2 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">Survival Baseline & Debt Liabilities</h2>
-                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Specify your monthly survival essentials and active debt obligations.</p>
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-400">Specify your monthly survival essentials and active debt obligations.</p>
                   
                   {/* ESSENTIALS BLOCK */}
                   <div className="space-y-4 bg-white/5 p-6 rounded-3xl border border-white/5">
@@ -773,12 +773,12 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                     
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                       {[
-                        { k: "groceries", label: "🛒 Groceries" },
-                        { k: "utilities", label: "⚡ Electricity/Water" },
-                        { k: "data", label: "📱 Airtime & Data" },
-                        { k: "toiletries", label: "🧴 Toiletries" },
-                        { k: "householdItems", label: "🧺 Household Cleaners" },
-                        { k: "otherEssentials", label: "📦 Other essentials" }
+                        { k: "groceries", label: "Groceries" },
+                        { k: "utilities", label: "Electricity/Water" },
+                        { k: "data", label: "Airtime & Data" },
+                        { k: "toiletries", label: "Toiletries" },
+                        { k: "householdItems", label: "Household Cleaners" },
+                        { k: "otherEssentials", label: "Other Essentials" }
                       ].map(f => (
                         <div key={f.k} className="space-y-1">
                           <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{f.label}</label>
@@ -800,7 +800,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                   {/* DEBTS BLOCK */}
                   <div className="space-y-4 bg-white/5 p-6 rounded-3xl border border-white/5">
                     <h4 className="text-xs font-black text-blue-500 uppercase tracking-wider flex items-center gap-2"><CreditCard size={15} /> Debt Obligations</h4>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Do you currently have credit cards, retail store accounts, or personal loans?</p>
+                    <p className="text-xs text-slate-700 dark:text-slate-400">Do you currently have credit cards, retail store accounts, or personal loans?</p>
                     
                     <div className="grid grid-cols-2 gap-4">
                       {["Yes", "No"].map(val => (
@@ -897,7 +897,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                               <div key={d.id} className="flex justify-between items-center bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 p-3.5 rounded-xl">
                                 <div>
                                   <div className="text-xs font-black text-slate-900 dark:text-white">{d.name} <span className="text-[9px] font-bold bg-red-500/10 text-red-500 px-2 py-0.5 rounded-full ml-1.5">{d.category}</span></div>
-                                  <div className="text-[10px] text-slate-500 dark:text-slate-400 font-bold mt-1">Repayment: R{parseFloat(d.repayment).toLocaleString()} | Balance: R{parseFloat(d.balance).toLocaleString()}</div>
+                                  <div className="text-[10px] text-slate-700 dark:text-slate-400 font-bold mt-1">Repayment: R{parseFloat(d.repayment).toLocaleString()} | Balance: R{parseFloat(d.balance).toLocaleString()}</div>
                                 </div>
                                 <button
                                   type="button"
@@ -923,7 +923,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                 <div className="space-y-8 animate-in fade-in duration-300">
                   <div className="space-y-6">
                     <h2 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">Economic Engine Baseline</h2>
-                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400">What is your total monthly take-home pay? This determines your spending threshold allocation.</p>
+                    <p className="text-sm font-medium text-slate-700 dark:text-slate-400">What is your total monthly take-home pay? This determines your spending threshold allocation.</p>
                     
                     <div className="relative">
                       <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-2xl text-slate-400">R</span>
@@ -951,7 +951,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
 
             {error && (
               <p className="mb-6 text-red-500 font-bold text-sm animate-bounce">
-                ⚠️ {error}
+                {error}
               </p>
             )}
 
@@ -960,7 +960,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
               <button 
                 onClick={handleBack}
                 disabled={activeStepIndex === 0}
-                className="flex items-center gap-2 px-6 py-4 rounded-2xl font-black text-xs text-slate-500 dark:text-white/40 hover:text-slate-800 dark:hover:text-white uppercase tracking-[0.2em] transition-all disabled:opacity-30 disabled:pointer-events-none"
+                className="flex items-center gap-2 px-6 py-4 rounded-2xl font-black text-xs text-slate-700 dark:text-white/40 hover:text-slate-800 dark:hover:text-white uppercase tracking-[0.2em] transition-all disabled:opacity-30 disabled:pointer-events-none"
               >
                 <ArrowLeft size={16} strokeWidth={3} /> Back
               </button>

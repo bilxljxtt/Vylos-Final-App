@@ -141,7 +141,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
 
         <button 
           onClick={() => setShowAddTx(true)}
-          className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[13px] font-black uppercase tracking-widest shadow-xl shadow-blue-500/20 transition-all active:scale-95"
+          className="hidden md:flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[13px] font-black uppercase tracking-widest shadow-xl shadow-blue-500/20 transition-all active:scale-95"
         >
           <Plus size={18} strokeWidth={3} />
           Add Transaction
@@ -149,7 +149,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
       </div>
 
       {/* ─── Filters Bar ─── */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 md:gap-4">
         <div className="relative flex-1 w-full">
           <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
           <input 
@@ -161,8 +161,53 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
           />
         </div>
         
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          <div className="flex-1 min-w-[140px] md:w-48 md:flex-initial">
+        {/* Mobile-only Category Filter & Action Row */}
+        <div className="block md:hidden w-full">
+          <V2Select 
+            value={filterCat} 
+            onChange={setFilterCat} 
+            options={[
+              { value: "All", label: "All Categories" },
+              ...Object.keys(CATEGORY_METADATA).map(cat => ({ value: cat, label: cat }))
+            ]} 
+            buttonClassName="h-11 py-0 px-6 text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-300 w-full"
+          />
+          
+          <div className="flex items-center gap-2 w-full mt-2">
+            {/* Add Transaction (primary action) */}
+            <button 
+              onClick={() => setShowAddTx(true)}
+              className="flex-[2] flex items-center justify-center gap-1.5 h-11 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[10px] xs:text-[11px] font-black uppercase tracking-widest shadow-xl shadow-blue-500/20 transition-all active:scale-95 whitespace-nowrap min-w-0"
+            >
+              <Plus size={14} strokeWidth={3} className="shrink-0" />
+              <span className="truncate">Add Transaction</span>
+            </button>
+            
+            {/* Import */}
+            <button 
+              onClick={() => setPage("import")}
+              className="flex-1 flex items-center justify-center gap-1.5 h-11 px-3 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl text-blue-600 hover:border-blue-500 shadow-sm transition-all whitespace-nowrap min-w-0"
+              title="Import Transactions"
+            >
+              <Upload size={14} className="shrink-0" />
+              <span className="text-[10px] xs:text-[11px] font-black uppercase tracking-widest truncate">Import</span>
+            </button>
+
+            {/* Export */}
+            <button 
+              onClick={() => setShowExportModalLocal(true)}
+              className="flex-1 flex items-center justify-center gap-1.5 h-11 px-3 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl text-blue-600 hover:border-blue-500 shadow-sm transition-all whitespace-nowrap min-w-0"
+              title="Export Transactions"
+            >
+              <Download size={14} className="shrink-0" />
+              <span className="text-[10px] xs:text-[11px] font-black uppercase tracking-widest truncate">Export</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Desktop-only Category Filter & Action Group */}
+        <div className="hidden md:flex items-center gap-3 w-auto shrink-0">
+          <div className="w-48">
             <V2Select 
               value={filterCat} 
               onChange={setFilterCat} 
@@ -174,7 +219,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
             />
           </div>
           
-          <div className="flex items-center gap-2 ml-auto md:ml-0">
+          <div className="flex items-center gap-2">
             <button 
               onClick={() => setPage("import")}
               className="px-4 h-11 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl flex items-center gap-2 text-blue-600 hover:border-blue-500 shadow-sm transition-all shrink-0"
@@ -196,13 +241,13 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
       </div>
 
       {/* ─── Main Content Grid ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-12">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-4">
         
         {/* Left Column (Span 8) - Transactions Table */}
         <div className="lg:col-span-8 flex flex-col gap-6">
           <div className="vylos-glass-readable p-5 sm:p-8">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-[15px] font-black text-slate-900 dark:text-white">Financial Activity</h3>
+              <h3 className="text-[15px] font-black text-slate-900 dark:text-white">Transactions</h3>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 dark:bg-white/5 px-2 py-1 rounded-md">
                   {fullFilteredTxs.length} Records Found
@@ -252,7 +297,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
                         <td className="py-4">
                           <div className="flex flex-col">
                             <span className="text-[12px] font-bold text-slate-900 dark:text-white">{formatDate(tx.date)}</span>
-                            <span className="text-[10px] font-medium text-slate-500 mt-0.5">{timeLabel}</span>
+                            <span className="text-[10px] font-medium text-slate-700 mt-0.5">{timeLabel}</span>
                           </div>
                         </td>
                         <td className="py-4 text-right pr-4">
@@ -292,9 +337,9 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
                       <div className="flex flex-col min-w-0">
                         <span className="text-[13px] font-black text-slate-900 dark:text-white leading-tight truncate">{cleanMerchantName(tx.merchant)}</span>
                         <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-1">
-                          <span className="text-[10px] font-medium text-slate-500">{formatDate(tx.date)}</span>
+                          <span className="text-[10px] font-medium text-slate-700">{formatDate(tx.date)}</span>
                           <span className="text-[8px] text-slate-400 hidden xs:inline">•</span>
-                          <span className="text-[10px] font-semibold text-slate-500">{tx.category}</span>
+                          <span className="text-[10px] font-semibold text-slate-700">{tx.category}</span>
                         </div>
                       </div>
                     </div>
@@ -339,7 +384,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
             
             <div className="flex items-center justify-between mb-6">
               <div className="flex flex-col gap-1">
-                <span className="text-[11px] font-medium text-slate-500">Total Spending</span>
+                <span className="text-[11px] font-medium text-slate-700">Total Spending</span>
                 <span className="text-[28px] font-black text-slate-900 dark:text-white tracking-tighter leading-none">{formatCurrency(spendingSummary.total)}</span>
                 <div className="flex items-center gap-1 mt-1">
                   <div className="flex items-center gap-0.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 px-1.5 py-0.5 rounded text-[10px] font-bold">
@@ -402,7 +447,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
                     </div>
                     <div className="flex flex-col">
                       <span className="text-[12px] font-black text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">{sub.name}</span>
-                      <span className="text-[10px] font-medium text-slate-500">{sub.cat}</span>
+                      <span className="text-[10px] font-medium text-slate-700">{sub.cat}</span>
                     </div>
                   </div>
                   <div className="flex flex-col items-end">
@@ -414,42 +459,9 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
             </div>
             
             <div className="pt-4 border-t border-slate-100 dark:border-white/5 flex items-center justify-between">
-              <span className="text-[11px] font-bold text-slate-500">Total upcoming</span>
+              <span className="text-[11px] font-bold text-slate-700">Total upcoming</span>
               <span className="text-[13px] font-black text-slate-900 dark:text-white">{formatCurrency(recurringPayments.reduce((acc, sub) => acc + sub.amt, 0))}</span>
             </div>
-          </div>
-
-          {/* Spending by Category */}
-          <div className="vylos-glass-readable p-6 flex flex-col h-full">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-[13px] font-black text-slate-900 dark:text-white">Spending by Category</h3>
-              <div className="flex items-center gap-1 text-[11px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-500/10 px-2 py-1 rounded-md">
-                This Month
-              </div>
-            </div>
-            
-            <div className="flex flex-col gap-4 flex-1">
-              {spendingByCategory.map((cat, i) => (
-                <div key={i} className="flex flex-col gap-1.5">
-                  <div className="flex justify-between items-end">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-6 h-6 rounded-lg ${cat.color} bg-opacity-20 flex items-center justify-center`}>
-                        <div className={`w-3 h-3 rounded-full ${cat.color}`} />
-                      </div>
-                      <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">{cat.name}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-black text-slate-900 dark:text-white">{formatCurrency(cat.amt)}</span>
-                      <span className="text-[10px] font-bold text-slate-400 w-6 text-right">{cat.pct}%</span>
-                    </div>
-                  </div>
-                  <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden w-full">
-                    <div className={`h-full ${cat.color} rounded-full`} style={{ width: `${cat.pct}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-
           </div>
 
         </div>

@@ -14,7 +14,7 @@ export const SubscriptionSection: React.FC<SubscriptionSectionProps> = ({ user, 
   const messagesUsed = aiUsage?.messages_used || 0;
   
   const tierLabels: Record<UserProfile['subscription_tier'], string> = {
-    free: 'Free Plan',
+    free: 'Premium Beta Access',
     individual: 'Individual Pro',
     entrepreneur: 'Entrepreneur',
     business: 'Business',
@@ -93,11 +93,8 @@ export const SubscriptionSection: React.FC<SubscriptionSectionProps> = ({ user, 
               {user.subscription_tier === 'free' ? (
                 <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
                   <p className="text-sm text-blue-200/80">
-                    You are currently on the Free plan. Upgrade to unlock AI Advisor, transaction imports, and advanced reports.
+                    Premium beta access enabled. You’re part of the Vylos Beta experience and helping shape Vylos.
                   </p>
-                  <button className="mt-3 flex items-center gap-2 text-sm font-bold text-blue-400 hover:text-blue-300 transition-colors">
-                    View Upgrade Options <ExternalLink className="w-4 h-4" />
-                  </button>
                 </div>
               ) : (
                 <div className="bg-white/5 border border-white/10 rounded-lg p-4">

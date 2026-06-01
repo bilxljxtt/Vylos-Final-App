@@ -231,14 +231,19 @@ export function AnalyticsView({ netWorth = 124500, chartRef }: AnalyticsViewProp
     if (savingsChartRef.current) {
       if (savingsInst.current) savingsInst.current.destroy();
       savingsInst.current = new Chart(savingsChartRef.current, {
-        type: 'bar',
+        type: 'line',
         data: {
           labels: trendData.map(t => t.month),
           datasets: [{
+            label: 'Net Worth',
             data: trendData.map(t => t.netWorth),
-            backgroundColor: '#10B981',
-            borderRadius: 4,
-            barThickness: Math.min(24, Math.max(8, 120 / (trendData.length || 1)))
+            borderColor: '#10B981',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            borderWidth: 3,
+            fill: true,
+            tension: 0.4,
+            pointRadius: 4,
+            pointHitRadius: 10
           }]
         },
         options: {
@@ -368,12 +373,12 @@ export function AnalyticsView({ netWorth = 124500, chartRef }: AnalyticsViewProp
             <button 
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-xl text-[12px] font-bold transition-all shrink-0 ${activeTab === tab ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+              className={`px-4 py-2 rounded-xl text-[12px] font-bold transition-all shrink-0 ${activeTab === tab ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm' : 'text-slate-700 hover:text-slate-700 dark:hover:text-slate-300'}`}
             >
               {tab}
             </button>
           ))}
-          <button className="px-3 py-2 text-slate-500 hover:text-slate-700 shrink-0">
+          <button className="px-3 py-2 text-slate-700 hover:text-slate-700 shrink-0">
             <Filter size={16} />
           </button>
         </div>
@@ -383,7 +388,7 @@ export function AnalyticsView({ netWorth = 124500, chartRef }: AnalyticsViewProp
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         
         <div className="vylos-glass-readable p-5 flex flex-col justify-between">
-          <div className="flex justify-between items-center mb-4"><span className="text-[12px] font-black text-slate-900 dark:text-white">Overall Progress</span><MoreHorizontal size={14} className="text-slate-400"/></div>
+          <div className="flex justify-between items-center mb-4"><span className="text-[12px] font-black text-slate-900 dark:text-white">Overall Progress</span></div>
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-full border-4 border-emerald-500 border-r-emerald-100 dark:border-r-slate-800" />
             <div className="flex flex-col">
@@ -397,33 +402,27 @@ export function AnalyticsView({ netWorth = 124500, chartRef }: AnalyticsViewProp
         </div>
 
         <div className="vylos-glass-readable p-5 flex flex-col justify-between relative overflow-hidden">
-          <div className="flex justify-between items-center mb-4"><span className="text-[12px] font-black text-slate-900 dark:text-white">Total Savings</span><MoreHorizontal size={14} className="text-slate-400"/></div>
+          <div className="flex justify-between items-center mb-4"><span className="text-[12px] font-black text-slate-900 dark:text-white">Total Savings</span></div>
           <div className="flex flex-col">
             <span className="text-[20px] font-black text-slate-900 dark:text-white leading-none">{formatCurrency(stats.totalSaved)}</span>
             <span className={`text-[10px] font-medium mt-1 ${comparisons.savingsDiffPct >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
               {comparisons.savingsDiffPct >= 0 ? '+' : ''}{comparisons.savingsDiffPct}% <span className="text-slate-400">vs last month</span>
             </span>
           </div>
-          <div className="absolute bottom-0 right-0 w-24 h-12">
-            <svg viewBox="0 0 100 30" className="w-full h-full stroke-emerald-500 fill-none" strokeWidth="2"><path d="M0 25 L20 20 L40 22 L60 15 L80 10 L100 5"/></svg>
-          </div>
         </div>
 
         <div className="vylos-glass-readable p-5 flex flex-col justify-between relative overflow-hidden">
-          <div className="flex justify-between items-center mb-4"><span className="text-[12px] font-black text-slate-900 dark:text-white">Amount Saved</span><MoreHorizontal size={14} className="text-slate-400"/></div>
+          <div className="flex justify-between items-center mb-4"><span className="text-[12px] font-black text-slate-900 dark:text-white">Amount Saved</span></div>
           <div className="flex flex-col">
             <span className="text-[20px] font-black text-slate-900 dark:text-white leading-none">{formatCurrency(stats.income - stats.expense)}</span>
             <span className={`text-[10px] font-medium mt-1 ${comparisons.savedAmountDiffPct >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
               {comparisons.savedAmountDiffPct >= 0 ? '+' : ''}{comparisons.savedAmountDiffPct}% <span className="text-slate-400">vs last month</span>
             </span>
           </div>
-          <div className="absolute bottom-0 right-0 w-24 h-12">
-            <svg viewBox="0 0 100 30" className="w-full h-full stroke-blue-500 fill-none" strokeWidth="2"><path d="M0 25 L20 18 L40 20 L60 12 L80 15 L100 8"/></svg>
-          </div>
         </div>
 
         <div className="vylos-glass-readable p-5 flex flex-col justify-between">
-          <div className="flex justify-between items-center mb-4"><span className="text-[12px] font-black text-slate-900 dark:text-white">Budget Adherence</span><MoreHorizontal size={14} className="text-slate-400"/></div>
+          <div className="flex justify-between items-center mb-4"><span className="text-[12px] font-black text-slate-900 dark:text-white">Budget Adherence</span></div>
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-full border-4 border-purple-500 border-b-purple-100 dark:border-b-slate-800" />
             <div className="flex flex-col">
@@ -437,7 +436,7 @@ export function AnalyticsView({ netWorth = 124500, chartRef }: AnalyticsViewProp
         </div>
 
         <div className="vylos-glass-readable p-5 flex flex-col justify-between">
-          <div className="flex justify-between items-center mb-4"><span className="text-[12px] font-black text-slate-900 dark:text-white">Goals On Track</span><MoreHorizontal size={14} className="text-slate-400"/></div>
+          <div className="flex justify-between items-center mb-4"><span className="text-[12px] font-black text-slate-900 dark:text-white">Goals On Track</span></div>
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-full border-4 border-amber-500 border-l-amber-100 dark:border-l-slate-800" />
             <div className="flex flex-col">
@@ -459,8 +458,8 @@ export function AnalyticsView({ netWorth = 124500, chartRef }: AnalyticsViewProp
             <div className="flex flex-col">
               <span className="text-[14px] font-black text-slate-900 dark:text-white mb-2">Spending Trend</span>
               <div className="flex items-center gap-4">
-                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-blue-500"/><span className="text-[11px] font-bold text-slate-500">This Month</span></div>
-                <div className="flex items-center gap-1.5"><div className="w-4 h-0.5 border-b-2 border-dashed border-slate-400"/><span className="text-[11px] font-bold text-slate-500">Planned</span></div>
+                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-blue-500"/><span className="text-[11px] font-bold text-slate-700">This Month</span></div>
+                <div className="flex items-center gap-1.5"><div className="w-4 h-0.5 border-b-2 border-dashed border-slate-400"/><span className="text-[11px] font-bold text-slate-700">Planned</span></div>
               </div>
             </div>
             <div className="flex flex-col items-end">
@@ -481,40 +480,42 @@ export function AnalyticsView({ netWorth = 124500, chartRef }: AnalyticsViewProp
               </div>
             </div>
           </div>
-          <div className="flex-1 relative w-full pt-4"><canvas ref={savingsChartRef} /></div>
+          <div className="flex-1 relative w-full pt-4">
+            {state.transactions.length === 0 ? (
+              <div className="absolute inset-0 flex items-center justify-center text-center p-4">
+                <span className="text-xs font-semibold text-slate-400">Net worth history will appear here as your data grows.</span>
+              </div>
+            ) : (
+              <canvas ref={savingsChartRef} />
+            )}
+          </div>
         </div>
 
-        {/* Key Insights & Milestones Sidebar */}
-        <div className="lg:col-span-3 flex flex-col gap-4">
-          <div className="lg:col-span-3 vylos-glass-readable p-5 flex flex-col flex-1">
-            <div className="flex items-center gap-2 mb-4">
-              <Sparkles size={16} className="text-blue-600" />
-              <div className="flex flex-col">
-                <span className="text-[12px] font-black text-blue-600">Key Insights</span>
-                <span className="text-[9px] font-medium text-slate-500 uppercase tracking-widest">AI-powered summary</span>
-              </div>
-            </div>
-            <div className="flex flex-col gap-3 flex-1 overflow-y-auto no-scrollbar">
-              {VylosCalculations.getRecentInsights(state).map((insight, idx) => (
-                <div key={idx} className={`flex gap-3 ${insight.type === 'warning' ? 'bg-red-50 dark:bg-red-500/10' : insight.type === 'success' ? 'bg-emerald-50 dark:bg-emerald-500/10' : 'bg-blue-50 dark:bg-blue-500/10'} p-3 rounded-2xl`}>
-                  {insight.type === 'warning' ? <Activity size={16} className="text-red-600 shrink-0 mt-0.5" /> : insight.type === 'success' ? <Target size={16} className="text-emerald-600 shrink-0 mt-0.5" /> : <ShieldCheck size={16} className="text-blue-600 shrink-0 mt-0.5" />}
-                  <div className="flex flex-col">
-                    <span className="text-[11px] font-black text-slate-900 dark:text-white">{insight.title}</span>
-                    <span className="text-[10px] font-medium text-slate-600 dark:text-slate-400 leading-snug">{insight.message}</span>
-                  </div>
+        {/* Milestones (relocated from bottom) */}
+        <div className="lg:col-span-3 vylos-glass-readable p-6 flex flex-col h-[320px]">
+          <div className="flex justify-between items-center mb-6">
+            <span className="text-[14px] font-black text-slate-900 dark:text-white">Milestones</span>
+          </div>
+          <div className="flex flex-col gap-4 flex-1 overflow-y-auto no-scrollbar">
+            {milestonesList.map((m, i) => (
+              <div key={i} className="flex gap-3">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${m.color}`}>{m.icon}</div>
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-black text-slate-900 dark:text-white leading-tight">{m.t}</span>
+                  <span className="text-[9px] font-medium text-slate-700 mt-0.5">{m.d}</span>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         </div>
 
       </div>
 
       {/* ─── Bottom Row ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 pb-12">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 pb-4">
         
         {/* Goal Performance */}
-        <div className="lg:col-span-4 vylos-glass-readable p-6">
+        <div className="lg:col-span-6 vylos-glass-readable p-6">
           <div className="flex justify-between items-center mb-6">
             <span className="text-[14px] font-black text-slate-900 dark:text-white">Goal Performance</span>
           </div>
@@ -528,7 +529,7 @@ export function AnalyticsView({ netWorth = 124500, chartRef }: AnalyticsViewProp
                     <div className="flex justify-between">
                       <div className="flex flex-col">
                         <span className="text-[12px] font-black text-slate-900 dark:text-white leading-tight">{g.title}</span>
-                        <span className="text-[10px] font-medium text-slate-500"><span className="font-bold text-emerald-600">{formatCurrency(g.currentAmount)}</span> of {formatCurrency(g.targetAmount)}</span>
+                        <span className="text-[10px] font-medium text-slate-700"><span className="font-bold text-emerald-600">{formatCurrency(g.currentAmount)}</span> of {formatCurrency(g.targetAmount)}</span>
                       </div>
                       <span className="text-[11px] font-black text-slate-700 dark:text-slate-300">{p}%</span>
                     </div>
@@ -543,7 +544,7 @@ export function AnalyticsView({ netWorth = 124500, chartRef }: AnalyticsViewProp
         </div>
 
         {/* Budget Performance */}
-        <div className="lg:col-span-4 vylos-glass-readable p-6">
+        <div className="lg:col-span-6 vylos-glass-readable p-6">
           <div className="flex justify-between items-center mb-6">
             <span className="text-[14px] font-black text-slate-900 dark:text-white">Budget Performance</span>
           </div>
@@ -568,11 +569,11 @@ export function AnalyticsView({ netWorth = 124500, chartRef }: AnalyticsViewProp
                 <div key={i} className="flex flex-col gap-1.5">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-md bg-slate-100 dark:bg-white/5 flex items-center justify-center"><Activity size={10} className="text-slate-500" /></div>
+                      <div className="w-5 h-5 rounded-md bg-slate-100 dark:bg-white/5 flex items-center justify-center"><Activity size={10} className="text-slate-700" /></div>
                       <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">{name}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-medium text-slate-500">{formatCurrency(spent)} of {formatCurrency(b.limit)}</span>
+                      <span className="text-[10px] font-medium text-slate-700">{formatCurrency(spent)} of {formatCurrency(b.limit)}</span>
                       <span className="text-[11px] font-black text-slate-900 dark:text-white w-6 text-right">{p}%</span>
                     </div>
                   </div>
@@ -582,26 +583,6 @@ export function AnalyticsView({ netWorth = 124500, chartRef }: AnalyticsViewProp
                 </div>
               );
             })}
-          </div>
-        </div>
-
-        {/* Progress Toward Targets & Milestones combined right col */}
-        <div className="lg:col-span-4 flex flex-col gap-4">
-          <div className="vylos-glass-readable p-6 flex-1">
-            <div className="flex justify-between items-center mb-6">
-              <span className="text-[14px] font-black text-slate-900 dark:text-white">Milestones</span>
-            </div>
-            <div className="flex flex-col gap-4">
-              {milestonesList.map((m, i) => (
-                <div key={i} className="flex gap-3">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${m.color}`}>{m.icon}</div>
-                  <div className="flex flex-col">
-                    <span className="text-[11px] font-black text-slate-900 dark:text-white leading-tight">{m.t}</span>
-                    <span className="text-[9px] font-medium text-slate-500 mt-0.5">{m.d}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
 

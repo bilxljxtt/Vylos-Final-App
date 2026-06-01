@@ -206,14 +206,14 @@ export default function LoginPage() {
               <VylosLogo size="large" className="transform group-hover:scale-105 group-hover:rotate-3 transition-all duration-700 ease-out" />
             </div>
             <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">Welcome back</h2>
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-2 max-w-[280px]">
+            <p className="text-sm font-medium text-slate-700 dark:text-slate-400 mt-2 max-w-[280px]">
               Access your personalized financial dashboard and keep growing.
             </p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-8">
             <div className="space-y-3">
-              <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-2">Email address</label>
+              <label className="text-[11px] font-black text-slate-400 dark:text-slate-700 uppercase tracking-[0.2em] ml-2">Email address</label>
               <div className="relative group">
                 <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors">
                   <Mail size={20} />
@@ -231,7 +231,7 @@ export default function LoginPage() {
 
             <div className="space-y-3">
               <div className="flex justify-between items-center px-2">
-                <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Password</label>
+                <label className="text-[11px] font-black text-slate-400 dark:text-slate-700 uppercase tracking-[0.2em]">Password</label>
               </div>
               <div className="relative group">
                 <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors">
@@ -309,7 +309,7 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-12 text-center">
-            <p className="text-sm font-bold text-slate-500 dark:text-slate-400">
+            <p className="text-sm font-bold text-slate-700 dark:text-slate-400">
               Don't have an account? <Link href="/signup" className="text-blue-600 font-black hover:underline ml-1">Create Account</Link>
             </p>
           </div>

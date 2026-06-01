@@ -347,7 +347,7 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
                   {formatCurrency(totalAllocated)}
                 </div>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[11px] font-medium text-slate-500">vs last month</span>
+                  <span className="text-[11px] font-medium text-slate-700">vs last month</span>
                   <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold ${budgetTrend >= 0 ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600' : 'bg-red-50 dark:bg-red-500/10 text-red-600'}`}>
                     {budgetTrend >= 0 ? <TrendingDown size={12} className="rotate-180" /> : <TrendingDown size={12} />}
                     {Math.abs(budgetTrend).toFixed(1)}%
@@ -364,18 +364,18 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <span className="text-lg font-black text-slate-900 dark:text-white leading-none">{Math.round(percentageUsed)}%</span>
-                    <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Used</span>
+                    <span className="text-[8px] font-bold text-slate-700 uppercase tracking-widest mt-0.5">Used</span>
                   </div>
                 </div>
 
                 <div className="flex flex-col gap-3.5 flex-1 min-w-[240px] max-w-[340px] w-full">
                   <div className="grid grid-cols-2 gap-8 w-full">
                     <div className="flex flex-col">
-                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Spent</span>
+                      <span className="text-[11px] font-bold text-slate-700 uppercase tracking-widest">Spent</span>
                       <span className="text-xl font-black text-slate-900 dark:text-white leading-none mt-1">{formatCurrency(totalSpent)}</span>
                     </div>
                     <div className="flex flex-col text-right">
-                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Remaining</span>
+                      <span className="text-[11px] font-bold text-slate-700 uppercase tracking-widest">Remaining</span>
                       <span className={`text-xl font-black leading-none mt-1 ${overBudgetCategories.length > 0 ? 'text-red-500 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{formatCurrency(Math.max(0, totalRemaining))}</span>
                     </div>
                   </div>
@@ -432,9 +432,9 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
                             <span className="text-[13px] font-black text-slate-900 dark:text-white">{cat.name}</span>
                           </div>
                         </td>
-                        <td className="text-right py-4 text-[13px] font-bold text-slate-500">{formatCurrency(cat.allocated)}</td>
+                        <td className="text-right py-4 text-[13px] font-bold text-slate-700">{formatCurrency(cat.allocated)}</td>
                         <td className="text-right py-4 text-[13px] font-bold text-slate-900 dark:text-white">{formatCurrency(cat.spent)}</td>
-                        <td className={`text-right py-4 text-[13px] font-bold ${isOver ? 'text-red-500' : 'text-slate-500'}`}>
+                        <td className={`text-right py-4 text-[13px] font-bold ${isOver ? 'text-red-500' : 'text-slate-700'}`}>
                           {isOver ? `-${formatCurrency(cat.spent - cat.allocated)} (Over)` : formatCurrency(cat.remaining)}
                         </td>
                         <td className="text-right py-4 align-middle">
@@ -502,6 +502,52 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
             </button>
           </div>
 
+          {/* Budget Actions */}
+          <div className="vylos-glass-readable p-6 flex flex-col gap-4">
+            <h3 className="text-[15px] font-black text-slate-900 dark:text-white">Budget Actions</h3>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div 
+                onClick={() => setShowFundCategory?.(true)}
+                className="flex gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors border border-slate-100 dark:border-white/5 items-center"
+              >
+                <div className="w-8 h-8 rounded-[10px] bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
+                  <Divide size={16} />
+                </div>
+                <div className="flex flex-col justify-center">
+                  <span className="text-[12px] font-black text-slate-900 dark:text-white">Reallocate Budget</span>
+                  <span className="text-[9px] font-medium text-slate-700 mt-0.5 leading-tight">Move funds between categories</span>
+                </div>
+              </div>
+
+              <div 
+                onClick={() => setShowNewBudget(true)}
+                className="flex gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors border border-slate-100 dark:border-white/5 items-center"
+              >
+                <div className="w-8 h-8 rounded-[10px] bg-blue-50 dark:bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0">
+                  <MoreHorizontal size={16} />
+                </div>
+                <div className="flex flex-col justify-center">
+                  <span className="text-[12px] font-black text-slate-900 dark:text-white">Adjust Monthly Budget</span>
+                  <span className="text-[9px] font-medium text-slate-700 mt-0.5 leading-tight">Update your total monthly budget</span>
+                </div>
+              </div>
+
+              <div 
+                onClick={() => setShowNewBudget(true)}
+                className="flex gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors border border-slate-100 dark:border-white/5 items-center"
+              >
+                <div className="w-8 h-8 rounded-[10px] bg-purple-50 dark:bg-purple-500/10 text-purple-600 flex items-center justify-center shrink-0">
+                  <Plus size={16} />
+                </div>
+                <div className="flex flex-col justify-center">
+                  <span className="text-[12px] font-black text-slate-900 dark:text-white">Create Category</span>
+                  <span className="text-[9px] font-medium text-slate-700 mt-0.5 leading-tight">Add a new budget category</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
 
         {/* Right Column (Span 4) */}
@@ -514,7 +560,7 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
               <h3 className="text-[13px] font-black text-slate-900 dark:text-white">Budget Health</h3>
             </div>
             <div className={`text-2xl font-black tracking-tight leading-none mb-2 ${healthColor}`}>{healthStatus}</div>
-            <p className="text-[13px] font-medium text-slate-500 leading-relaxed mb-6">
+            <p className="text-[13px] font-medium text-slate-700 leading-relaxed mb-6">
               {healthDesc}
             </p>
 
@@ -528,83 +574,37 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
             </div>
           </div>
 
-          {/* Vylos Insights Card */}
+          {/* Vylos Insights Card (Budget Summary) */}
           <div className="vylos-glass-readable p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-2">
-                <Sparkles size={16} className="text-blue-500" />
-                <h3 className="text-[13px] font-black text-slate-900 dark:text-white">Vylos Insights</h3>
-              </div>
+            <div className="flex items-center gap-2 mb-5">
+              <Sparkles size={16} className="text-blue-500" />
+              <h3 className="text-[13px] font-black text-slate-900 dark:text-white">Budget Summary</h3>
             </div>
 
             <div className="flex flex-col gap-4">
-              <div 
-                onClick={() => setShowHealthDetail?.(true)}
-                className="flex gap-4 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors group"
-              >
-                <div className={`w-10 h-10 rounded-[14px] text-white flex items-center justify-center shrink-0 ${spendingPace.isUnder ? 'bg-emerald-500 shadow-lg shadow-emerald-500/10' : 'bg-amber-500 shadow-lg shadow-amber-500/10'}`}>
-                  <TrendingDown size={20} />
-                </div>
-                <div className="flex flex-col flex-1 min-w-0 justify-center">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[13px] font-black text-slate-900 dark:text-white">Spending Pace</span>
-                    <ChevronRight size={14} className="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                  <span className="text-[11px] font-medium text-slate-500 mt-0.5 leading-tight">
-                    {spendingPace.isUnder 
-                      ? `You're spending ${formatCurrency(spendingPace.dailySpent)}/day. Under your dynamic daily limit by ${formatCurrency(spendingPace.diff)}.` 
-                      : `You're spending ${formatCurrency(spendingPace.dailySpent)}/day. Exceeding your daily limit by ${formatCurrency(Math.abs(spendingPace.diff))}.`
-                    }
-                  </span>
-                  <span className="text-[10px] font-bold text-blue-600 mt-1">View details →</span>
-                </div>
+              <div className="flex items-center gap-3">
+                <div className={`w-2 h-2 rounded-full shrink-0 ${overBudgetCategories.length > 0 || totalSpent > totalAllocated ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]'}`} />
+                <span className="text-[12px] font-semibold text-slate-700 dark:text-slate-300">
+                  {overBudgetCategories.length > 0 || totalSpent > totalAllocated 
+                    ? "You are over your monthly budget limits." 
+                    : "You are within your monthly budget limits."}
+                </span>
               </div>
-
-              <div 
-                onClick={() => {
-                  const btn = document.querySelector('[data-view-tab="calendar"]');
-                  if (btn) (btn as HTMLButtonElement).click();
-                }}
-                className="flex gap-4 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors group"
-              >
-                <div className="w-10 h-10 rounded-[14px] bg-blue-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/10">
-                  <Calendar size={20} />
-                </div>
-                <div className="flex flex-col flex-1 min-w-0 justify-center">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[13px] font-black text-slate-900 dark:text-white">Upcoming Bills</span>
-                    <ChevronRight size={14} className="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                  <span className="text-[11px] font-medium text-slate-500 mt-0.5 leading-tight">
-                    {activeBillsTotal > 0 
-                      ? `You have ${formatCurrency(activeBillsTotal)} in unpaid bills remaining for this month.` 
-                      : "All of your monthly bills have been fully paid off. Excellent work!"
-                    }
-                  </span>
-                  <span className="text-[10px] font-bold text-blue-600 mt-1">View calendar →</span>
-                </div>
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.4)] shrink-0" />
+                <span className="text-[12px] font-semibold text-slate-700 dark:text-slate-300">
+                  {highestSpendingCat 
+                    ? <span>Your highest category is <span className="font-bold text-slate-900 dark:text-white">{highestSpendingCat.name}</span>.</span>
+                    : "No category spending recorded yet."}
+                </span>
               </div>
-
-              <div 
-                onClick={() => setShowNewBudget(true)}
-                className="flex gap-4 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors group"
-              >
-                <div className="w-10 h-10 rounded-[14px] bg-purple-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-purple-500/10">
-                  <Shield size={20} />
-                </div>
-                <div className="flex flex-col flex-1 min-w-0 justify-center">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[13px] font-black text-slate-900 dark:text-white">Save More</span>
-                    <ChevronRight size={14} className="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                  <span className="text-[11px] font-medium text-slate-500 mt-0.5 leading-tight">
-                    {highestSpendingCat 
-                      ? `Your top spending category is ${highestSpendingCat.name} (${formatCurrency(highestSpendingCat.spent)}). Try optimizing this category.` 
-                      : "Create budget limits to monitor category expenses and see tailored suggestions."
-                    }
-                  </span>
-                  <span className="text-[10px] font-bold text-blue-600 mt-1">See recommendations →</span>
-                </div>
+              <div className="flex items-center gap-3">
+                <div className={`w-2 h-2 rounded-full shrink-0 ${totalRemaining >= 0 ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]'}`} />
+                <span className="text-[12px] font-semibold text-slate-700 dark:text-slate-300">
+                  {totalRemaining >= 0 
+                    ? <span>You have <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(totalRemaining)}</span> remaining.</span>
+                    : <span>You are overspent by <span className="font-bold text-red-500">{formatCurrency(Math.abs(totalRemaining))}</span>.</span>}
+                </span>
               </div>
             </div>
           </div>
@@ -613,23 +613,26 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
 
       </div>
 
-      {/* ─── Bottom Row Graphs & Actions ─── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* ─── Bottom Row Graphs ─── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
         {/* Planned vs Actual */}
-        <div className="vylos-glass-readable p-6 flex flex-col h-[320px]">
-          <h3 className="text-[15px] font-black text-slate-900 dark:text-white mb-2">Planned vs. Actual</h3>
-          <div className="flex items-center gap-4 mb-4">
-            <div className="flex items-center gap-1.5"><div className="w-3 h-0.5 border-b-2 border-dashed border-slate-400" /><span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Planned</span></div>
-            <div className="flex items-center gap-1.5"><div className="w-3 h-0.5 bg-blue-500" /><span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Actual</span></div>
+        <div className="vylos-glass-readable p-6 flex flex-col h-auto min-h-[360px]">
+          <h3 className="text-[15px] font-black text-slate-900 dark:text-white mb-1">Planned vs. Actual</h3>
+          <p className="text-[11px] text-slate-700 dark:text-slate-400 font-medium mb-3 leading-relaxed">
+            Track your total accumulated spending (Actual) day-by-day against your projected monthly budget limit (Planned) to ensure you don't run out of money before month-end.
+          </p>
+          <div className="flex items-center gap-4 mb-3">
+            <div className="flex items-center gap-1.5"><div className="w-3 h-0.5 border-b-2 border-dashed border-slate-400" /><span className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">Planned</span></div>
+            <div className="flex items-center gap-1.5"><div className="w-3 h-0.5 bg-blue-500" /><span className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">Actual</span></div>
           </div>
-          <div className="flex-1 relative w-full h-full pb-2">
+          <div className="flex-1 relative w-full min-h-[180px] pb-2">
             <canvas ref={lineRef} />
           </div>
         </div>
 
         {/* Top Spending Categories */}
-        <div className="vylos-glass-readable p-6 flex flex-col h-[320px]">
+        <div className="vylos-glass-readable p-6 flex flex-col h-auto min-h-[360px]">
           <h3 className="text-[15px] font-black text-slate-900 dark:text-white mb-6">Top Spending Categories</h3>
           <div className="flex items-center gap-6 flex-1">
             <div className="w-[120px] h-[120px] relative shrink-0">
@@ -654,54 +657,6 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
               })}
             </div>
           </div>
-
-        </div>
-
-        {/* Budget Actions */}
-        <div className="vylos-glass-readable p-6 flex flex-col h-[320px]">
-          <h3 className="text-[15px] font-black text-slate-900 dark:text-white mb-4">Budget Actions</h3>
-          
-          <div className="flex flex-col gap-3 flex-1">
-            <div 
-              onClick={() => setShowFundCategory?.(true)}
-              className="flex gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors border border-slate-100 dark:border-white/5"
-            >
-              <div className="w-8 h-8 rounded-[10px] bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
-                <Divide size={16} />
-              </div>
-              <div className="flex flex-col justify-center">
-                <span className="text-[12px] font-black text-slate-900 dark:text-white">Reallocate Budget</span>
-                <span className="text-[10px] font-medium text-slate-500 mt-0.5">Move funds between categories</span>
-              </div>
-            </div>
-
-            <div 
-              onClick={() => setShowNewBudget(true)}
-              className="flex gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors border border-slate-100 dark:border-white/5"
-            >
-              <div className="w-8 h-8 rounded-[10px] bg-blue-50 dark:bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0">
-                <MoreHorizontal size={16} />
-              </div>
-              <div className="flex flex-col justify-center">
-                <span className="text-[12px] font-black text-slate-900 dark:text-white">Adjust Monthly Budget</span>
-                <span className="text-[10px] font-medium text-slate-500 mt-0.5">Update your total monthly budget</span>
-              </div>
-            </div>
-
-            <div 
-              onClick={() => setShowNewBudget(true)}
-              className="flex gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl cursor-pointer transition-colors border border-slate-100 dark:border-white/5"
-            >
-              <div className="w-8 h-8 rounded-[10px] bg-purple-50 dark:bg-purple-500/10 text-purple-600 flex items-center justify-center shrink-0">
-                <Plus size={16} />
-              </div>
-              <div className="flex flex-col justify-center">
-                <span className="text-[12px] font-black text-slate-900 dark:text-white">Create Category</span>
-                <span className="text-[10px] font-medium text-slate-500 mt-0.5">Add a new budget category</span>
-              </div>
-            </div>
-          </div>
-
 
         </div>
 

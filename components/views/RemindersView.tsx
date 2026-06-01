@@ -111,25 +111,6 @@ export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
         </div>
         
         <div className="flex items-center gap-2">
-          <div className="flex items-center bg-white dark:bg-white/5 rounded-xl shadow-sm border border-slate-200/60 dark:border-white/10 p-1">
-            <button 
-              type="button"
-              onClick={() => setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1))} 
-              className="p-1.5 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-colors"
-            >
-              <ChevronLeft size={14} className="text-slate-600 dark:text-slate-400" />
-            </button>
-            <span className="w-28 text-center text-xs font-bold text-slate-900 dark:text-white">
-              {calendarViewDate.toLocaleString('default', { month: 'short', year: 'numeric' })}
-            </span>
-            <button 
-              type="button"
-              onClick={() => setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1))} 
-              className="p-1.5 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-colors"
-            >
-              <ChevronRight size={14} className="text-slate-600 dark:text-slate-400" />
-            </button>
-          </div>
           <button 
             type="button"
             onClick={() => setShowAddReminder(true)}
@@ -140,14 +121,12 @@ export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
         </div>
       </div>
 
-      {/* ─── Top Row (5 Cards) ─── */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      {/* ─── Top Row (3 Cards) ─── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
-          { title: "Due Today", val: summary.dueTodayCount, sub: formatCurrency(summary.dueTodayAmount), subColor: "text-red-500", icon: <Calendar size={18}/>, color: "text-red-500 bg-red-50 dark:bg-red-500/10", tab: "Due Today" },
           { title: "Upcoming", val: summary.upcomingCount, sub: formatCurrency(summary.upcomingAmount), subColor: "text-amber-500", icon: <Clock size={18}/>, color: "text-amber-500 bg-amber-50 dark:bg-amber-500/10", tab: "Upcoming" },
           { title: "Overdue", val: summary.overdueCount, sub: formatCurrency(summary.overdueAmount), subColor: "text-rose-600", icon: <Bell size={18}/>, color: "text-rose-600 bg-rose-50 dark:bg-rose-500/10", tab: "Overdue" },
-          { title: "Completed", val: summary.completedCount, sub: "This Month", subColor: "text-slate-400", icon: <CheckCircle2 size={18}/>, color: "text-emerald-500 bg-emerald-50 dark:bg-emerald-500/10", tab: "Completed" },
-          { title: "Total Active", val: summary.dueTodayCount + summary.upcomingCount + summary.overdueCount, sub: formatCurrency(summary.dueTodayAmount + summary.upcomingAmount + summary.overdueAmount), subColor: "text-slate-500", icon: <CreditCard size={18}/>, color: "text-purple-500 bg-purple-50 dark:bg-purple-500/10", tab: "All" }
+          { title: "Completed", val: summary.completedCount, sub: "This Month", subColor: "text-slate-400", icon: <CheckCircle2 size={18}/>, color: "text-emerald-500 bg-emerald-50 dark:bg-emerald-500/10", tab: "Completed" }
         ].map((card, i) => (
           <div 
             key={i} 
@@ -184,13 +163,13 @@ export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
                     <TransactionIcon merchant={r.title} category={r.category} size="sm" />
                     <div className="flex flex-col">
                       <span className="text-[11px] font-black text-slate-900 dark:text-white leading-tight group-hover:text-primary transition-colors">{r.title}</span>
-                      <span className="text-[9px] font-medium text-slate-500 dark:text-white/40">{r.description || r.category}</span>
+                      <span className="text-[9px] font-medium text-slate-700 dark:text-white/40">{r.description || r.category}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-4 text-right">
                     <div className="flex flex-col">
                       <span className="text-[10px] font-bold text-slate-900 dark:text-white leading-tight">{r.due_date}</span>
-                      <span className="text-[9px] font-medium text-slate-500 opacity-60">Upcoming</span>
+                      <span className="text-[9px] font-medium text-slate-600 opacity-60">Upcoming</span>
                     </div>
                     <span className="text-[12px] font-black w-14 text-slate-900 dark:text-white">{formatCurrency(r.amount || 0)}</span>
                   </div>
@@ -218,13 +197,13 @@ export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
                     <TransactionIcon merchant={r.title} category={r.category} size="sm" />
                     <div className="flex flex-col">
                       <span className="text-[11px] font-black text-slate-900 dark:text-white leading-tight group-hover:text-primary transition-colors">{r.title}</span>
-                      <span className="text-[9px] font-medium text-slate-500 dark:text-white/40">{r.description || r.category}</span>
+                      <span className="text-[9px] font-medium text-slate-800 dark:text-white/40">{r.description || r.category}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-4 text-right">
                     <div className="flex flex-col">
                       <span className="text-[10px] font-bold text-slate-900 dark:text-white leading-tight">{r.due_date}</span>
-                      <span className="text-[9px] font-medium text-slate-500 opacity-60">Upcoming</span>
+                      <span className="text-[9px] font-medium text-slate-800 opacity-60">Upcoming</span>
                     </div>
                     <span className="text-[12px] font-black w-14 text-slate-900 dark:text-white">{formatCurrency(r.amount || 0)}</span>
                   </div>
@@ -252,13 +231,13 @@ export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
                     <TransactionIcon merchant={r.title} category={r.category} size="sm" />
                     <div className="flex flex-col">
                       <span className="text-[11px] font-black text-slate-900 dark:text-white leading-tight group-hover:text-primary transition-colors">{r.title}</span>
-                      <span className="text-[9px] font-medium text-slate-500 dark:text-white/40">{r.description || r.category}</span>
+                      <span className="text-[9px] font-medium text-slate-800 dark:text-white/40">{r.description || r.category}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-4 text-right">
                     <div className="flex flex-col">
                       <span className="text-[10px] font-bold text-slate-900 dark:text-white leading-tight">{r.due_date}</span>
-                      <span className="text-[9px] font-medium text-slate-500 opacity-60">Upcoming</span>
+                      <span className="text-[9px] font-medium text-slate-800 opacity-60">Upcoming</span>
                     </div>
                     <span className="text-[12px] font-black w-14 text-slate-900 dark:text-white">{formatCurrency(r.amount || 0)}</span>
                   </div>
@@ -276,10 +255,10 @@ export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
       </div>
 
       {/* ─── Bottom Row ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 pb-12">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 pb-4">
         
         {/* All Reminders List */}
-        <div className="lg:col-span-8 vylos-glass-readable p-4 sm:p-6 flex flex-col">
+        <div className="lg:col-span-12 vylos-glass-readable p-4 sm:p-6 flex flex-col">
           <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
             <span id="active-reminders" className="text-[16px] font-black text-slate-900 dark:text-white tracking-tight scroll-mt-24">Active Reminders</span>
             <div className="flex items-center gap-2">
@@ -288,7 +267,7 @@ export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
                   <button 
                     key={tab}
                     onClick={() => setActiveTab(tab)}
-                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === tab ? 'bg-primary text-white shadow-lg' : 'text-slate-500 hover:text-slate-700 dark:text-white/40 dark:hover:text-white/60'}`}
+                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === tab ? 'bg-primary text-white shadow-lg' : 'text-slate-700 hover:text-slate-900 dark:text-white/40 dark:hover:text-white/60'}`}
                   >
                     {tab}
                   </button>
@@ -322,7 +301,7 @@ export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
                     </button>
                     <div className="flex flex-col min-w-0">
                       <span className={`text-[13px] sm:text-[14px] font-black transition-colors truncate ${r.status === 'completed' ? 'text-slate-400 line-through' : 'text-slate-900 dark:text-white'}`}>{r.title}</span>
-                      <span className="text-[10px] sm:text-[11px] font-medium text-slate-500 opacity-60 truncate">{r.description || r.category}</span>
+                      <span className="text-[10px] sm:text-[11px] font-medium text-slate-700 opacity-60 truncate">{r.description || r.category}</span>
                     </div>
                   </div>
                   <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-6 pl-[52px] sm:pl-0">
@@ -344,9 +323,9 @@ export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
                  <div className="w-20 h-20 rounded-[2.5rem] bg-white/5 border border-white/10 flex items-center justify-center text-slate-300 dark:text-white/10 mb-6 shadow-inner">
                     <Bell size={40} strokeWidth={1.5} />
                  </div>
-                 <p className="text-[13px] font-black text-slate-500 uppercase tracking-widest leading-loose">
+                 <p className="text-[13px] font-black text-slate-800 dark:text-slate-400 uppercase tracking-widest leading-loose">
                     No active tasks found<br/>
-                    <span className="opacity-40">Filters applied: {activeTab}</span>
+                    <span className="opacity-60">Filters applied: {activeTab}</span>
                  </p>
               </div>
             )}
@@ -354,94 +333,6 @@ export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
           <button className="mt-8 text-[11px] font-black uppercase tracking-[0.2em] text-primary hover:text-blue-400 transition-colors text-left" onClick={() => { setActiveTab("All"); setSelectedDate(null); }}>Reset Filters</button>
         </div>
 
-        {/* Calendar Widget */}
-        <div className="lg:col-span-4 vylos-glass-readable p-6 flex flex-col">
-          <div className="flex justify-between items-center mb-8">
-            <span className="text-[16px] font-black text-slate-900 dark:text-white tracking-tight">Calendar</span>
-            <div className="flex items-center gap-4">
-              <span className="text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-white/60">
-                {calendarViewDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
-              </span>
-              <div className="flex gap-2">
-                <button 
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1)); }}
-                  className="p-2 bg-white/5 border border-white/10 rounded-xl text-slate-400 hover:text-primary hover:border-primary transition-all shadow-sm"
-                >
-                  <ChevronLeft size={16}/>
-                </button>
-                <button 
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1)); }}
-                  className="p-2 bg-white/5 border border-white/10 rounded-xl text-slate-400 hover:text-primary hover:border-primary transition-all shadow-sm"
-                >
-                  <ChevronRight size={16}/>
-                </button>
-              </div>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-7 gap-y-6 text-center mb-10">
-            {['S','M','T','W','T','F','S'].map((d, i) => (
-              <span key={i} className="text-[10px] font-black text-slate-400 uppercase tracking-widest opacity-60">{d}</span>
-            ))}
-            
-            {(() => {
-              const year = calendarViewDate.getFullYear();
-              const month = calendarViewDate.getMonth();
-              const firstDay = new Date(year, month, 1).getDay();
-              const daysInMonth = new Date(year, month + 1, 0).getDate();
-              const cells = [];
-              
-              for (let i = 0; i < firstDay; i++) cells.push(<div key={`empty-${i}`} />);
-              
-              const todayKey = toDateKey(new Date());
-              
-              for (let day = 1; day <= daysInMonth; day++) {
-                const date = new Date(year, month, day);
-                const dKey = toDateKey(date);
-                const isToday = dKey === todayKey;
-                const isSelected = dKey === selectedDate;
-                
-                const dayReminders = remindersByDate[dKey] || [];
-                const hasBills = dayReminders.some((r: any) => r.category === 'Bills');
-                const hasSubs = dayReminders.some((r: any) => r.category === 'Subscriptions');
-                const hasRent = dayReminders.some((r: any) => r.category === 'Rent / Housing');
-                const hasOther = dayReminders.some((r: any) => !['Bills', 'Subscriptions', 'Rent / Housing'].includes(r.category));
-
-                cells.push(
-                  <div 
-                    key={day} 
-                    onClick={() => setSelectedDate(selectedDate === dKey ? null : dKey)}
-                    className="flex flex-col items-center justify-start h-12 gap-1.5 cursor-pointer group"
-                  >
-                    <div className={`w-8 h-8 rounded-[10px] flex items-center justify-center text-[12px] font-black transition-all ${
-                      isSelected ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-110' : 
-                      isToday ? 'bg-primary/10 border border-primary/20 text-primary' : 
-                      'text-slate-700 dark:text-white/60 group-hover:bg-white/10 group-hover:text-primary'
-                    }`}>
-                      {day}
-                    </div>
-                    <div className="flex gap-0.5">
-                      {hasBills && <div className="w-1 h-1 rounded-full bg-red-500" />}
-                      {hasSubs && <div className="w-1 h-1 rounded-full bg-purple-500" />}
-                      {hasRent && <div className="w-1 h-1 rounded-full bg-blue-500" />}
-                      {hasOther && <div className="w-1 h-1 rounded-full bg-emerald-500" />}
-                    </div>
-                  </div>
-                );
-              }
-              return cells;
-            })()}
-          </div>
-
-          <div className="flex flex-wrap justify-between items-center mt-auto pt-6 border-t border-white/10 gap-3">
-            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-500"/><span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-white/40">Bills</span></div>
-            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-purple-500"/><span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-white/40">Subs</span></div>
-            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500"/><span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-white/40">Rent</span></div>
-            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500"/><span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-white/40">Other</span></div>
-          </div>
-        </div>
 
       </div>
 

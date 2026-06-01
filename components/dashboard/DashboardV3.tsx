@@ -12,8 +12,9 @@ import { HealthScoreWidget } from "./v2/HealthScoreWidget";
 import { V2ShortcutDock } from "./v2/V2ShortcutDock";
 import { 
   Rocket, Target, Shield, Sparkles, 
-  ChevronRight, ArrowRight, Activity, BarChart3 
+  ChevronRight, ArrowRight, Activity, BarChart3, MessageCircle 
 } from "lucide-react";
+import { GlassCard } from "./v2/GlassCard";
 import { useToast } from "@/components/Toast";
 import { Permissions } from "@/lib/permissions";
 
@@ -34,6 +35,7 @@ interface DashboardV3Props {
   setPage: (page: string) => void;
   onXPClick: () => void;
   onHealthClick: () => void;
+  onShowFeedback: () => void;
 }
 
 export const DashboardV3: React.FC<DashboardV3Props> = ({
@@ -52,7 +54,8 @@ export const DashboardV3: React.FC<DashboardV3Props> = ({
   formatCurrency,
   setPage,
   onXPClick,
-  onHealthClick
+  onHealthClick,
+  onShowFeedback
 }) => {
   const { toast } = useToast();
   const [greeting, setGreeting] = useState("Good afternoon");
@@ -107,7 +110,7 @@ export const DashboardV3: React.FC<DashboardV3Props> = ({
   const insight = getPersonalizedInsight();
 
   return (
-    <div className="flex-1 w-full max-w-[1400px] mx-auto flex flex-col gap-6 md:gap-8 relative z-10">
+    <div className="flex-1 w-full max-w-[1400px] mx-auto flex flex-col gap-6 md:gap-8 relative z-10 pb-24">
       
       {/* Personalized Welcome Banner */}
       <div className="vylos-glass-readable !p-6 !rounded-[2rem] border-white/20 shadow-xl flex items-center gap-6 animate-in fade-in slide-in-from-top-4 duration-1000">
@@ -180,12 +183,35 @@ export const DashboardV3: React.FC<DashboardV3Props> = ({
           onViewAll={() => setPage("goals")}
         />
         {canUseAI && (
-          <AIAdvisorWidget 
-            firstName={firstName}
-            onAnalyze={() => setPage("ai")}
-            formatCurrency={formatCurrency}
-          />
+          <div className="hidden md:block">
+            <AIAdvisorWidget 
+              firstName={firstName}
+              onAnalyze={() => setPage("ai")}
+              formatCurrency={formatCurrency}
+            />
+          </div>
         )}
+      </div>
+
+      {/* Mobile-only Feedback Card */}
+      <div className="block md:hidden mt-2 animate-in fade-in duration-500">
+        <button 
+          onClick={onShowFeedback}
+          className="w-full text-left focus:outline-none"
+        >
+          <GlassCard p="p-5" className="flex items-center justify-between border-white/20 hover:border-blue-500/40 transition-all !rounded-[2rem]">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-blue-600/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                <MessageCircle size={20} />
+              </div>
+              <div>
+                <h4 className="text-[12px] font-black text-slate-900 dark:text-white uppercase tracking-wider mb-0.5">Send Feedback</h4>
+                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400">Help us improve the Vylos experience</p>
+              </div>
+            </div>
+            <ChevronRight size={16} className="text-slate-400" />
+          </GlassCard>
+        </button>
       </div>
 
     </div>

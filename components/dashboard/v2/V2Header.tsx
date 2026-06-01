@@ -19,9 +19,12 @@ interface V2HeaderProps {
 }
 
 export const V2Header: React.FC<V2HeaderProps> = ({ firstName, avatarUrl, onPageChange, onShowFeedback }) => {
-  const { state, markAllNotificationsAsRead, deleteNotification } = useAppStore();
+  const { state, markAllNotificationsAsRead, deleteNotification, deleteAllNotifications } = useAppStore();
   const { toast } = useToast();
   const [showConfirm, setShowConfirm] = useState(false);
+  const [clearingIds, setClearingIds] = useState<Record<string, boolean>>({});
+  const [clearingAll, setClearingAll] = useState(false);
+  const [confirmClearAll, setConfirmClearAll] = useState(false);
   
   const notificationList = state.notificationList || [];
   const unreadCount = state.unreadNotificationCount || 0;
@@ -35,29 +38,65 @@ export const V2Header: React.FC<V2HeaderProps> = ({ firstName, avatarUrl, onPage
 
   const handleDeleteNotification = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (clearingIds[id]) return;
+    setClearingIds(prev => ({ ...prev, [id]: true }));
     try {
       await deleteNotification(id);
-      toast("Notification dismissed", "info");
+      const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+      if (!isMobile) {
+        toast("Notification dismissed", "info");
+      }
     } catch (err) {
-      toast("Failed to dismiss notification", "error");
+      const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+      if (!isMobile) {
+        toast("Failed to dismiss notification", "error");
+      }
+    } finally {
+      setClearingIds(prev => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    }
+  };
+
+  const handleClearAll = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (clearingAll) return;
+    if (!confirmClearAll) {
+      setConfirmClearAll(true);
+      setTimeout(() => setConfirmClearAll(false), 3000);
+      return;
+    }
+    setConfirmClearAll(false);
+    setClearingAll(true);
+    try {
+      await deleteAllNotifications();
+      const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+      if (!isMobile) {
+        toast("All notifications cleared", "success");
+      }
+    } catch (err) {
+      const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+      if (!isMobile) {
+        toast("Failed to clear notifications", "error");
+      }
+    } finally {
+      setClearingAll(false);
     }
   };
 
   const handleNotificationClick = async (notif: any) => {
-    try {
-      await deleteNotification(notif.id);
-      toast(`Cleared notification: ${notif.title}`, "info");
-    } catch (err) {
-      console.error("Failed to clear notification on click:", err);
-    }
+    // Tapping the row does nothing if no target exists.
+    // Clearing/deleting must be a separate deliberate action.
   };
 
   return (
     <header className="w-full pt-12 pb-4 relative z-50">
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 lg:px-8 flex items-center justify-between">
         {/* Left: Branding */}
-        <div className="flex flex-col items-start -ml-2 md:-ml-4">
-          <div className="select-none relative z-10 transform group-hover:scale-105 transition-all duration-500 ease-out drop-shadow-2xl">
+        <div className="flex flex-col items-start -ml-2 md:-ml-4 shrink-0">
+          <div className="select-none relative z-10 transform group-hover:scale-105 transition-all duration-500 ease-out drop-shadow-2xl shrink-0">
             <VylosLogo size="large" />
           </div>
         </div>
@@ -92,15 +131,27 @@ export const V2Header: React.FC<V2HeaderProps> = ({ firstName, avatarUrl, onPage
               <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5 relative">
                 <div className="flex flex-col gap-0.5">
                   <span className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-900 dark:text-white/60 opacity-80">Notifications</span>
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onPageChange("activity");
-                    }}
-                    className="text-[9px] font-black uppercase tracking-widest text-primary hover:text-blue-500 transition-colors text-left"
-                  >
-                    View All Activity →
-                  </button>
+                  <div className="flex items-center gap-2 mt-1">
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onPageChange("activity");
+                      }}
+                      className="text-[9px] font-black uppercase tracking-widest text-primary hover:text-blue-500 transition-colors text-left"
+                    >
+                      View All
+                    </button>
+                    <span className="text-slate-300 dark:text-white/20 text-[9px]">•</span>
+                    {notificationList.length > 0 && (
+                      <button 
+                        onClick={handleClearAll}
+                        disabled={clearingAll}
+                        className="text-[9px] font-black uppercase tracking-widest text-red-500 hover:text-red-400 transition-colors disabled:opacity-50"
+                      >
+                        {confirmClearAll ? "Confirm Clear?" : "Clear All"}
+                      </button>
+                    )}
+                  </div>
                 </div>
                 
                 {unreadCount > 0 && (
@@ -128,11 +179,7 @@ export const V2Header: React.FC<V2HeaderProps> = ({ firstName, avatarUrl, onPage
                   notificationList.map((notif: any) => (
                     <div 
                       key={notif.id} 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleNotificationClick(notif);
-                      }}
-                      className={`relative px-4 py-4 hover:bg-white/10 transition-all cursor-pointer group rounded-2xl mx-3 mb-2 border flex items-center gap-4 ${!notif.read ? 'vylos-glass-notification-card shadow-lg ring-1 ring-primary/20' : 'bg-white/5 border-white/5 opacity-60 hover:opacity-100'}`}
+                      className={`relative px-4 py-3.5 hover:bg-white/10 transition-all rounded-2xl mx-3 mb-2 border flex items-center gap-3 sm:gap-4 ${!notif.read ? 'vylos-glass-notification-card shadow-lg ring-1 ring-primary/20' : 'bg-white/5 border-white/5 opacity-85 hover:opacity-100'}`}
                     >
                       {/* Left Icon */}
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${!notif.read ? 'bg-white/20 border-primary/40 shadow-sm' : 'bg-white/5 border-white/10'}`}>
@@ -143,28 +190,26 @@ export const V2Header: React.FC<V2HeaderProps> = ({ firstName, avatarUrl, onPage
 
                       {/* Middle Content */}
                       <div className="flex flex-col flex-1 min-w-0">
-                        <span className={`text-[12px] font-black leading-tight tracking-tight truncate pr-8 ${!notif.read ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>{notif.title}</span>
-                        <p className={`text-[10px] font-bold mt-1 leading-relaxed line-clamp-1 ${!notif.read ? 'text-slate-700 dark:text-white/70' : 'text-slate-500 dark:text-white/40'}`}>
+                        <span className={`text-[12px] font-black leading-tight tracking-tight truncate pr-2 ${!notif.read ? 'text-slate-900 dark:text-white' : 'text-slate-700 dark:text-slate-300'}`}>{notif.title}</span>
+                        <p className={`text-[10px] font-bold mt-1 leading-relaxed line-clamp-2 ${!notif.read ? 'text-slate-800 dark:text-white/80' : 'text-slate-600 dark:text-slate-400'}`}>
                           {notif.message?.replace(/\[SID:[^\]]+\]/, '').trim() || ""}
                         </p>
-                        <span className="text-[9px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest mt-1.5">{new Date(notif.created_at).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}</span>
+                        <span className="text-[9px] font-black text-slate-500 dark:text-white/40 uppercase tracking-widest mt-1.5">{new Date(notif.created_at).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}</span>
                       </div>
 
                       {/* Right Actions */}
-                      <div className="flex flex-col items-center justify-between h-10 shrink-0">
-                        {!notif.read && (
-                          <div className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(37,99,235,0.6)]" />
-                        )}
+                      <div className="flex flex-col items-center justify-center shrink-0">
                         <button 
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
                             handleDeleteNotification(notif.id, e);
                           }}
-                          className="p-1.5 text-slate-400 hover:text-red-500 transition-all rounded-lg hover:bg-red-500/10 opacity-0 group-hover:opacity-100 -mr-1"
+                          disabled={clearingIds[notif.id]}
+                          className="p-2 text-slate-500 hover:text-red-500 dark:text-slate-400 dark:hover:text-red-400 transition-all rounded-full hover:bg-red-500/10 relative z-20 flex items-center justify-center min-w-[32px] min-h-[32px] disabled:opacity-50"
                           title="Dismiss"
                         >
-                          <Trash2 size={13} />
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     </div>

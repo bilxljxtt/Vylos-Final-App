@@ -1084,7 +1084,7 @@ export default function App() {
   }
 
   return (
-    <div className="vylos-bg-premium min-h-screen w-full flex flex-col pt-2 pb-8 px-4 md:pt-4 md:px-6 lg:pt-4 lg:px-8 font-inter relative overflow-x-hidden">
+    <div className="vylos-bg-premium min-h-screen w-full flex flex-col pt-2 pb-0 md:pb-8 px-4 md:pt-4 md:px-6 lg:pt-4 lg:px-8 font-inter relative overflow-clip">
       
       {/* ─── Global App Header ─── */}
       <V2Header 
@@ -1095,7 +1095,7 @@ export default function App() {
       />
 
       {/* ─── Main Content Area ─── */}
-      <main className="flex-1 w-full max-w-[1400px] mx-auto flex flex-col gap-2 md:gap-4 pb-32 relative z-10">
+      <main className="flex-1 w-full max-w-[1400px] mx-auto flex flex-col gap-2 md:gap-4 pb-[calc(96px+env(safe-area-inset-bottom))] md:pb-32 relative z-10">
         {page === "dashboard" && (
           <DashboardV3
             income={income}
@@ -1114,6 +1114,7 @@ export default function App() {
             setPage={setPage}
             onXPClick={() => setShowXPSystem(true)}
             onHealthClick={() => setShowHealthDetail(true)}
+            onShowFeedback={() => setShowFeedback(true)}
           />
         )}
 
@@ -1208,12 +1209,20 @@ export default function App() {
       </main>
 
       {/* ─── Global Floating Navigation Dock ─── */}
-      <V2ShortcutDock onPageChange={setPage} currentPage={page} userProfile={state.userProfile} />
+      <V2ShortcutDock 
+        onPageChange={setPage} 
+        currentPage={page} 
+        userProfile={state.userProfile} 
+        onShowFeedback={() => setShowFeedback(true)}
+        onShowExport={() => setShowExportModal(true)}
+      />
 
       {/* Abstract Background Shapes */}
-      <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-blue-600/20 rounded-full blur-[160px] pointer-events-none animate-pulse" />
-      <div className="absolute bottom-0 right-0 w-[50%] h-[50%] bg-indigo-600/15 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute top-[40%] right-[-10%] w-[30%] h-[40%] bg-cyan-600/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-blue-600/20 rounded-full blur-[160px] animate-pulse" />
+        <div className="absolute bottom-0 right-0 w-[50%] h-[50%] bg-indigo-600/15 rounded-full blur-[140px]" />
+        <div className="absolute top-[40%] right-[-10%] w-[30%] h-[40%] bg-cyan-600/10 rounded-full blur-[120px]" />
+      </div>
 
       {showAddTx && (
         <TransactionModal 

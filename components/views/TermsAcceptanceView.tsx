@@ -31,7 +31,7 @@ export function TermsAcceptanceView({ onAccept }: TermsAcceptanceViewProps) {
             </div>
             <div>
               <h2 className="text-xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tighter">Legal Requirement</h2>
-              <p className="text-[11px] sm:text-[13px] font-medium text-slate-500 dark:text-white/50 mt-0.5">Please review and accept our terms to continue</p>
+              <p className="text-[11px] sm:text-[13px] font-medium text-slate-700 dark:text-white/50 mt-0.5">Please review and accept our terms to continue</p>
             </div>
           </div>
           <div className="hidden sm:flex items-center gap-3 px-5 py-2.5 bg-blue-500/10 rounded-2xl border border-blue-500/20">
@@ -84,7 +84,7 @@ export function TermsAcceptanceView({ onAccept }: TermsAcceptanceViewProps) {
              </div>
              <div className="flex flex-col">
                 <p className="text-[10px] sm:text-[11px] font-black text-slate-700 dark:text-white/60 uppercase tracking-widest leading-tight mb-1">Confirmation</p>
-                <p className="text-[9px] sm:text-[10px] font-medium text-slate-500 dark:text-white/30 max-w-xs leading-relaxed">
+                <p className="text-[9px] sm:text-[10px] font-medium text-slate-700 dark:text-white/30 max-w-xs leading-relaxed">
                     By clicking "I Accept", you agree to be bound by the Vylos Terms of Service and Privacy Policy.
                 </p>
              </div>

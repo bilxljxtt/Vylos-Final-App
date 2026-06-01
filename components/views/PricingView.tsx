@@ -144,7 +144,7 @@ export const PricingView: React.FC<PricingViewProps> = ({ onUpgrade, user }) => 
                   <h3 className="text-[11px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-[0.3em] mb-2">{plan.name}</h3>
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter">R{plan.price}</span>
-                    <span className="text-sm font-bold text-slate-500 dark:text-slate-400 tracking-tight">/ month</span>
+                    <span className="text-sm font-bold text-slate-700 dark:text-slate-400 tracking-tight">/ month</span>
                   </div>
                   <p className="mt-4 text-[13px] font-medium text-slate-600 dark:text-slate-300 leading-relaxed min-h-[40px]">
                     {plan.description}

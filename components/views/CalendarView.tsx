@@ -251,7 +251,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ setPage }) => {
   const getEventsForDay = (dateStr: string) => calendarEvents[dateStr] || [];
 
   return (
-    <div className="flex flex-col lg:flex-row gap-8 h-full min-h-[850px] animate-in fade-in duration-500">
+    <div className="flex flex-col lg:flex-row gap-8 h-auto lg:h-full min-h-0 md:min-h-[850px] animate-in fade-in duration-500">
       
       {/* ─── Main Calendar Area ─── */}
       <div className="flex-1 vylos-glass-readable p-5 sm:p-8 flex flex-col relative overflow-hidden">
@@ -300,7 +300,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ setPage }) => {
                 <button 
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`px-3.5 sm:px-5 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? "bg-white dark:bg-blue-600 text-blue-600 dark:text-white shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"}`}
+                  className={`px-3.5 sm:px-5 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? "bg-white dark:bg-blue-600 text-blue-600 dark:text-white shadow-sm" : "text-slate-700 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"}`}
                 >
                   {tab.label}
                 </button>
@@ -328,7 +328,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ setPage }) => {
               {/* Days Header */}
               <div className="grid grid-cols-7 mb-4">
                 {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(day => (
-                  <div key={day} className="text-center text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
+                  <div key={day} className="text-center text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-700">
                     {day}
                   </div>
                 ))}
@@ -342,7 +342,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ setPage }) => {
                     <div 
                       key={i} 
                       onClick={() => setSelectedDay(day.date)}
-                      className={`bg-white/80 dark:bg-slate-900/40 p-1 sm:p-2 lg:p-4 min-h-[56px] sm:min-h-[110px] flex flex-col gap-1 transition-all hover:bg-blue-50 dark:hover:bg-blue-500/5 group cursor-pointer
+                      className={`bg-white/80 dark:bg-slate-900/40 p-1.5 pb-2 sm:p-2 lg:p-4 min-h-[60px] sm:min-h-[110px] flex flex-col gap-1 transition-all hover:bg-blue-50 dark:hover:bg-blue-500/5 group cursor-pointer
                         ${!day.inMonth ? 'opacity-30' : ''}
                         ${toDateKey(selectedDay) === day.dateKey ? 'ring-2 ring-inset ring-blue-500/50 bg-blue-50/50 dark:bg-blue-500/5' : ''}
                       `}
@@ -352,7 +352,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ setPage }) => {
                           text-[11px] sm:text-xs font-black w-5 h-5 sm:w-7 sm:h-7 flex items-center justify-center rounded-lg transition-all
                           ${day.isToday 
                             ? 'bg-blue-600 text-white shadow-lg' 
-                            : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white'}
+                            : 'text-slate-700 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white'}
                         `}>
                           {day.date.getDate()}
                         </span>
@@ -421,7 +421,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ setPage }) => {
                           <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${ev.dot}`} />
                           <div className="flex flex-col min-w-0">
                             <span className="text-[12px] font-black text-slate-900 dark:text-white truncate">{ev.title}</span>
-                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">{ev.subtitle}</span>
+                            <span className="text-[9px] font-bold text-slate-700 uppercase tracking-wider">{ev.subtitle}</span>
                           </div>
                         </div>
                         <span className="text-[12px] font-black text-slate-900 dark:text-white shrink-0 ml-3">{ev.amount}</span>
@@ -475,7 +475,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ setPage }) => {
                                 </div>
                                 <div className="flex flex-col">
                                   <span className="text-[13px] font-black text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">{ev.title}</span>
-                                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{ev.subtitle}</span>
+                                  <span className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">{ev.subtitle}</span>
                                 </div>
                               </div>
                               <span className={`text-sm font-black ${ev.amount.includes('+') ? 'text-emerald-500' : 'text-slate-900 dark:text-white'}`}>{ev.amount}</span>
@@ -542,7 +542,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ setPage }) => {
                         <CalendarIcon size={40} className="text-slate-300 opacity-50" />
                       </div>
                       <h4 className="text-xl font-black text-slate-900 dark:text-white mb-2">Your timeline is empty</h4>
-                      <p className="text-sm font-medium text-slate-500 max-w-[280px] leading-relaxed">Stay organized by adding upcoming bills, goals, and important events.</p>
+                      <p className="text-sm font-medium text-slate-700 max-w-[280px] leading-relaxed">Stay organized by adding upcoming bills, goals, and important events.</p>
                       <button 
                         onClick={() => setShowEventModal(true)}
                         className="mt-8 px-8 py-3 bg-blue-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/20"
@@ -581,7 +581,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ setPage }) => {
                 <div className="flex flex-col justify-center min-w-0 flex-1">
                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">{ev.date}</span>
                   <span className="text-[14px] font-black text-slate-900 dark:text-white truncate leading-tight group-hover:text-blue-600 transition-colors">{ev.title}</span>
-                  {ev.amount && <span className="text-[11px] font-black text-slate-500 mt-1">{ev.amount}</span>}
+                  {ev.amount && <span className="text-[11px] font-black text-slate-700 mt-1">{ev.amount}</span>}
                 </div>
               </div>
             )) : (
@@ -593,7 +593,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ setPage }) => {
           
           <button 
             onClick={() => setPage("reminders")}
-            className="mt-4 w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-700 dark:text-white/60 dark:hover:text-white transition-all shadow-sm active:scale-95 flex items-center justify-center gap-2"
+            className="mt-4 w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-700 hover:text-slate-700 dark:text-white/60 dark:hover:text-white transition-all shadow-sm active:scale-95 flex items-center justify-center gap-2"
           >
             View All Reminders <ChevronRight size={14} />
           </button>

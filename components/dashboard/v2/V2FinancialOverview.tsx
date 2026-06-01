@@ -19,6 +19,8 @@ export const V2FinancialOverview: React.FC<V2FinancialOverviewProps> = ({
   income, netWorth, selectedMonth, onMonthChange, formatCurrency 
 }) => {
   const { state } = useAppStore();
+  const [isCfiExplOpen, setIsCfiExplOpen] = React.useState(false);
+  const [isMonthSelectOpen, setIsMonthSelectOpen] = React.useState(false);
 
   const months = React.useMemo(() => {
     const res = [];
@@ -56,7 +58,7 @@ export const V2FinancialOverview: React.FC<V2FinancialOverviewProps> = ({
   const allocation = useMemo(() => VylosCalculations.getAllocationPercentages({ transactions: state.transactions, budgets: state.budgets, goals: state.goals } as any, selectedMonth), [state.transactions, state.budgets, state.goals, selectedMonth]);
 
   return (
-    <div className="vylos-glass-readable p-8 md:p-12 flex flex-col relative w-full h-full min-h-[500px] mb-12">
+    <div className="vylos-glass-readable p-5 md:p-12 flex flex-col relative w-full h-full min-h-0 md:min-h-[500px] mb-6 md:mb-12">
       {/* Background Accent Wrapper */}
       <div className="absolute inset-0 overflow-hidden rounded-[32px] pointer-events-none">
         <div className="absolute -top-24 -right-24 w-80 h-80 bg-blue-400/20 blur-[120px] rounded-full" />
@@ -72,6 +74,8 @@ export const V2FinancialOverview: React.FC<V2FinancialOverviewProps> = ({
           </div>
         </div>
         <V2Popover
+          open={isMonthSelectOpen}
+          onOpenChange={setIsMonthSelectOpen}
           trigger={
             <button className="vylos-glass-popup-visible px-5 py-2.5 text-[10px] font-black uppercase tracking-widest flex items-center gap-3 transition-all hover:scale-105 active:scale-95 border-white/30 bg-white/15 dark:bg-white/10 shadow-lg">
               {currentLabel} <ChevronDown size={14} className="text-primary" />
@@ -88,6 +92,7 @@ export const V2FinancialOverview: React.FC<V2FinancialOverviewProps> = ({
                   key={m.iso}
                   onClick={() => {
                     onMonthChange(m.iso);
+                    setIsMonthSelectOpen(false);
                   }}
                   className={`glass-option mb-1 ${selectedMonth.startsWith(m.iso.slice(0, 7)) ? 'active' : 'text-slate-600 dark:text-white/70'}`}
                 >
@@ -124,9 +129,9 @@ export const V2FinancialOverview: React.FC<V2FinancialOverviewProps> = ({
               </div>
             </div>
 
-            {/* Cash Flow Bars */}
-            <div className="flex flex-col bg-white/40 dark:bg-black/20 p-8 rounded-[32px] border border-white/40 dark:border-white/10 shadow-inner">
-              <div className="flex items-center justify-between mb-8 min-w-0">
+            {/* Cash Flow Card */}
+            <div className="flex flex-col bg-white/40 dark:bg-black/20 p-6 md:p-8 rounded-[32px] border border-white/40 dark:border-white/10 shadow-inner">
+              <div className="flex items-center justify-between mb-4 min-w-0">
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest truncate">Cash Flow Index</p>
                   <p className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 dark:text-white mt-1 truncate max-w-full" title={formatCurrency(stats.cashFlowIndex)}>{formatCurrency(stats.cashFlowIndex)}</p>
@@ -135,27 +140,44 @@ export const V2FinancialOverview: React.FC<V2FinancialOverviewProps> = ({
                   <BarChart3 size={24} />
                 </div>
               </div>
-              <div className="flex items-end gap-3 h-28">
-                {cashFlowTrend.map((h, i) => (
-                  <div key={i} className="flex-1 bg-primary/5 rounded-full relative group overflow-hidden h-full">
-                    <div 
-                      className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-primary to-cyan-400 rounded-full transition-all duration-1000 group-hover:from-blue-400 group-hover:to-cyan-300 shadow-[0_0_15px_rgba(37,99,235,0.3)]"
-                      style={{ height: `${h}%` }}
-                    />
-                  </div>
-                ))}
+              
+              <div className="mt-2 flex flex-col gap-2">
+                <button 
+                  onClick={() => setIsCfiExplOpen(!isCfiExplOpen)}
+                  className="text-left text-[11px] font-black text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 uppercase tracking-wider flex items-center gap-1.5 transition-colors focus:outline-none"
+                >
+                  <span>{isCfiExplOpen ? "Hide Explanation" : "What this means"}</span>
+                  <ChevronDown size={12} className={`transition-transform duration-200 ${isCfiExplOpen ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {isCfiExplOpen && (
+                  <p className="text-[11px] font-bold text-slate-600 dark:text-white/60 leading-relaxed animate-in fade-in slide-in-from-top-1 duration-200">
+                    Cash Flow Index measures the efficiency of your debt and lifestyle velocity. It is calculated by taking your total outstanding debt balance and dividing it by your monthly minimum repayment. A high index number means your cash flow is optimized; a low number means a specific expense is eating your financial freedom.
+                  </p>
+                )}
               </div>
             </div>
           </div>
         </div>
 
         {/* Spending Allocation */}
-        <div className="md:col-span-5 lg:col-span-4 border-l border-slate-200/20 pl-12 flex flex-col justify-center">
+        <div className="md:col-span-5 lg:col-span-4 md:border-l md:border-slate-200/20 md:pl-12 flex flex-col justify-center">
           <div className="flex items-center justify-between mb-6">
             <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Monthly Allocation</p>
           </div>
-          <div className="flex flex-col gap-10">
-            <div className="relative w-44 h-44 mx-auto">
+          
+          <div className="flex flex-row md:flex-col items-center justify-between gap-4 md:gap-10">
+            {/* Needs on the Left on Mobile, hidden on desktop */}
+            <div className="flex md:hidden flex-col items-end text-right gap-1 min-w-[70px]">
+              <div className="flex items-center gap-1.5 justify-end">
+                <div className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.5)]" />
+                <span className="text-[11px] font-black text-slate-600 dark:text-slate-400">Needs</span>
+              </div>
+              <span className="text-[14px] font-black text-slate-900 dark:text-white">{allocation.needs}%</span>
+            </div>
+
+            {/* Donut Chart */}
+            <div className="relative w-32 h-32 md:w-44 md:h-44 shrink-0 mx-auto">
               <svg className="w-full h-full transform -rotate-90 drop-shadow-2xl" viewBox="0 0 36 36">
                 <circle cx="18" cy="18" r="16" fill="none" stroke="currentColor" className="text-slate-100 dark:text-white/5" strokeWidth="4" />
                 {allocation.needs + allocation.wants > 0 ? (
@@ -168,15 +190,26 @@ export const V2FinancialOverview: React.FC<V2FinancialOverviewProps> = ({
                 )}
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
                   {allocation.needs + allocation.wants > 0 ? (allocation.needs >= allocation.wants ? "Needs" : "Wants") : "No Data"}
                 </span>
-                <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">
+                <span className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tighter">
                   {allocation.needs + allocation.wants > 0 ? `${Math.max(allocation.needs, allocation.wants)}%` : "0%"}
                 </span>
               </div>
             </div>
-            <div className="flex flex-col gap-4">
+
+            {/* Wants on the Right on Mobile, hidden on desktop */}
+            <div className="flex md:hidden flex-col items-start text-left gap-1 min-w-[70px]">
+              <div className="flex items-center gap-1.5 justify-start">
+                <div className="w-2.5 h-2.5 rounded-full bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)]" />
+                <span className="text-[11px] font-black text-slate-600 dark:text-slate-400">Wants</span>
+              </div>
+              <span className="text-[14px] font-black text-slate-900 dark:text-white">{allocation.wants}%</span>
+            </div>
+
+            {/* Desktop-only Key details (Hidden on Mobile) */}
+            <div className="hidden md:flex flex-col gap-4 w-full">
               <div className="flex items-center justify-between p-3 rounded-2xl bg-white/30 dark:bg-white/5 border border-white/20">
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.5)]" />
@@ -204,18 +237,26 @@ export const V2FinancialOverview: React.FC<V2FinancialOverviewProps> = ({
           { label: "Savings", val: formatCurrency(stats.totalSaved), trend: "Accumulating", color: "text-emerald-500", icon: <ShieldCheck size={20} /> },
           { label: "Goals", val: `${stats.activeGoalsCount} Active`, trend: "Tracking", color: "text-amber-500", icon: <Trophy size={20} /> }
         ].map((stat, i) => (
-          <div key={i} className="vylos-glass-soft p-6 flex flex-col gap-3 group hover:scale-[1.03] active:scale-95 cursor-pointer min-w-0">
-            <div className="flex items-center gap-4 min-w-0">
+          <div key={i} className="vylos-glass-soft p-4 md:p-6 flex flex-col gap-2 md:gap-3 group hover:scale-[1.03] active:scale-95 cursor-pointer min-w-0">
+            {/* Desktop Layout Header (with icon on the side of label) */}
+            <div className="hidden md:flex items-center gap-4 min-w-0">
               <div className={`p-2.5 rounded-xl bg-white dark:bg-white/10 shadow-xl ${stat.color} shrink-0`}>
                 {stat.icon}
               </div>
               <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] truncate">{stat.label}</span>
             </div>
-            <div className="mt-2 min-w-0">
-              <span className="text-base sm:text-lg md:text-xl font-black text-slate-900 dark:text-white tracking-tighter block truncate" title={stat.val}>
+
+            {/* Mobile Layout Header (Label at the top, NO icon) */}
+            <div className="flex md:hidden min-w-0">
+              <span className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em] truncate">{stat.label}</span>
+            </div>
+
+            {/* Values / Value Block */}
+            <div className="mt-0 md:mt-2 min-w-0">
+              <span className="text-sm sm:text-base md:text-xl font-black text-slate-900 dark:text-white tracking-tighter block truncate" title={stat.val}>
                 {stat.val}
               </span>
-              <p className={`text-[10px] font-black ${stat.color} mt-1.5 uppercase tracking-widest truncate`}>{stat.trend}</p>
+              <p className={`text-[9px] md:text-[10px] font-black ${stat.color} mt-1 md:mt-1.5 uppercase tracking-widest truncate`}>{stat.trend}</p>
             </div>
           </div>
         ))}

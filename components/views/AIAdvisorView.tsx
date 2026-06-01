@@ -86,7 +86,7 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
     { 
       id: "initial-assistant-msg",
       role: "assistant", 
-      content: `Hello ${userProfile.name || 'there'}! I'm your Vylos AI Advisor. How can I help you with your finances today?`,
+      content: `Hello ${userProfile.name || 'there'}! I'm Vylos Intelligence. How can I help you with your finances today?`,
       timestamp: new Date().toISOString()
     },
   ];
@@ -186,7 +186,7 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
       {/* ─── Header Section ─── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
         <div>
-          <h2 className="text-[28px] font-black text-slate-900 dark:text-white tracking-tight leading-tight mb-1">Vylos Advisor</h2>
+          <h2 className="text-[28px] font-black text-slate-900 dark:text-white tracking-tight leading-tight mb-1">Vylos Intelligence</h2>
         </div>
         
         <div className="flex items-center gap-3">
@@ -203,7 +203,7 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
             onClick={() => setAiMessages([{
               id: "initial-assistant-msg",
               role: "assistant",
-              content: `Hello ${userProfile.name || 'there'}! I'm your Vylos AI Advisor. How can I help you with your finances today?`,
+              content: `Hello ${userProfile.name || 'there'}! I'm Vylos Intelligence. How can I help you with your finances today?`,
               timestamp: new Date().toISOString()
             }])}
             className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-white/5 border border-slate-200/60 dark:border-white/10 hover:border-blue-500 text-blue-600 rounded-2xl text-[13px] font-bold shadow-sm transition-all"
@@ -273,13 +273,13 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
           <div className="p-8 bg-white/5 border-t border-white/10 shrink-0">
             {isLimitReached && (
               <div className="mb-4 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-bold flex items-center justify-between">
-                <span>You have reached your daily limit of 5 AI messages. Upgrade to get higher monthly limits!</span>
+                <span>You’re helping shape Vylos. Daily AI limit of 5 messages reached for today. Premium beta access is active!</span>
                 {isFree && (
                   <button 
                     onClick={() => setPage("pricing")}
                     className="px-3 py-1.5 bg-amber-500 text-white rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-amber-600 transition-colors"
                   >
-                    View Plans
+                    View Status
                   </button>
                 )}
               </div>
@@ -310,7 +310,7 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
                 onChange={(e) => setAiInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 disabled={isLimitReached || aiLoading}
-                placeholder={isLimitReached ? "Daily AI message limit reached. Upgrade to continue." : aiLoading ? "AI is processing your query..." : "Ask Vylos anything about your finances..."} 
+                placeholder={isLimitReached ? "Daily AI message limit reached under Vylos Beta experience." : aiLoading ? "AI is processing your query..." : "Ask Vylos anything about your finances..."} 
                 className="w-full pl-14 pr-16 py-5 bg-white/5 border border-white/10 rounded-2xl text-[14px] font-bold text-slate-900 dark:text-white placeholder-slate-500 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 shadow-inner transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               />
               <button 

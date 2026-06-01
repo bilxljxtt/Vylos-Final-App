@@ -131,7 +131,7 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="vylos-bg-premium min-h-screen w-full flex flex-col relative overflow-y-auto overflow-x-hidden font-inter selection:bg-blue-500/30">
+    <div className="vylos-bg-premium min-h-[100dvh] w-full flex flex-col relative overflow-y-auto overflow-x-hidden font-inter selection:bg-blue-500/30">
       
       {/* ─── Background Blobs ─── */}
       <div className="absolute top-[-5%] left-[-10%] w-[50%] h-[50%] bg-blue-600/20 rounded-full blur-[140px] pointer-events-none animate-pulse" />
@@ -150,7 +150,7 @@ export default function SignupPage() {
       </div>
 
       {/* ─── Main Content ─── */}
-      <div className="flex-1 flex flex-col xl:flex-row items-center justify-center px-6 lg:px-16 py-12 relative z-10 gap-16 xl:gap-24">
+      <div className="flex-1 flex flex-col xl:flex-row items-center justify-center px-6 lg:px-16 pt-12 pb-[calc(3rem+env(safe-area-inset-bottom))] relative z-10 gap-16 xl:gap-24">
         
         {/* ─── LEFT PANEL: Features ─── */}
         <div className="hidden xl:flex flex-1 flex-col gap-6 max-w-[320px]">
@@ -206,7 +206,7 @@ export default function SignupPage() {
             <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter leading-tight">
               {step === 1 ? "Create account" : "Quick Profile Setup"}
             </h2>
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-2">
+            <p className="text-sm font-medium text-slate-700 dark:text-slate-400 mt-2">
               {step === 1 ? "Start your smarter financial journey today." : "Help Vylos customize your experience."}
             </p>
           </div>
@@ -217,7 +217,7 @@ export default function SignupPage() {
               <div className="space-y-6">
                 {/* Full Name */}
                 <div className="space-y-2">
-                  <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-2">Full Name</label>
+                  <label className="text-[11px] font-black text-slate-400 dark:text-slate-700 uppercase tracking-[0.2em] ml-2">Full Name</label>
                   <div className="relative group">
                     <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors">
                       <User size={20} />
@@ -232,7 +232,7 @@ export default function SignupPage() {
 
                 {/* Email */}
                 <div className="space-y-2">
-                  <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-2">Email Address</label>
+                  <label className="text-[11px] font-black text-slate-400 dark:text-slate-700 uppercase tracking-[0.2em] ml-2">Email Address</label>
                   <div className="relative group">
                     <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors">
                       <Mail size={20} />
@@ -248,7 +248,7 @@ export default function SignupPage() {
                 {/* Passwords Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-2">Password</label>
+                    <label className="text-[11px] font-black text-slate-400 dark:text-slate-700 uppercase tracking-[0.2em] ml-2">Password</label>
                     <div className="relative group">
                       <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors">
                         <Lock size={18} />
@@ -265,7 +265,7 @@ export default function SignupPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-2">Confirm</label>
+                    <label className="text-[11px] font-black text-slate-400 dark:text-slate-700 uppercase tracking-[0.2em] ml-2">Confirm</label>
                     <div className="relative group">
                       <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors">
                         <ShieldCheck size={18} />
@@ -281,7 +281,7 @@ export default function SignupPage() {
 
                 {/* Phone Number */}
                 <div className="space-y-2">
-                  <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-2">Phone Number (Optional)</label>
+                  <label className="text-[11px] font-black text-slate-400 dark:text-slate-700 uppercase tracking-[0.2em] ml-2">Phone Number (Optional)</label>
                   <div className="relative group">
                     <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors">
                       <Phone size={20} />
@@ -347,14 +347,14 @@ export default function SignupPage() {
             <form onSubmit={handleSignup} className="space-y-6">
               {/* Question 1: What describes you? */}
               <div className="space-y-3">
-                <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-2">What best describes you?</label>
+                <label className="text-[11px] font-black text-slate-400 dark:text-slate-700 uppercase tracking-[0.2em] ml-2">What best describes you?</label>
                 <div className="grid grid-cols-1 gap-2">
                   {[
-                    { id: "student", label: "🎓 Student" },
-                    { id: "employee", label: "💼 Employee (Salary/Wages)" },
-                    { id: "freelancer", label: "💻 Freelancer / Contractor" },
-                    { id: "business_owner", label: "🚀 Business owner / Entrepreneur" },
-                    { id: "other", label: "❓ Other" }
+                    { id: "student", label: "Student" },
+                    { id: "employee", label: "Employee (Salary/Wages)" },
+                    { id: "freelancer", label: "Freelancer / Contractor" },
+                    { id: "business_owner", label: "Business Owner / Entrepreneur" },
+                    { id: "other", label: "Other" }
                   ].map((opt) => (
                     <button
                       key={opt.id}
@@ -375,12 +375,12 @@ export default function SignupPage() {
 
               {/* Question 2: Do you already have a budget? */}
               <div className="space-y-3 pt-2">
-                <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-2">Do you already have a budget?</label>
+                <label className="text-[11px] font-black text-slate-400 dark:text-slate-700 uppercase tracking-[0.2em] ml-2">Do you already have a budget?</label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { id: "Yes", label: "Yes 📊" },
-                    { id: "No", label: "No ❌" },
-                    { id: "somewhat", label: "Somewhat 🤔" }
+                    { id: "Yes", label: "Yes" },
+                    { id: "No", label: "No" },
+                    { id: "somewhat", label: "Somewhat" }
                   ].map((opt) => (
                     <button
                       key={opt.id}
@@ -423,7 +423,7 @@ export default function SignupPage() {
           )}
 
           <div className="mt-8 text-center">
-            <p className="text-sm font-bold text-slate-500 dark:text-slate-400">
+            <p className="text-sm font-bold text-slate-700 dark:text-slate-400">
               Already part of Vylos? <Link href="/login" className="text-blue-600 font-black hover:underline ml-1">Log In</Link>
             </p>
           </div>

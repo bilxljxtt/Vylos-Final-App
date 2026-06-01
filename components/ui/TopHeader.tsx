@@ -39,7 +39,7 @@ export const TopHeader: React.FC<{
   };
 
   return (
-    <header className="vylos-header flex items-center justify-between px-6 h-14 shrink-0 z-30 relative">
+    <header className="bg-bg flex items-center justify-between px-6 h-14 shrink-0 z-30 relative">
       {/* Left: Logo + Tagline */}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2.5">

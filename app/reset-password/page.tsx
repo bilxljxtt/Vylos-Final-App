@@ -73,7 +73,7 @@ export default function ResetPassword() {
             <VylosLogo size="large" />
           </div>
           <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">Secure Account</h2>
-          <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-2 max-w-[280px]">
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-400 mt-2 max-w-[280px]">
             Set a new strong password to protect your financial data.
           </p>
         </div>
@@ -87,7 +87,7 @@ export default function ResetPassword() {
 
         <form onSubmit={handleResetPassword} className="space-y-8">
           <div className="space-y-3">
-            <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-2">New Password</label>
+            <label className="text-[11px] font-black text-slate-400 dark:text-slate-700 uppercase tracking-[0.2em] ml-2">New Password</label>
             <div className="relative group">
               <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors">
                 <Lock size={20} />
@@ -104,7 +104,7 @@ export default function ResetPassword() {
           </div>
 
           <div className="space-y-3">
-            <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-2">Confirm Password</label>
+            <label className="text-[11px] font-black text-slate-400 dark:text-slate-700 uppercase tracking-[0.2em] ml-2">Confirm Password</label>
             <div className="relative group">
               <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors">
                 <Lock size={20} />

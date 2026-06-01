@@ -253,6 +253,7 @@ interface AppContextValue {
   updateDailyConsistency: (actionType: "LOGIN" | "TRANSACTION" | "REVIEW" | "BUDGET_UPDATE" | "REPORT_CHECK") => Promise<void>;
   updateNotifications: (updates: Partial<NotificationPrefs>) => void;
   deleteNotification: (id: string) => Promise<void>;
+  deleteAllNotifications: () => Promise<void>;
   addNotification: (notif: Omit<Notification, "id" | "read" | "created_at">) => Promise<void>;
   markAllNotificationsAsRead: () => Promise<void>;
   addReminder: (rem: Omit<Reminder, "id">) => Promise<void>;
@@ -798,6 +799,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     },
     [sessionUser, state.notificationList, state.userProfile.dismissed_notifications, updateProfile, supabase]
+  );
+
+  const deleteAllNotifications = useCallback(
+    async () => {
+      if (!sessionUser) return;
+      dispatch({ type: "SET_NOTIFICATIONS", payload: [] });
+      dispatch({ type: "SET_UNREAD_COUNT", payload: 0 });
+      const { error } = await supabase.from('notifications').delete().eq('user_id', sessionUser.id);
+      if (error) {
+        console.error("Delete all notifications error:", error);
+        throw new Error(error.message);
+      }
+    },
+    [sessionUser, supabase]
   );
   
   const addNotification = useCallback(
@@ -1457,6 +1472,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         updateDailyConsistency,
         updateNotifications,
         deleteNotification,
+        deleteAllNotifications,
         addNotification,
         markAllNotificationsAsRead,
         addReminder,

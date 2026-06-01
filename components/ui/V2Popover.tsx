@@ -10,6 +10,8 @@ interface V2PopoverProps {
   className?: string;
   onOpen?: () => void;
   onClose?: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export const V2Popover: React.FC<V2PopoverProps> = ({ 
@@ -18,9 +20,16 @@ export const V2Popover: React.FC<V2PopoverProps> = ({
   align = "right", 
   className = "",
   onOpen,
-  onClose
+  onClose,
+  open,
+  onOpenChange
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const isOpen = open !== undefined ? open : internalIsOpen;
+  const setIsOpen = (val: boolean) => {
+    if (onOpenChange) onOpenChange(val);
+    setInternalIsOpen(val);
+  };
   const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
   const triggerRef = useRef<HTMLDivElement>(null);
   const portalRef = useRef<HTMLDivElement>(null);

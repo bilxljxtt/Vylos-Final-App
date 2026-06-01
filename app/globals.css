@@ -229,11 +229,11 @@ input, textarea, [contenteditable="true"], .selectable-text {
 
 /* Soft Glass — For normal dashboard cards/widgets */
 @utility vylos-glass-soft {
-  background: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(12px) saturate(150%);
   -webkit-backdrop-filter: blur(12px) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  box-shadow: 0 10px 30px 0 rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
   border-radius: 24px;
   transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 
@@ -245,11 +245,11 @@ input, textarea, [contenteditable="true"], .selectable-text {
 
 /* Readable Glass — For main cards and primary content */
 @utility vylos-glass-readable {
-  background: rgba(240, 245, 255, 0.92);
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(16px) saturate(165%);
   -webkit-backdrop-filter: blur(16px) saturate(165%);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  box-shadow: 0 20px 55px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(37, 99, 235, 0.22);
+  box-shadow: 0 20px 55px rgba(15, 23, 42, 0.08);
   border-radius: 28px;
 
   @variant dark {
@@ -259,28 +259,28 @@ input, textarea, [contenteditable="true"], .selectable-text {
   }
 }
 
-/* Modal Glass — For high-focus overlays and fullscreen modals */
+/* Modal Glass — For centered modals */
 @utility vylos-glass-modal {
-  background: rgba(235, 242, 255, 0.95);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.65);
-  box-shadow: 0 45px 130px rgba(0, 0, 0, 0.35);
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(20px) saturate(200%);
+  -webkit-backdrop-filter: blur(20px) saturate(200%);
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  box-shadow: 0 40px 120px -20px rgba(0, 0, 0, 0.3);
   border-radius: 32px;
 
   @variant dark {
-    background: rgba(8, 12, 24, 0.96);
+    background: rgba(15, 23, 42, 0.95);
     border: 1px solid rgba(255, 255, 255, 0.2);
-    box-shadow: 0 55px 160px rgba(0, 0, 0, 0.7);
+    box-shadow: 0 40px 120px -20px rgba(0, 0, 0, 0.5);
   }
 }
 
 @utility vylos-glass-popup {
-  background: rgba(248, 250, 252, 0.98);
+  background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(16px) saturate(200%);
   -webkit-backdrop-filter: blur(16px) saturate(200%);
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.2);
   border-radius: 28px;
   z-index: 10002;
 
@@ -292,15 +292,100 @@ input, textarea, [contenteditable="true"], .selectable-text {
 
 /* Notification Card Glass — Specific for activity alerts */
 @utility vylos-glass-notification-card {
-  background: rgba(220, 232, 255, 0.72);
+  background: rgba(239, 246, 255, 0.95);
   backdrop-filter: blur(10px) saturate(150%);
   -webkit-backdrop-filter: blur(10px) saturate(150%);
-  border: 1px solid rgba(80, 130, 255, 0.28);
+  border: 1px solid rgba(59, 130, 246, 0.3);
   border-radius: 22px;
   
   @variant dark {
     background: rgba(15, 23, 42, 0.65);
     border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* Reusable Mobile Light-Mode Design Tokens */
+@utility mobile-card {
+  background: #ffffff;
+  border: 1px solid rgba(37, 99, 235, 0.22);
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.05);
+  border-radius: 20px;
+  color: #0f172a;
+
+  @variant dark {
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+    color: #f8fafc;
+  }
+}
+
+@utility mobile-card-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+
+  @variant dark {
+    color: #ffffff;
+  }
+}
+
+@utility mobile-card-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+
+  @variant dark {
+    color: #cbd5e1;
+  }
+}
+
+@utility mobile-muted {
+  font-size: 10px;
+  font-weight: 700;
+  color: #475569;
+
+  @variant dark {
+    color: #94a3b8;
+  }
+}
+
+@utility mobile-label {
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #1e293b;
+
+  @variant dark {
+    color: #94a3b8;
+  }
+}
+
+@utility mobile-action {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(37, 99, 235, 0.3);
+  color: #1e3a8a;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+  font-weight: 800;
+
+  @variant dark {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #93c5fd;
+    box-shadow: none;
+  }
+}
+
+@utility mobile-back-button {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  color: #0f172a;
+
+  @variant dark {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #f8fafc;
   }
 }
 

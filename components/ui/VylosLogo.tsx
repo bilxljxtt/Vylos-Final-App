@@ -19,24 +19,24 @@ export const VylosLogo: React.FC<VylosLogoProps> = ({
   const sizeClasses = {
     small: "h-6",
     medium: "h-10",
-    large: "h-16",
-    hero: "h-32",
+    large: "h-12 md:h-16",
+    hero: "h-20 md:h-32",
   };
 
   const textClasses = {
     small: "text-lg",
     medium: "text-2xl",
-    large: "text-4xl",
-    hero: "text-7xl",
+    large: "text-2xl md:text-4xl",
+    hero: "text-5xl md:text-7xl",
   };
 
   const imgHeightClass = sizeClasses[size] || sizeClasses.medium;
   const textSizeClass = textClasses[size] || textClasses.medium;
 
   return (
-    <div className={`relative flex items-center gap-3 select-none ${className}`}>
+    <div className={`relative flex items-center gap-3 select-none shrink-0 overflow-visible pr-1 ${className}`}>
       {hasError ? (
-        <span className={`font-black tracking-tighter text-slate-900 dark:text-white ${textSizeClass}`}>
+        <span className={`font-black tracking-tighter text-slate-900 dark:text-white shrink-0 pr-1 ${textSizeClass}`}>
           {iconOnly ? "V" : "Vylos"}
         </span>
       ) : (
@@ -51,7 +51,7 @@ export const VylosLogo: React.FC<VylosLogoProps> = ({
             />
           </div>
           {!iconOnly && (
-            <span className={`font-black tracking-tighter leading-tight overflow-visible pb-1 ${textSizeClass} vylos-wordmark`}>
+            <span className={`font-black tracking-tighter leading-tight overflow-visible pb-1 shrink-0 pr-1 ${textSizeClass} vylos-wordmark`}>
               Vylos
             </span>
           )}

@@ -39,7 +39,7 @@ const NAV_ITEMS: { id: string; label: string; icon: any; feature?: FeatureName }
   { id: "budget", label: "Budget", icon: Wallet },
   { id: "goals", label: "Goals", icon: Target },
   { id: "transactions", label: "Transactions", icon: CreditCard },
-  { id: "ai", label: "Vylos Advisor", icon: Sparkles },
+  { id: "ai", label: "Vylos Intelligence", icon: Sparkles },
   { id: "analytics", label: "Progress", icon: BarChart3 },
   { id: "reminders", label: "Reminders", icon: Bell },
   { id: "settings", label: "Settings", icon: Settings },

@@ -16,6 +16,7 @@ export function ActivityView() {
   const { toast } = useToast();
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [search, setSearch] = useState("");
+  const [clearingIds, setClearingIds] = useState<Record<string, boolean>>({});
 
   const notifications = state.notificationList || [];
   
@@ -33,19 +34,39 @@ export function ActivityView() {
   const handleMarkAllRead = async () => {
     try {
       await markAllNotificationsAsRead();
-      toast("All notifications marked as read", "success");
+      const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+      if (!isMobile) {
+        toast("All notifications marked as read", "success");
+      }
     } catch (err) {
-      toast("Failed to update notifications", "error");
+      const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+      if (!isMobile) {
+        toast("Failed to update notifications", "error");
+      }
     }
   };
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (clearingIds[id]) return;
+    setClearingIds(prev => ({ ...prev, [id]: true }));
     try {
       await deleteNotification(id);
-      toast("Notification removed", "info");
+      const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+      if (!isMobile) {
+        toast("Notification removed", "info");
+      }
     } catch (err) {
-      toast("Failed to delete notification", "error");
+      const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+      if (!isMobile) {
+        toast("Failed to delete notification", "error");
+      }
+    } finally {
+      setClearingIds(prev => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
     }
   };
 
@@ -93,13 +114,13 @@ export function ActivityView() {
         <div className="md:col-span-4 flex bg-white/5 border border-white/10 p-1.5 rounded-2xl">
           <button 
             onClick={() => setFilter("all")}
-            className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filter === "all" ? 'bg-primary text-white shadow-lg' : 'text-slate-500 hover:text-slate-700 dark:text-white/40 dark:hover:text-white/60'}`}
+            className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filter === "all" ? 'bg-primary text-white shadow-lg' : 'text-slate-700 hover:text-slate-700 dark:text-white/40 dark:hover:text-white/60'}`}
           >
             All History
           </button>
           <button 
             onClick={() => setFilter("unread")}
-            className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filter === "unread" ? 'bg-primary text-white shadow-lg' : 'text-slate-500 hover:text-slate-700 dark:text-white/40 dark:hover:text-white/60'}`}
+            className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filter === "unread" ? 'bg-primary text-white shadow-lg' : 'text-slate-700 hover:text-slate-700 dark:text-white/40 dark:hover:text-white/60'}`}
           >
             Unread ({unreadCount})
           </button>
@@ -107,7 +128,7 @@ export function ActivityView() {
       </div>
 
       {/* Notification List */}
-      <div className="vylos-glass-readable p-4 min-h-[500px] flex flex-col gap-3">
+      <div className="vylos-glass-readable p-4 min-h-0 md:min-h-[500px] flex flex-col gap-3">
         {filteredNotifications.length > 0 ? (
           filteredNotifications.map((notif) => (
             <div 
@@ -127,12 +148,12 @@ export function ActivityView() {
                 
                 <div className="flex flex-col min-w-0 flex-1">
                   <div className="flex items-center gap-3">
-                    <h4 className={`text-[14px] sm:text-[15px] font-black tracking-tight truncate ${!notif.read ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>
+                    <h4 className={`text-[14px] sm:text-[15px] font-black tracking-tight truncate ${!notif.read ? 'text-slate-900 dark:text-white' : 'text-slate-700 dark:text-slate-400'}`}>
                       {notif.title}
                     </h4>
                     {!notif.read && <div className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(37,99,235,0.6)]" />}
                   </div>
-                  <p className={`text-[12px] sm:text-[13px] font-medium mt-1.5 leading-relaxed break-words whitespace-normal ${!notif.read ? 'text-slate-700 dark:text-white/70' : 'text-slate-500 dark:text-white/40'}`}>
+                  <p className={`text-[12px] sm:text-[13px] font-medium mt-1.5 leading-relaxed break-words whitespace-normal ${!notif.read ? 'text-slate-700 dark:text-white/70' : 'text-slate-700 dark:text-white/40'}`}>
                     {notif.message?.replace(/\[SID:[^\]]+\]/, '').trim() || ""}
                   </p>
                   <div className="flex items-center gap-3 sm:gap-4 mt-3">
@@ -151,7 +172,8 @@ export function ActivityView() {
               <div className="flex items-center gap-4 ml-4 sm:ml-6 shrink-0">
                 <button 
                   onClick={(e) => handleDelete(notif.id, e)}
-                  className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white/5 hover:bg-red-500/10 text-slate-400 hover:text-red-500 flex items-center justify-center transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100 shadow-sm border border-transparent hover:border-red-500/20"
+                  disabled={clearingIds[notif.id]}
+                  className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white/5 hover:bg-red-500/10 text-slate-400 hover:text-red-500 flex items-center justify-center transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100 shadow-sm border border-transparent hover:border-red-500/20 disabled:opacity-50"
                   aria-label="Delete notification"
                 >
                   <Trash2 size={16} className="sm:hidden" />
@@ -166,7 +188,7 @@ export function ActivityView() {
               <Inbox size={48} strokeWidth={1.5} />
             </div>
             <h3 className="text-xl font-black text-slate-900 dark:text-white/80 mb-2">No active notifications</h3>
-            <p className="text-[14px] font-medium text-slate-500 dark:text-slate-400 max-w-[280px] leading-relaxed">
+            <p className="text-[14px] font-medium text-slate-700 dark:text-slate-400 max-w-[280px] leading-relaxed">
               Your Activity Center is currently empty. We'll alert you here for any important updates.
             </p>
             {filter === "unread" && (

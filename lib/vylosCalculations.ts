@@ -63,7 +63,10 @@ export class VylosCalculations {
     for (let i = 0; i < allTxs.length; i++) {
       const t = allTxs[i];
       if (!this.isBudgetRecord(t.merchant)) {
-        netWorth += t.amount;
+        const txMonth = getTransactionDateKey(t).slice(0, 7);
+        if (txMonth <= currentMonthPrefix) {
+          netWorth += t.amount;
+        }
       }
     }
 

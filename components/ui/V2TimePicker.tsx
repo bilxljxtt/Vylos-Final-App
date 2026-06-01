@@ -155,7 +155,7 @@ export const V2TimePicker: React.FC<V2TimePickerProps> = ({
                 key={a}
                 type="button" 
                 onClick={toggleAmpm}
-                className={`px-4 py-2 rounded-xl text-[10px] font-black tracking-widest transition-all ${ampm === a ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30" : "bg-white/5 text-slate-500 hover:bg-white/10 hover:text-slate-300"}`}
+                className={`px-4 py-2 rounded-xl text-[10px] font-black tracking-widest transition-all ${ampm === a ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30" : "bg-white/5 text-slate-700 hover:bg-white/10 hover:text-slate-300"}`}
               >
                 {a}
               </button>
