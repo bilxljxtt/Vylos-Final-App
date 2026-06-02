@@ -3,6 +3,7 @@
 import React from "react";
 import { ViewContainer } from "../ui/ViewContainer";
 import { Shield, FileText, ChevronLeft } from "lucide-react";
+import { PrivacyPolicy } from "../legal/PrivacyPolicy";
 
 interface LegalViewProps {
   type: "privacy" | "terms";
@@ -33,24 +34,7 @@ export const LegalView: React.FC<LegalViewProps> = ({ type, onBack }) => {
 
       <div className="vylos-glass-readable p-10 prose prose-slate dark:prose-invert max-w-none">
         {isPrivacy ? (
-          <div className="space-y-6 text-text-main/80 font-medium leading-relaxed">
-            <section>
-              <h2 className="text-xl font-black text-text-main mb-3 uppercase tracking-tight">1. Information We Collect</h2>
-              <p>Vylos collects financial data you provide (transactions, budgets, goals) to power our intelligence engine. We also collect basic profile information like your name and email.</p>
-            </section>
-            <section>
-              <h2 className="text-xl font-black text-text-main mb-3 uppercase tracking-tight">2. How We Use Your Data</h2>
-              <p>Your data is used exclusively to provide personalised financial insights, track your progress, and help you achieve your savings goals. We do not sell your personal financial records to third parties.</p>
-            </section>
-            <section>
-              <h2 className="text-xl font-black text-text-main mb-3 uppercase tracking-tight">3. Data Security</h2>
-              <p>All data is stored securely using industry-standard encryption. Financial records are isolated per user using Supabase Row Level Security (RLS) to ensure privacy.</p>
-            </section>
-            <section>
-              <h2 className="text-xl font-black text-text-main mb-3 uppercase tracking-tight">4. Your Rights</h2>
-              <p>You have the right to export or delete your data at any time through the Settings panel. Deleting your account will permanently remove all associated financial records.</p>
-            </section>
-          </div>
+          <PrivacyPolicy />
         ) : (
           <div className="space-y-6 text-text-main/80 font-medium leading-relaxed">
             <section>

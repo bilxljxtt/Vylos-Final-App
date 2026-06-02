@@ -675,7 +675,7 @@ export function ImportTransactionsModal({ isOpen, onClose }: ImportTransactionsM
             )}
 
             {step === "processing" && (
-              <VylosLoadingScreen variant="inline" text="Syncing your finances to Supabase..." />
+              <VylosLoadingScreen variant="inline" text="Syncing your finances to secure cloud database..." />
             )}
           </div>
 

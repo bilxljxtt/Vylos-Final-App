@@ -108,6 +108,9 @@ export function RemindersView({ setShowAddReminder }: RemindersViewProps) {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-[28px] font-black text-slate-900 dark:text-white tracking-tight leading-tight">Reminders</h2>
+          <p className="text-[12px] md:text-[13px] text-slate-700 dark:text-slate-400 mt-1.5 max-w-2xl font-medium leading-relaxed">
+            Use reminders to track bills, payments, renewals, and important financial tasks. Choose a due date, set a recurrence if needed, and Vylos will show upcoming and overdue tasks in your dashboard.
+          </p>
         </div>
         
         <div className="flex items-center gap-2">

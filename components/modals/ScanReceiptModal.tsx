@@ -198,7 +198,7 @@ export function ScanReceiptModal({ isOpen, onClose, onUploadSuccess, transaction
 
       if (storageError) {
         console.error("Storage upload error:", storageError);
-        throw new Error("Failed to save file to Supabase storage. Verify storage bucket permissions.");
+        throw new Error("Failed to save file to secure storage. Verify storage bucket permissions.");
       }
 
       // 4. Save metadata record directly to receipts table

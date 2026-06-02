@@ -132,7 +132,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose })
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="John Doe"
-                  className="w-full bg-white/5 border border-white/10 focus:border-primary/50 rounded-2xl p-4 text-sm font-medium outline-none transition-all placeholder:text-text-muted/20"
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:border-primary/50 rounded-2xl p-4 text-sm font-medium text-slate-900 dark:text-white outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-text-muted/20"
                 />
               </div>
               <div className="space-y-2">
@@ -142,13 +142,13 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose })
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="john@example.com"
-                  className="w-full bg-white/5 border border-white/10 focus:border-primary/50 rounded-2xl p-4 text-sm font-medium outline-none transition-all placeholder:text-text-muted/20"
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:border-primary/50 rounded-2xl p-4 text-sm font-medium text-slate-900 dark:text-white outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-text-muted/20"
                 />
               </div>
             </div>
 
             {/* Rating Section */}
-            <div className="flex flex-col items-center justify-center py-6 bg-white/5 rounded-3xl border border-white/10">
+            <div className="flex flex-col items-center justify-center py-6 bg-slate-50 dark:bg-white/5 rounded-3xl border border-slate-200 dark:border-white/10">
               <span className="text-[11px] font-black text-text-muted uppercase tracking-widest mb-4">Overall Experience</span>
               <div className="flex gap-2">
                 {[1, 2, 3, 4, 5].map((star) => (
@@ -164,7 +164,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose })
                       className={`transition-all duration-300 ${
                         (hoveredRating || rating) >= star 
                         ? "fill-amber-400 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]" 
-                        : "text-white/10"
+                        : "text-slate-300 dark:text-white/10"
                       }`}
                       strokeWidth={(hoveredRating || rating) >= star ? 1.5 : 1}
                     />
@@ -191,7 +191,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose })
                     className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-[11px] font-bold tracking-tight transition-all border ${
                       category === cat.id 
                         ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" 
-                        : "bg-white/5 border-white/10 text-text-muted hover:bg-white/10 hover:border-white/20"
+                        : "bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-text-muted hover:bg-slate-100 dark:hover:bg-white/10 hover:border-slate-300 dark:hover:border-white/20"
                     }`}
                   >
                     {cat.icon}
@@ -208,7 +208,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose })
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="Tell us what's on your mind..."
-                className="w-full h-32 bg-white/5 border border-white/10 focus:border-primary/50 rounded-[2rem] p-5 text-sm font-medium outline-none transition-all placeholder:text-text-muted/20 resize-none custom-scrollbar"
+                className="w-full h-32 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:border-primary/50 rounded-[2rem] p-5 text-sm font-medium text-slate-900 dark:text-white outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-text-muted/20 resize-none custom-scrollbar"
               />
             </div>
           </div>

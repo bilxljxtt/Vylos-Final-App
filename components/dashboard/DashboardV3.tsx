@@ -96,7 +96,7 @@ export const DashboardV3: React.FC<DashboardV3Props> = ({
     if (challenge === 'overspending') {
       return {
         title: "Spending Guard",
-        message: "To help with overspending, set budget limits for 'Entertainment' and 'Dining'—Vylos will alert you at 80% capacity.",
+        message: "To help with overspending, set budget limits for 'Entertainment' and 'Dining', and Vylos will alert you at 80% capacity.",
         icon: <Shield size={20} className="text-amber-500" />
       };
     }

@@ -30,7 +30,7 @@ const SegmentedControl = ({
 }) => (
   <div className="space-y-2">
     <label className="text-[10px] font-black text-text-muted uppercase tracking-widest ml-1 opacity-50">{label}</label>
-    <div className="flex bg-black/5 dark:bg-white/5 p-1 rounded-2xl border border-white/10">
+    <div className="flex bg-black/5 dark:bg-white/5 p-1 rounded-2xl border border-slate-200 dark:border-white/10">
       {options.map((opt) => (
         <button
           key={opt.value}
@@ -232,7 +232,7 @@ export function RemindersModal({ isOpen, onClose, editingReminder }: RemindersMo
           {/* Subtle top glow effect */}
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent pointer-events-none" />
           {/* Modal Header */}
-          <div className="px-10 py-8 border-b border-white/10 flex items-center justify-between bg-primary/5 shrink-0">
+          <div className="px-10 py-8 border-b border-slate-200 dark:border-white/10 flex items-center justify-between bg-primary/5 shrink-0">
             <div className="flex items-center gap-5">
               <div className="w-16 h-16 rounded-[1.5rem] bg-primary flex items-center justify-center text-white shadow-2xl shadow-primary/20">
                 <Bell size={32} strokeWidth={2.5} />
@@ -241,7 +241,11 @@ export function RemindersModal({ isOpen, onClose, editingReminder }: RemindersMo
                 <h2 className="text-3xl font-black text-text-main tracking-tight leading-tight">
                   {editingReminder ? "Edit Financial Task" : "New Financial Task"}
                 </h2>
-                <p className="text-xs font-black text-text-muted uppercase tracking-[0.2em] opacity-60">Intelligence-driven reminders</p>
+                <p className="text-xs font-black text-text-muted uppercase tracking-[0.2em] opacity-60">
+                  {editingReminder 
+                    ? "Intelligence-driven reminders" 
+                    : "Create reminders for bills, subscriptions, repayments, renewals, or financial tasks."}
+                </p>
               </div>
             </div>
             <button 
@@ -268,7 +272,7 @@ export function RemindersModal({ isOpen, onClose, editingReminder }: RemindersMo
                       required
                       type="text" 
                       placeholder="e.g., Quarterly Tax Payment"
-                      className="w-full bg-black/5 dark:bg-white/5 border border-white/10 rounded-2xl pl-14 pr-6 py-5 text-base font-bold text-text-main outline-none focus:border-primary focus:bg-white/10 transition-all shadow-inner vylos-focus"
+                      className="w-full bg-black/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl pl-14 pr-6 py-5 text-base font-bold text-text-main outline-none focus:border-primary focus:bg-black/5 dark:focus:bg-white/10 transition-all shadow-inner vylos-focus placeholder:text-slate-400 dark:placeholder:text-text-muted/20"
                       value={formData.title}
                       onChange={e => setFormData({...formData, title: e.target.value})}
                     />
@@ -282,7 +286,7 @@ export function RemindersModal({ isOpen, onClose, editingReminder }: RemindersMo
                     <textarea 
                       rows={4}
                       placeholder="Add specific details or instructions for this task..."
-                      className="w-full bg-black/5 dark:bg-white/5 border border-white/10 rounded-2xl pl-14 pr-6 py-5 text-base font-bold text-text-main outline-none focus:border-primary focus:bg-white/10 transition-all shadow-inner resize-none vylos-focus"
+                      className="w-full bg-black/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl pl-14 pr-6 py-5 text-base font-bold text-text-main outline-none focus:border-primary focus:bg-black/5 dark:focus:bg-white/10 transition-all shadow-inner resize-none vylos-focus placeholder:text-slate-400 dark:placeholder:text-text-muted/20"
                       value={formData.description}
                       onChange={e => setFormData({...formData, description: e.target.value})}
                     />
@@ -326,7 +330,7 @@ export function RemindersModal({ isOpen, onClose, editingReminder }: RemindersMo
                         className={`px-4 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border-2 transition-all text-left flex items-center justify-between group vylos-focus ${
                           formData.category === cat 
                             ? 'bg-primary/10 border-primary text-primary shadow-lg shadow-primary/5' 
-                            : 'bg-white/5 border-white/10 text-text-muted hover:border-white/20 hover:bg-white/10'
+                            : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-text-muted hover:border-slate-300 dark:hover:border-white/20 hover:bg-slate-100 dark:hover:bg-white/10'
                         }`}
                       >
                         <span className="truncate">{cat}</span>
@@ -360,7 +364,7 @@ export function RemindersModal({ isOpen, onClose, editingReminder }: RemindersMo
                       type="number" 
                       step="0.01"
                       placeholder="0.00"
-                      className="w-full bg-black/5 dark:bg-white/5 border border-white/10 rounded-2xl pl-14 pr-6 py-5 text-lg font-black text-text-main outline-none focus:border-primary focus:bg-white/10 transition-all shadow-inner vylos-focus"
+                      className="w-full bg-black/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl pl-14 pr-6 py-5 text-lg font-black text-text-main outline-none focus:border-primary focus:bg-black/5 dark:focus:bg-white/10 transition-all shadow-inner vylos-focus placeholder:text-slate-400 dark:placeholder:text-text-muted/20"
                       value={formData.amount}
                       onChange={e => setFormData({...formData, amount: e.target.value})}
                     />
@@ -396,11 +400,11 @@ export function RemindersModal({ isOpen, onClose, editingReminder }: RemindersMo
           </div>
 
           {/* Modal Footer */}
-          <div className="px-10 py-8 bg-black/5 dark:bg-white/5 border-t border-white/10 flex flex-col sm:flex-row gap-5 shrink-0">
+          <div className="px-10 py-8 bg-black/5 dark:bg-white/5 border-t border-slate-200 dark:border-white/10 flex flex-col sm:flex-row gap-5 shrink-0">
             <button 
               type="button"
               onClick={onClose}
-              className="flex-1 py-5 bg-white/5 border border-white/10 text-text-muted font-black rounded-2xl hover:bg-white/10 hover:text-text-main transition-all active:scale-[0.98] uppercase tracking-[0.2em] text-xs vylos-focus"
+              className="flex-1 py-5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-text-muted font-black rounded-2xl hover:bg-slate-100 dark:hover:bg-white/10 hover:text-text-main transition-all active:scale-[0.98] uppercase tracking-[0.2em] text-xs vylos-focus"
             >
               Discard Changes
             </button>

@@ -267,7 +267,7 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
           <div className="p-8 bg-white/5 border-t border-white/10 shrink-0">
             {isLimitReached && (
               <div className="mb-4 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-bold flex items-center justify-between">
-                <span>You’re helping shape Vylos. Daily AI limit of 5 messages reached for today. Premium beta access is active!</span>
+                <span>Limited AI messages on basic access. Higher limits available on paid plans. Premium beta access is active!</span>
                 {isFree && (
                   <button 
                     onClick={() => setPage("pricing")}

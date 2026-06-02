@@ -114,7 +114,7 @@ export default function LoginPage() {
           </h1>
           
           <p className="text-lg xl:text-xl text-white/70 font-medium leading-relaxed max-w-lg mb-12">
-            Vylos helps you track, understand, and improve your finances—so you can grow with confidence.
+            Vylos helps you track, understand, and improve your finances, so you can grow with confidence.
           </p>
 
           {/* Mini Widgets Illustration */}
