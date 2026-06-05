@@ -21,6 +21,11 @@ export interface Message {
   timestamp?: string;
   source?: string;
   layer?: number;
+  // optional AI response metadata
+  data?: {
+    type?: string | null;
+    payload?: any;
+  };
 }
 
 interface AIAdvisorViewProps {
@@ -38,12 +43,44 @@ interface AIAdvisorViewProps {
 }
 
 export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
-  aiMessages, aiInput, setAiInput, sendAI, aiLoading, userProfile, setPage, setAiMessages,
+  aiMessages, aiInput, setAiInput, sendAI, aiLoading, showToast, userProfile, setPage, setAiMessages,
   dailyUsed = 0, monthlyUsed = 0
 }) => {
   const { state } = useAppStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const hasAccess = Permissions.canUseAIAdvisor(userProfile);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  const handleDownloadStatement = async () => {
+    setDownloading(true);
+    setDownloadError(null);
+    try {
+      const blob = await VylosAIService.downloadStatement();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "vylos-statement.pdf";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (e: any) {
+      console.error("Failed to download statement:", e);
+      if (e.message === "UNAVAILABLE") {
+        setDownloadError("PDF statement generation is not yet available. This feature is coming soon.");
+        showToast("PDF statement feature is coming soon.", "info");
+      } else if (e.message === "UNAUTHORIZED") {
+        setDownloadError("Your session has expired. Please log in again.");
+        showToast("Session expired. Please log in again.", "error");
+      } else {
+        setDownloadError("Unable to download statement. Please try again later.");
+        showToast("Unable to download statement. Please try again later.", "error");
+      }
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const isDeveloper = userProfile.email === 'bilxljxtt10@gmail.com';
   const isFree = userProfile.subscription_tier === 'free';
@@ -145,25 +182,11 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
             if (href?.includes("download-statement")) {
               return (
                 <button 
-                  onClick={async () => {
-                    try {
-                      const blob = await VylosAIService.downloadStatement();
-                      const url = window.URL.createObjectURL(blob);
-                      const a = document.createElement("a");
-                      a.href = url;
-                      a.download = "vylos-statement.pdf";
-                      document.body.appendChild(a);
-                      a.click();
-                      document.body.removeChild(a);
-                      window.URL.revokeObjectURL(url);
-                    } catch (e: any) {
-                      console.error("Failed to download statement:", e);
-                      alert("Failed to download statement. Please check your connection and try again.");
-                    }
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 mx-1 mt-2 mb-1 bg-emerald-500 hover:bg-emerald-600 border border-emerald-400 text-[12px] font-black uppercase tracking-widest text-white rounded-lg transition-all active:scale-95 shadow-lg"
+                  disabled={downloading}
+                  onClick={handleDownloadStatement}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 mx-1 mt-2 mb-1 bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-800 border border-emerald-400 text-[12px] font-black uppercase tracking-widest text-white rounded-lg transition-all active:scale-95 shadow-lg"
                 >
-                  {children} <ArrowRight size={14} />
+                  {downloading ? "Downloading..." : children} <ArrowRight size={14} />
                 </button>
               );
             }
@@ -177,6 +200,38 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
       >
         {preprocessed}
       </ReactMarkdown>
+    );
+  };
+
+  const PdfStatementMessage = ({ msg }: { msg: Message }) => {
+    const available = msg.data?.payload?.available === true;
+
+    if (!available) {
+      return (
+        <span className="text-sm text-gray-500 dark:text-gray-400 block">
+          PDF statement generation is not yet available. This feature is coming soon.
+        </span>
+      );
+    }
+
+    const contentWithoutDownloadLink = msg.content
+      .replace(/\[Download PDF Statement\]\(download-statement\)/gi, "")
+      .trim();
+
+    return (
+      <>
+        {contentWithoutDownloadLink && <MarkdownRenderer content={contentWithoutDownloadLink} />}
+        <button
+          disabled={downloading}
+          onClick={handleDownloadStatement}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 mx-1 mt-2 mb-1 bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-800 border border-emerald-400 text-[12px] font-black uppercase tracking-widest text-white rounded-lg transition-all active:scale-95 shadow-lg"
+        >
+          {downloading ? "Downloading..." : "Download PDF Statement"} <ArrowRight size={14} />
+        </button>
+        {downloadError && (
+          <span className="text-xs text-amber-500 dark:text-amber-400 mt-1.5 block font-semibold">{downloadError}</span>
+        )}
+      </>
     );
   };
 
@@ -238,7 +293,11 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
                       {isUser ? (
                         msg.content
                       ) : (
-                        <MarkdownRenderer content={msg.content} />
+                        msg.data?.type === "pdf_statement" ? (
+                          <PdfStatementMessage msg={msg} />
+                        ) : (
+                          <MarkdownRenderer content={msg.content} />
+                        )
                       )}
                     </div>
                     {/* Source and layer details hidden from production UI */}

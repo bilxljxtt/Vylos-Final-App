@@ -8,24 +8,27 @@ export async function GET(req: NextRequest) {
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
     if (sessionError || !session) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const token = session.access_token;
     const userId = session.user?.id;
 
     if (!userId) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const apiUrl = process.env.NEXT_PUBLIC_VYLOS_AI_API_URL;
+    // Prefer server-only env var, fallback to NEXT_PUBLIC_ if needed
+    const apiUrl = process.env.VYLOS_AI_API_URL || process.env.NEXT_PUBLIC_VYLOS_AI_API_URL;
     if (!apiUrl) {
-      return new NextResponse("Vylos AI URL is not configured", { status: 500 });
+      console.error("[API Proxy] VYLOS_AI_API_URL is not configured");
+      return NextResponse.json({ error: "PDF statement service is not configured" }, { status: 500 });
     }
 
-    // 2. Fetch statement from Railway server (WITHOUT trailing slash at the end of the URL)
-    console.log(`[API Proxy] Fetching statement for user ${userId} from ${apiUrl}/bot/download-statement/${userId}`);
-    const response = await fetch(`${apiUrl}/bot/download-statement/${userId}`, {
+    // 2. Fetch statement from backend server
+    const targetUrl = `${apiUrl}/bot/download-statement/${userId}`;
+    console.log(`[API Proxy] Fetching statement for user from backend`);
+    const response = await fetch(targetUrl, {
       method: "GET",
       headers: {
         "Authorization": `Bearer ${token}`
@@ -33,22 +36,28 @@ export async function GET(req: NextRequest) {
     });
 
     if (!response.ok) {
-      console.error(`[API Proxy] Railway download statement failed with status: ${response.status}`);
-      return new NextResponse("Failed to download statement from backend", { status: response.status });
+      console.error(`[API Proxy] Backend download statement failed with status: ${response.status}`);
+      return NextResponse.json(
+        { error: "PDF statement is currently unavailable. Please try again later." },
+        { status: response.status >= 500 ? 502 : response.status }
+      );
     }
 
     // 3. Return the PDF response as stream
     const pdfBlob = await response.blob();
     const headers = new Headers();
     headers.set("Content-Type", "application/pdf");
-    headers.set("Content-Disposition", `attachment; filename="vylos-statement-${userId}.pdf"`);
+    headers.set("Content-Disposition", `attachment; filename="vylos-statement.pdf"`);
 
     return new NextResponse(pdfBlob, {
       status: 200,
       headers
     });
   } catch (err: any) {
-    console.error("[API Proxy] Download statement error:", err);
-    return new NextResponse("Internal server error", { status: 500 });
+    console.error("[API Proxy] Download statement error:", err?.message);
+    return NextResponse.json(
+      { error: "PDF statement is currently unavailable. Please try again later." },
+      { status: 500 }
+    );
   }
 }

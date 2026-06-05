@@ -963,8 +963,12 @@ export default function App() {
         content: response.answer,
         timestamp: new Date().toISOString(),
         source: response.source,
-        layer: response.layer
+        layer: response.layer,
+        data: response.data ?? undefined,
       };
+      if (process.env.NODE_ENV === "development") {
+        console.log("[sendAI] response.data:", response.data, "| msg.data:", newAssistantMessage.data);
+      }
       setAiMessages(prev => [...prev, newAssistantMessage]);
       await fetchAiUsage();
     } catch (e: any) {

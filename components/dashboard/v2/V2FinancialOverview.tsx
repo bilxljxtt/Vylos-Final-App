@@ -112,12 +112,9 @@ export const V2FinancialOverview: React.FC<V2FinancialOverviewProps> = ({
             {/* Total Balance */}
             <div className="flex flex-col">
               <p className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.3em] mb-4">Net Worth / Liquidity</p>
-              <div className="flex flex-wrap items-baseline gap-1 min-w-0 max-w-full overflow-hidden">
-                <span className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-slate-900 dark:text-white tracking-tighter leading-none break-all" title={formatCurrency(netWorth)}>
-                  {formatCurrency(netWorth).split('.')[0]}
-                </span>
-                <span className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-400 dark:text-slate-500">
-                  .{formatCurrency(netWorth).split('.')[1] || "00"}
+              <div className="flex items-baseline gap-1 min-w-0 max-w-full overflow-hidden whitespace-nowrap" title={formatCurrency(netWorth)}>
+                <span className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-slate-900 dark:text-white tracking-tighter leading-none">
+                  {formatCurrency(netWorth)}
                 </span>
               </div>
               <div className="flex items-center gap-4 mt-8">

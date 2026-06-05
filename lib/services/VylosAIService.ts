@@ -5,6 +5,7 @@ export interface VylosAIResponse {
   layer?: number;
   source?: string;
   raw_data?: any;
+  data?: any;
 }
 
 export class VylosAIService {
@@ -56,13 +57,15 @@ export class VylosAIService {
       const layer = data.layer;
       const rawData = data.raw_data;
       const responseData = data.data;
+      if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+        console.log("[VylosAIService] raw API response keys:", Object.keys(data), "| data.data:", responseData);
+      }
       return {
         answer,
         layer,
         source: modelSource,
         raw_data: rawData,
-        // Preserve any additional data for future use
-        ...(responseData ? { data: responseData } : {})
+        data: responseData ?? undefined,
       };
     } catch (err: any) {
       if (["UNAUTHORIZED", "FORBIDDEN", "RATE_LIMITED", "BACKEND_ERROR", "CONN_FAILED"].includes(err.message)) {
@@ -90,12 +93,17 @@ export class VylosAIService {
       });
 
       if (!response.ok) {
+        if (process.env.NODE_ENV === "development") {
+          console.error(`[VylosAIService] downloadStatement response status: ${response.status}`);
+        }
         if (response.status === 401) {
           throw new Error("UNAUTHORIZED");
         } else if (response.status === 403) {
           throw new Error("FORBIDDEN");
         } else if (response.status === 429) {
           throw new Error("RATE_LIMITED");
+        } else if (response.status === 404 || response.status === 502) {
+          throw new Error("UNAVAILABLE");
         } else if (response.status >= 500) {
           throw new Error("BACKEND_ERROR");
         } else {
@@ -105,7 +113,7 @@ export class VylosAIService {
 
       return await response.blob();
     } catch (err: any) {
-      if (["UNAUTHORIZED", "FORBIDDEN", "RATE_LIMITED", "BACKEND_ERROR", "CONN_FAILED"].includes(err.message)) {
+      if (["UNAUTHORIZED", "FORBIDDEN", "RATE_LIMITED", "BACKEND_ERROR", "CONN_FAILED", "UNAVAILABLE"].includes(err.message)) {
         throw err;
       }
       console.error("[VylosAIService] downloadStatement failed:", err);

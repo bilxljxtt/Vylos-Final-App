@@ -66,6 +66,20 @@ export class LogicAdvisor {
   }
 
   static detectIntent(query: string): string {
+    // Detect PDF/statement intent before other checks
+    const pdfKeywords = [
+      "pdf",
+      "statement",
+      "download statement",
+      "budget statement",
+      "report",
+      "export",
+      "download"
+    ];
+    const lower = query.toLowerCase();
+    if (pdfKeywords.some(k => lower.includes(k))) {
+      return "pdf_statement_query";
+    }
     if (this.isGeneralOrEducational(query)) {
       return "general_financial_advice_query";
     }
@@ -518,7 +532,10 @@ export class LogicAdvisor {
         if (data.isOver) {
           return `You are over budget in: ${data.overCategories}. Reducing spending in these categories will help improve your cash flow. [Open Budget](/budget)`;
         }
-        return `You are staying within all your budget limits. Great job! [Open Budget](/budget)`;
+        return `Your budget statement is ready. You can download it below. [Download PDF Statement](download-statement)`;
+
+      case "pdf_statement_query":
+        return `Your budget statement is ready. You can download it below.`;
 
       case "cash_flow_query":
         return `Your net cash flow is ${data.cashFlow} this month. (Income: ${data.income}, Expenses: ${data.expenses}). [View Transactions](/transactions)`;

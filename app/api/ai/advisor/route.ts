@@ -114,6 +114,21 @@ export async function POST(req: NextRequest) {
     aiNeeded = LogicAdvisor.shouldUseAI(intent, lastMessage);
 
     if (!aiNeeded) {
+      if (intent === "pdf_statement_query") {
+        // Feature flag – could be toggled via env or config
+        const pdfAvailable = true; // Assume always available for now
+        const answer = pdfAvailable
+          ? "Your budget statement is ready. You can download it below."
+          : "PDF statement generation is not yet available. This feature is coming soon.";
+        const responseData = {
+          type: "pdf_statement",
+          payload: { available: pdfAvailable }
+        };
+        const totalTime = Date.now() - startTime;
+        console.log(`[AI Performance Log] Intent: ${intent} | PDF Response | Total Time: ${totalTime}ms`);
+        return NextResponse.json({ reply: answer, source: "Logic Engine", layer: 3, data: responseData });
+      }
+
       // Return Logic template instantly
       await incrementUsage(supabase, profile, user.id, isDeveloper, today, currentMonth, dailyUsed, monthlyUsed);
       await AiLogger.logTurn(user.id, lastMessage, templateReply, "logic_engine", logicTime, true);
