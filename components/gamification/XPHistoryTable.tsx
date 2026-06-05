@@ -17,7 +17,7 @@ export function XPHistoryTable() {
 
       const { data, error } = await supabase
         .from('xp_events')
-        .select('*')
+        .select('id, description, event_type, created_at, base_xp, multiplier, final_xp')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(10);

@@ -1066,18 +1066,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const currentMonth = new Date().toISOString().slice(0, 7);
     const results = await Promise.all([
       supabase.from('user_profiles').select('*').eq('id', user.id).single(),
-      supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false }),
-      supabase.from('subscriptions').select('*').eq('user_id', user.id),
-      supabase.from('goals').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-      supabase.from('goal_contributions').select('*').eq('user_id', user.id),
-      supabase.from('budgets').select('*').eq('user_id', user.id),
-      supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-      supabase.from('reminders').select('*').eq('user_id', user.id).order('due_date', { ascending: true }),
-      supabase.from('reminder_completions').select('*').eq('user_id', user.id),
-      supabase.from('merchant_rules').select('*').eq('user_id', user.id),
-      supabase.from('ai_usage').select('*').eq('user_id', user.id).eq('billing_month', currentMonth).single(),
-      supabase.from('user_health_scores').select('*').eq('user_id', user.id).order('calculated_at', { ascending: false }).limit(1).maybeSingle(),
-      supabase.from('debts').select('*').eq('user_id', user.id)
+      supabase.from('transactions').select('id, title, amount, date, transaction_date, category, notes, recurring, payment_status, created_at').eq('user_id', user.id).order('date', { ascending: false }),
+      supabase.from('subscriptions').select('id, name, amount, category, frequency, next_due').eq('user_id', user.id),
+      supabase.from('goals').select('id, title, target_amount, current_amount, deadline, status, category, notes, icon, color, created_at').eq('user_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('goal_contributions').select('id, goal_id, amount, date, notes').eq('user_id', user.id),
+      supabase.from('budgets').select('category, limit, spent, type').eq('user_id', user.id),
+      supabase.from('notifications').select('id, title, message, type, read, stable_id, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(100),
+      supabase.from('reminders').select('id, title, description, amount, due_date, due_time, category, priority, recurring, status, created_at, billing_day').eq('user_id', user.id).order('due_date', { ascending: true }),
+      supabase.from('reminder_completions').select('id, reminder_id, user_id, year, month, completed_at').eq('user_id', user.id),
+      supabase.from('merchant_rules').select('id, user_id, merchant_keyword, category').eq('user_id', user.id),
+      supabase.from('ai_usage').select('messages_used, billing_month').eq('user_id', user.id).eq('billing_month', currentMonth).single(),
+      supabase.from('user_health_scores').select('score, status, breakdown, calculated_at').eq('user_id', user.id).order('calculated_at', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('debts').select('id, name, category, monthly_repayment, outstanding_balance, created_at').eq('user_id', user.id)
     ]);
 
     const [profRes, txsRes, subsRes, gpsRes, contribsRes, budgetsRes, notifyRes, remRes, compRes, rulesRes, usageRes, scoreRes, debtsRes] = results;
@@ -1342,7 +1342,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const txChannel = supabase.channel('public:transactions')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${user.id}` }, async () => {
-        const { data: txs } = await supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false });
+        const { data: txs } = await supabase.from('transactions').select('id, title, amount, date, transaction_date, category, notes, recurring, payment_status, created_at').eq('user_id', user.id).order('date', { ascending: false });
         if (txs) dispatch({ type: "UPDATE_TRANSACTIONS", payload: txs.map((t: any) => ({ 
           id: t.id, 
           merchant: t.title, 
@@ -1361,21 +1361,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const goalsChannel = supabase.channel('public:goals')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'goals', filter: `user_id=eq.${user.id}` }, async () => {
-        const { data: gps } = await supabase.from('goals').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+        const { data: gps } = await supabase.from('goals').select('id, title, target_amount, current_amount, deadline, status, category, notes, icon, color, created_at').eq('user_id', user.id).order('created_at', { ascending: false });
         if (gps) dispatch({ type: "UPDATE_GOALS", payload: gps.map((g: any) => ({ id: g.id, title: g.title, targetAmount: parseFloat(g.target_amount), currentAmount: parseFloat(g.current_amount), deadline: g.deadline, status: g.status, category: g.category, notes: g.notes, icon: g.icon, color: g.color, createdAt: g.created_at })) });
         setLastSynced(new Date());
       }).subscribe();
 
     const contribChannel = supabase.channel('public:goal_contributions')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'goal_contributions', filter: `user_id=eq.${user.id}` }, async () => {
-        const { data: contribs } = await supabase.from('goal_contributions').select('*').eq('user_id', user.id);
+        const { data: contribs } = await supabase.from('goal_contributions').select('id, goal_id, amount, date, notes').eq('user_id', user.id);
         if (contribs) dispatch({ type: "UPDATE_CONTRIBUTIONS", payload: contribs.map((c: any) => ({ id: c.id, goalId: c.goal_id, amount: parseFloat(c.amount), date: c.date, notes: c.notes })) });
         setLastSynced(new Date());
       }).subscribe();
 
     const remChannel = supabase.channel('public:reminders')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reminders', filter: `user_id=eq.${user.id}` }, async () => {
-        const { data: rems } = await supabase.from('reminders').select('*').eq('user_id', user.id).order('due_date', { ascending: true });
+        const { data: rems } = await supabase.from('reminders').select('id, title, description, amount, due_date, due_time, category, priority, recurring, status, created_at, billing_day').eq('user_id', user.id).order('due_date', { ascending: true });
         if (rems) dispatch({ type: "UPDATE_REMINDERS", payload: rems.map((r: any) => ({ 
           id: r.id, 
           title: r.title, 
@@ -1395,7 +1395,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const compChannel = supabase.channel('public:reminder_completions')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reminder_completions', filter: `user_id=eq.${user.id}` }, async () => {
-        const { data: comps } = await supabase.from('reminder_completions').select('*').eq('user_id', user.id);
+        const { data: comps } = await supabase.from('reminder_completions').select('id, reminder_id, user_id, year, month, completed_at').eq('user_id', user.id);
         if (comps) dispatch({ type: "UPDATE_REMINDER_COMPLETIONS", payload: comps });
         setLastSynced(new Date());
       }).subscribe();
@@ -1410,7 +1410,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const budgetsChannel = supabase.channel('public:budgets')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'budgets', filter: `user_id=eq.${user.id}` }, async () => {
-        const { data: budgets } = await supabase.from('budgets').select('*').eq('user_id', user.id);
+        const { data: budgets } = await supabase.from('budgets').select('category, limit, spent, type').eq('user_id', user.id);
         const budgetsObj: Record<string, BudgetCategory> = {};
         if (budgets) {
           budgets.forEach((b: any) => {
@@ -1423,7 +1423,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const debtsChannel = supabase.channel('public:debts')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'debts', filter: `user_id=eq.${user.id}` }, async () => {
-        const { data: dbDebts } = await supabase.from('debts').select('*').eq('user_id', user.id);
+        const { data: dbDebts } = await supabase.from('debts').select('id, name, category, monthly_repayment, outstanding_balance, created_at').eq('user_id', user.id);
         if (dbDebts) {
           dispatch({
             type: "UPDATE_DEBTS",

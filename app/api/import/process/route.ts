@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     // 2. Add Smart Categorization & Confidence
     // Fetch user rules and recent transactions for duplicate detection
     const [{ data: userRules }, { data: recentTxs }] = await Promise.all([
-      supabase.from("merchant_category_rules").select("*").eq("user_id", userId),
+      supabase.from("merchant_category_rules").select("merchant_keyword, category").eq("user_id", userId),
       supabase.from("transactions").select("title, amount, date").eq("user_id", userId).order('date', { ascending: false }).limit(200)
     ]);
 

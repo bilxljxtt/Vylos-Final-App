@@ -44,44 +44,55 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    for (const [cat, total] of Object.entries(categoryTotals)) {
-      // We use a raw increment if possible, or fetch and add
-      const { data: currentBudget } = await supabase
+    const categories = Object.keys(categoryTotals);
+    if (categories.length > 0) {
+      const { data: currentBudgets } = await supabase
         .from("budgets")
-        .select("spent")
+        .select("category, spent, type")
         .eq("user_id", userId)
-        .eq("category", cat)
-        .single();
-
-      const newSpent = (currentBudget?.spent || 0) + total;
+        .in("category", categories);
       
-      await supabase
-        .from("budgets")
-        .upsert({ 
-          user_id: userId, 
-          category: cat, 
-          spent: newSpent,
-          type: "limit" // Default type if creating new
-        }, { onConflict: "user_id,category" });
+      const budgetMap = new Map(currentBudgets?.map((b: any) => [b.category, b]) || []);
+      const budgetsToUpsert = categories.map((cat) => {
+        const budget = budgetMap.get(cat);
+        const currentSpent = budget?.spent || 0;
+        const budgetType = budget?.type || "limit";
+        return {
+          user_id: userId,
+          category: cat,
+          spent: Number(currentSpent) + categoryTotals[cat],
+          type: budgetType
+        };
+      });
+
+      if (budgetsToUpsert.length > 0) {
+        const { error: upsertError } = await supabase
+          .from("budgets")
+          .upsert(budgetsToUpsert, { onConflict: "user_id,category" });
+        if (upsertError) throw upsertError;
+      }
     }
 
     // 3. Update Learning Rules (if requested)
     if (updateRules) {
       // Upsert rules based on the imported categories
       const uniqueMerchants = Array.from(new Set(transactions.map((t: any) => t.merchant.trim().toLowerCase())));
-      
-      for (const m of uniqueMerchants) {
+      const rulesToUpsert = uniqueMerchants.map((m) => {
         const txMatch = transactions.find((t: any) => t.merchant.trim().toLowerCase() === m);
-        
-        await supabase
+        return {
+          user_id: userId,
+          merchant_pattern: m,
+          category: txMatch.category,
+          confidence_score: 1.0,
+          last_used: new Date().toISOString()
+        };
+      });
+
+      if (rulesToUpsert.length > 0) {
+        const { error: rulesError } = await supabase
           .from("merchant_category_rules")
-          .upsert({
-            user_id: userId,
-            merchant_pattern: m,
-            category: txMatch.category,
-            confidence_score: 1.0,
-            last_used: new Date().toISOString()
-          }, { onConflict: "user_id,merchant_pattern" });
+          .upsert(rulesToUpsert, { onConflict: "user_id,merchant_pattern" });
+        if (rulesError) throw rulesError;
       }
     }
 

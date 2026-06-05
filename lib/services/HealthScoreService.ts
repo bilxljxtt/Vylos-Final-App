@@ -47,13 +47,13 @@ export class HealthScoreService {
         { data: reminders },
         { data: subscriptions }
       ] = await Promise.all([
-        getSupabaseAdmin().from('user_profiles').select('*').eq('id', userId).single(),
+        getSupabaseAdmin().from('user_profiles').select('monthly_income').eq('id', userId).single(),
         // Fetch only last 3 months of transactions to reduce payload
-        getSupabaseAdmin().from('transactions').select('*').eq('user_id', userId).gte('transaction_date', threeMonthsAgo),
-        getSupabaseAdmin().from('budgets').select('*').eq('user_id', userId),
-        getSupabaseAdmin().from('goals').select('*').eq('user_id', userId),
-        getSupabaseAdmin().from('reminders').select('*').eq('user_id', userId),
-        getSupabaseAdmin().from('subscriptions').select('*').eq('user_id', userId)
+        getSupabaseAdmin().from('transactions').select('transaction_date, date, amount, category').eq('user_id', userId).gte('transaction_date', threeMonthsAgo),
+        getSupabaseAdmin().from('budgets').select('category, limit').eq('user_id', userId),
+        getSupabaseAdmin().from('goals').select('current_amount, target_amount').eq('user_id', userId),
+        getSupabaseAdmin().from('reminders').select('status, due_date').eq('user_id', userId),
+        getSupabaseAdmin().from('subscriptions').select('id').eq('user_id', userId)
       ]);
 
       if (!profile) {
@@ -198,14 +198,22 @@ export class HealthScoreService {
     if (fetchError) throw fetchError;
 
     const results = [];
-    for (const user of users || []) {
-      try {
-        const result = await this.recalculateUserHealthScore(user.id);
-        results.push({ userId: user.id, success: true, score: result.score });
-      } catch (err) {
-        console.error(`Failed to recalculate score for user ${user.id}:`, err);
-        results.push({ userId: user.id, success: false, error: err });
-      }
+    const concurrency = 5;
+    const userList = users || [];
+
+    for (let i = 0; i < userList.length; i += concurrency) {
+      const chunk = userList.slice(i, i + concurrency);
+      const chunkPromises = chunk.map(async (user: any) => {
+        try {
+          const result = await this.recalculateUserHealthScore(user.id);
+          return { userId: user.id, success: true, score: result.score };
+        } catch (err) {
+          console.error(`Failed to recalculate score for user ${user.id}:`, err);
+          return { userId: user.id, success: false, error: err };
+        }
+      });
+      const chunkResults = await Promise.all(chunkPromises);
+      results.push(...chunkResults);
     }
 
     return results;

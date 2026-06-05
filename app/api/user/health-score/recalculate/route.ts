@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
       .eq('user_id', user.id)
       .order('calculated_at', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (lastScore) {
       const lastCalc = new Date(lastScore.calculated_at);

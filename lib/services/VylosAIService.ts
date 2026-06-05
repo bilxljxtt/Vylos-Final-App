@@ -27,7 +27,8 @@ export class VylosAIService {
       const response = await fetch("/api/ai/advisor", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
           messages: [{ role: "user", content: question }]
@@ -49,11 +50,19 @@ export class VylosAIService {
       }
 
       const data = await response.json();
+      // Support both old and new response schemas
+      const answer = data.answer || data.reply || "";
+      const modelSource = data.model_source || data.source;
+      const layer = data.layer;
+      const rawData = data.raw_data;
+      const responseData = data.data;
       return {
-        answer: data.reply || "",
-        layer: data.layer,
-        source: data.source,
-        raw_data: data.raw_data
+        answer,
+        layer,
+        source: modelSource,
+        raw_data: rawData,
+        // Preserve any additional data for future use
+        ...(responseData ? { data: responseData } : {})
       };
     } catch (err: any) {
       if (["UNAUTHORIZED", "FORBIDDEN", "RATE_LIMITED", "BACKEND_ERROR", "CONN_FAILED"].includes(err.message)) {
@@ -65,9 +74,19 @@ export class VylosAIService {
   }
 
   static async downloadStatement(): Promise<Blob> {
+    const supabase = createClient();
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !session) {
+      throw new Error("UNAUTHORIZED");
+    }
+    const token = session.access_token;
+
     try {
       const response = await fetch("/api/ai/download-statement", {
-        method: "GET"
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
       });
 
       if (!response.ok) {

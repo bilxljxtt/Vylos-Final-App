@@ -461,6 +461,9 @@ export default function App() {
           .select('id, title')
           .eq('user_id', sessionUser.id);
 
+        const goalsToUpdate: any[] = [];
+        const goalsToInsert: any[] = [];
+
         for (const g of answers.goalsDetails) {
           const targetAmt = parseFloat(g.target_amount) || 0;
           const currentAmt = parseFloat(g.current_amount || "0") || 0;
@@ -468,37 +471,47 @@ export default function App() {
           const matchedGoal = existingGoals?.find((eg: any) => eg.title.toLowerCase().trim() === g.title.toLowerCase().trim());
 
           if (matchedGoal) {
-            const { error: updateGoalErr } = await supabase
-              .from('goals')
-              .update({
-                target_amount: targetAmt,
-                current_amount: currentAmt,
-                deadline,
-                category: g.category || "Savings",
-                icon: g.icon || "🎯",
-                color: g.color || "#00D8A5",
-                notes: `Updated during onboarding config`
-              })
-              .eq('id', matchedGoal.id);
-            if (updateGoalErr) console.error("Error updating onboarding goal:", updateGoalErr);
+            goalsToUpdate.push({
+              id: matchedGoal.id,
+              user_id: sessionUser.id,
+              title: g.title,
+              target_amount: targetAmt,
+              current_amount: currentAmt,
+              deadline,
+              category: g.category || "Savings",
+              icon: g.icon || "🎯",
+              color: g.color || "#00D8A5",
+              notes: `Updated during onboarding config`
+            });
           } else {
-            const { error: insertGoalErr } = await supabase
-              .from('goals')
-              .insert({
-                user_id: sessionUser.id,
-                title: g.title,
-                target_amount: targetAmt,
-                current_amount: currentAmt,
-                deadline,
-                category: g.category || "Savings",
-                status: "On Track",
-                notes: `Created during onboarding config`,
-                icon: g.icon || "🎯",
-                color: g.color || "#00D8A5",
-                created_at: new Date().toISOString()
-              });
-            if (insertGoalErr) console.error("Error inserting onboarding goal:", insertGoalErr);
+            goalsToInsert.push({
+              user_id: sessionUser.id,
+              title: g.title,
+              target_amount: targetAmt,
+              current_amount: currentAmt,
+              deadline,
+              category: g.category || "Savings",
+              status: "On Track",
+              notes: `Created during onboarding config`,
+              icon: g.icon || "🎯",
+              color: g.color || "#00D8A5",
+              created_at: new Date().toISOString()
+            });
           }
+        }
+
+        if (goalsToInsert.length > 0) {
+          const { error: insertGoalErr } = await supabase
+            .from('goals')
+            .insert(goalsToInsert);
+          if (insertGoalErr) console.error("Error inserting onboarding goals:", insertGoalErr);
+        }
+
+        if (goalsToUpdate.length > 0) {
+          const { error: updateGoalErr } = await supabase
+            .from('goals')
+            .upsert(goalsToUpdate);
+          if (updateGoalErr) console.error("Error updating onboarding goals:", updateGoalErr);
         }
       }
 
@@ -510,31 +523,40 @@ export default function App() {
             .select('id, name')
             .eq('user_id', sessionUser.id);
 
+          const debtsToUpdate: any[] = [];
+          const debtsToInsert: any[] = [];
+
           for (const d of answers.debts) {
             const repaymentAmt = parseFloat(d.repayment || "0") || 0;
             const balanceAmt = parseFloat(d.balance || "0") || 0;
             const matchedDebt = existingDebts?.find((ed: any) => ed.name.toLowerCase().trim() === d.name.toLowerCase().trim());
 
             if (matchedDebt) {
-              await supabase
-                .from('debts')
-                .update({
-                  category: d.category || "Other",
-                  monthly_repayment: repaymentAmt,
-                  outstanding_balance: balanceAmt
-                })
-                .eq('id', matchedDebt.id);
+              debtsToUpdate.push({
+                id: matchedDebt.id,
+                user_id: sessionUser.id,
+                name: d.name,
+                category: d.category || "Other",
+                monthly_repayment: repaymentAmt,
+                outstanding_balance: balanceAmt
+              });
             } else {
-              await supabase
-                .from('debts')
-                .insert({
-                  user_id: sessionUser.id,
-                  name: d.name,
-                  category: d.category || "Other",
-                  monthly_repayment: repaymentAmt,
-                  outstanding_balance: balanceAmt
-                });
+              debtsToInsert.push({
+                user_id: sessionUser.id,
+                name: d.name,
+                category: d.category || "Other",
+                monthly_repayment: repaymentAmt,
+                outstanding_balance: balanceAmt
+              });
             }
+          }
+
+          if (debtsToInsert.length > 0) {
+            await supabase.from('debts').insert(debtsToInsert);
+          }
+
+          if (debtsToUpdate.length > 0) {
+            await supabase.from('debts').upsert(debtsToUpdate);
           }
         } catch (debtsError: any) {
           console.warn("Could not manage native debts table (it may not exist yet or have RLS limits):", debtsError.message);
@@ -609,37 +631,51 @@ export default function App() {
           .eq('user_id', sessionUser.id)
           .eq('status', 'pending');
 
+        const remindersToUpdate: any[] = [];
+        const remindersToInsert: any[] = [];
+
         for (const rem of candidateReminders) {
           const matchedRem = existingReminders?.find((er: any) => er.title.toLowerCase().trim() === rem.title.toLowerCase().trim());
           if (matchedRem) {
-            const { error: updateRemErr } = await supabase
-              .from('reminders')
-              .update({
-                amount: rem.amount,
-                due_date: rem.due_date,
-                description: rem.description,
-                category: rem.category,
-                priority: rem.priority,
-                recurring: rem.recurring
-              })
-              .eq('id', matchedRem.id);
-            if (updateRemErr) console.error("Error updating reminder:", updateRemErr);
+            remindersToUpdate.push({
+              id: matchedRem.id,
+              user_id: sessionUser.id,
+              title: rem.title,
+              amount: rem.amount,
+              due_date: rem.due_date,
+              description: rem.description,
+              category: rem.category,
+              priority: rem.priority,
+              recurring: rem.recurring,
+              status: "pending"
+            });
           } else {
-            const { error: insertRemErr } = await supabase
-              .from('reminders')
-              .insert({
-                user_id: sessionUser.id,
-                title: rem.title,
-                description: rem.description,
-                amount: rem.amount,
-                due_date: rem.due_date,
-                category: rem.category,
-                priority: rem.priority,
-                recurring: rem.recurring,
-                status: "pending"
-              });
-            if (insertRemErr) console.error("Error inserting reminder:", insertRemErr);
+            remindersToInsert.push({
+              user_id: sessionUser.id,
+              title: rem.title,
+              description: rem.description,
+              amount: rem.amount,
+              due_date: rem.due_date,
+              category: rem.category,
+              priority: rem.priority,
+              recurring: rem.recurring,
+              status: "pending"
+            });
           }
+        }
+
+        if (remindersToInsert.length > 0) {
+          const { error: insertRemErr } = await supabase
+            .from('reminders')
+            .insert(remindersToInsert);
+          if (insertRemErr) console.error("Error inserting reminders:", insertRemErr);
+        }
+
+        if (remindersToUpdate.length > 0) {
+          const { error: updateRemErr } = await supabase
+            .from('reminders')
+            .upsert(remindersToUpdate);
+          if (updateRemErr) console.error("Error updating reminders:", updateRemErr);
         }
       }
 

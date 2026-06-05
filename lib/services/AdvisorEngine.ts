@@ -28,9 +28,9 @@ export class AdvisorEngine {
     const currentMonthStr = now.toISOString().slice(0, 7); // YYYY-MM
 
     const [txsRes, budgetsRes, goalsRes, profileRes] = await Promise.all([
-      supabase.from('transactions').select('*').eq('user_id', userId).filter('date', 'gte', `${currentMonthStr}-01`),
-      supabase.from('budgets').select('*').eq('user_id', userId),
-      supabase.from('goals').select('*').eq('user_id', userId),
+      supabase.from('transactions').select('amount, category').eq('user_id', userId).filter('date', 'gte', `${currentMonthStr}-01`),
+      supabase.from('budgets').select('category, limit').eq('user_id', userId),
+      supabase.from('goals').select('id, title, target_amount, current_amount, deadline').eq('user_id', userId),
       supabase.from('user_profiles').select('currency').eq('id', userId).single()
     ]);
 

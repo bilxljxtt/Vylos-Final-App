@@ -41,7 +41,7 @@ export function ExportTransactionsModal({ isOpen, onClose, data }: ExportTransac
       const to = from + pageSize - 1;
       let query = supabase
         .from("transactions")
-        .select("*")
+        .select("date, title, category, amount, notes")
         .eq("user_id", state.userProfile.id)
         .order("date", { ascending: false })
         .range(from, to);
