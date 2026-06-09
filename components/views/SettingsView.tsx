@@ -6,12 +6,13 @@ import {
   LogOut, ChevronRight, Globe, Moon, Sun,
   Smartphone, Mail, User, Phone, CheckCircle2,
   UserCircle, Palette, Zap, CreditCard, Shield,
-  ExternalLink, ChevronDown, MessageCircle
+  ExternalLink, ChevronDown, MessageCircle, Trash2, X
 } from "lucide-react";
 import { useAppStore } from "@/lib/AppContext";
 import { AppState, UserProfile, NotificationPrefs } from "@/lib/store";
 import { createClient } from "@/utils/supabase/client";
 import { VylosAvatar } from "../ui/VylosAvatar";
+import { Portal } from "@/components/ui/Portal";
 
 interface SettingsViewProps {
   state: AppState;
@@ -34,8 +35,44 @@ export function SettingsView({
   onUpgrade,
   onShowFeedback
 }: SettingsViewProps) {
-  const { updateNotifications } = useAppStore();
+  const { updateNotifications, refreshData } = useAppStore();
   const supabase = createClient();
+
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [confirmTextInput, setConfirmTextInput] = useState("");
+  const [resetting, setResetting] = useState(false);
+
+  const handleResetData = async () => {
+    if (confirmTextInput !== "RESET") return;
+    setResetting(true);
+    try {
+      const response = await fetch("/api/user/reset-data", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ confirmText: "RESET" }),
+      });
+      const data = await response.json();
+      if (!response.ok || data.error) {
+        throw new Error(data.error || "Failed to reset your financial data.");
+      }
+
+      showToast("Your financial data has been reset. Your profile setup has been kept.", "success");
+      setShowResetModal(false);
+      setConfirmTextInput("");
+
+      // Refresh database query cache and local state in context
+      await refreshData();
+
+      // Redirect user back to dashboard
+      setPage("dashboard");
+    } catch (err: any) {
+      showToast(err.message || "An error occurred during account reset.", "error");
+    } finally {
+      setResetting(false);
+    }
+  };
 
   const [profile, setProfile] = useState({
     name: state.userProfile.name || "",
@@ -306,6 +343,8 @@ export function SettingsView({
                 <div className="relative">
                   <User size={20} className="absolute left-5 top-1/2 -translate-y-1/2 text-text-muted opacity-40" />
                   <input 
+                    id="settings-display-name"
+                    name="displayName"
                     type="text" 
                     value={profile.name} 
                     onChange={e => setProfile({...profile, name: e.target.value})}
@@ -320,6 +359,8 @@ export function SettingsView({
                 <div className="relative">
                   <Mail size={20} className="absolute left-5 top-1/2 -translate-y-1/2 text-text-muted opacity-40" />
                   <input 
+                    id="settings-email"
+                    name="email"
                     type="email" 
                     value={profile.email} 
                     disabled
@@ -333,6 +374,8 @@ export function SettingsView({
                 <div className="relative">
                   <Phone size={20} className="absolute left-5 top-1/2 -translate-y-1/2 text-text-muted opacity-40" />
                   <input 
+                    id="settings-phone"
+                    name="phone"
                     type="tel" 
                     value={profile.phone} 
                     onChange={e => setProfile({...profile, phone: e.target.value})}
@@ -347,6 +390,8 @@ export function SettingsView({
                 <div className="relative">
                   <Globe size={20} className="absolute left-5 top-1/2 -translate-y-1/2 text-text-muted opacity-40" />
                   <select 
+                    id="settings-currency"
+                    name="currency"
                     value={profile.currency}
                     onChange={e => setProfile({...profile, currency: e.target.value})}
                     className="w-full vylos-glass-input rounded-[2rem] pl-14 pr-12 py-5 text-sm font-black text-text-main outline-none transition-all appearance-none cursor-pointer vylos-focus"
@@ -380,6 +425,8 @@ export function SettingsView({
                 <div className="relative">
                   <span className="absolute left-5 top-1/2 -translate-y-1/2 font-black text-sm text-text-muted opacity-60">R</span>
                   <input 
+                    id="settings-take-home-pay"
+                    name="takeHomePay"
                     type="number" 
                     value={bluePrint.takeHomePay} 
                     onChange={e => setBluePrint({...bluePrint, takeHomePay: e.target.value})}
@@ -394,6 +441,8 @@ export function SettingsView({
                 <div className="relative">
                   <span className="absolute left-5 top-1/2 -translate-y-1/2 font-black text-sm text-text-muted opacity-60">R</span>
                   <input 
+                    id="settings-survival-baseline"
+                    name="survivalBaseline"
                     type="number" 
                     value={bluePrint.survivalBaseline} 
                     onChange={e => setBluePrint({...bluePrint, survivalBaseline: e.target.value})}
@@ -406,6 +455,8 @@ export function SettingsView({
               <div className="flex flex-col gap-3">
                 <label className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] ml-2">Age</label>
                 <input 
+                  id="settings-age"
+                  name="age"
                   type="number" 
                   value={bluePrint.age} 
                   onChange={e => setBluePrint({...bluePrint, age: e.target.value})}
@@ -418,6 +469,8 @@ export function SettingsView({
                 <label className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] ml-2">Budget Target Scope</label>
                 <div className="relative">
                   <select 
+                    id="settings-budget-target"
+                    name="budgetTarget"
                     value={bluePrint.budgetTarget}
                     onChange={e => setBluePrint({...bluePrint, budgetTarget: e.target.value})}
                     className="w-full vylos-glass-input rounded-[2rem] px-6 py-5 text-sm font-black text-text-main outline-none transition-all appearance-none cursor-pointer vylos-focus"
@@ -435,6 +488,8 @@ export function SettingsView({
                 <label className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] ml-2">Prior Tracking Method</label>
                 <div className="relative">
                   <select 
+                    id="settings-tracking-method"
+                    name="trackingMethod"
                     value={bluePrint.trackingMethod}
                     onChange={e => setBluePrint({...bluePrint, trackingMethod: e.target.value})}
                     className="w-full vylos-glass-input rounded-[2rem] px-6 py-5 text-sm font-black text-text-main outline-none transition-all appearance-none cursor-pointer vylos-focus"
@@ -468,6 +523,8 @@ export function SettingsView({
                     <div key={field.k} className="flex flex-col gap-1">
                       <span className="text-[8px] font-black text-text-muted uppercase tracking-widest">{field.label}</span>
                       <input 
+                        id={`settings-household-${field.k}`}
+                        name={field.k}
                         type="number" 
                         min="0"
                         value={bluePrint[field.k]} 
@@ -556,9 +613,100 @@ export function SettingsView({
 
           </div>
 
+          {/* Reset Account Data Panel */}
+          <div className="vylos-glass-panel p-5 sm:p-10 flex flex-col border border-red-500/10 hover:border-red-500/20 transition-all">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="p-3.5 bg-red-500/10 rounded-3xl text-red-500 shadow-2xl">
+                <Trash2 size={24} />
+              </div>
+              <div>
+                <h4 className="text-xl sm:text-2xl font-black text-text-main tracking-tighter">Reset Account Data</h4>
+                <p className="text-xs font-bold text-text-muted opacity-60">Permanently clear your financial records.</p>
+              </div>
+            </div>
+
+            <p className="text-sm font-medium text-text-muted mb-8 leading-relaxed">
+              This will permanently delete your transactions, budgets, goals, reminders, imports, AI history, and financial progress. Your login account will remain active.
+            </p>
+
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowResetModal(true)}
+                className="px-6 py-4 bg-red-500/10 hover:bg-red-500/25 border border-red-500/20 hover:border-red-500/35 text-red-500 rounded-2xl text-xs font-black uppercase tracking-widest transition-all active:scale-95"
+              >
+                Reset My Data
+              </button>
+            </div>
+          </div>
+
         </div>
 
       </div>
+
+      {showResetModal && (
+        <Portal>
+          <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-md cursor-pointer" onClick={() => !resetting && setShowResetModal(false)} />
+            
+            <div className="relative vylos-modal-glass w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-10 duration-500 flex flex-col max-h-[90vh]">
+              {/* Subtle top glow effect */}
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-red-500/40 to-transparent pointer-events-none" />
+              
+              {/* Decorative Background */}
+              <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-red-500/10 to-transparent pointer-events-none" />
+              <div className="absolute -top-24 -right-24 w-64 h-64 bg-red-500/5 rounded-full blur-3xl pointer-events-none" />
+
+              <div className="p-8 sm:p-10 relative overflow-y-auto flex-1 custom-scrollbar">
+                <button 
+                  onClick={() => !resetting && setShowResetModal(false)}
+                  disabled={resetting}
+                  className="absolute top-6 right-6 p-2 text-text-muted hover:text-text-main hover:bg-border-main/50 rounded-xl transition-all z-20 disabled:opacity-50"
+                >
+                  <X size={20} />
+                </button>
+
+                <div className="space-y-8">
+                  <div className="flex flex-col items-center text-center gap-4">
+                    <div className="w-20 h-20 rounded-3xl bg-red-500/10 flex items-center justify-center text-red-500 shadow-xl shadow-red-500/5">
+                      <Trash2 size={40} strokeWidth={2.5} />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <h2 className="text-3xl font-black text-text-main tracking-tight">Are you absolutely sure?</h2>
+                      <p className="text-sm font-medium text-text-muted max-w-[320px] mx-auto">
+                        This action cannot be undone. All your Vylos transactions, budgets, goals, reminders, and AI history will be wiped clean.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">Type RESET to confirm</label>
+                      <input 
+                        type="text"
+                        value={confirmTextInput}
+                        onChange={(e) => setConfirmTextInput(e.target.value)}
+                        placeholder="RESET"
+                        disabled={resetting}
+                        className="w-full bg-border-main/20 border border-border-main rounded-2xl px-6 py-4 text-center text-sm font-black tracking-widest text-text-main outline-none focus:border-red-500/50 transition-all shadow-inner placeholder:text-text-muted/30 focus:ring-1 focus:ring-red-500/50"
+                      />
+                    </div>
+                  </div>
+
+                  <button 
+                    type="button"
+                    onClick={handleResetData}
+                    disabled={confirmTextInput !== "RESET" || resetting}
+                    className="w-full py-5 bg-red-500 text-white font-black rounded-2xl shadow-xl shadow-red-500/20 hover:bg-red-600 transition-all active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed uppercase tracking-widest text-xs flex items-center justify-center gap-3"
+                  >
+                    {resetting ? "Permanently Resetting..." : "Permanently Reset My Data"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Portal>
+      )}
 
     </div>
   );

@@ -1,0 +1,10 @@
+{
+  "name": "Vylos",
+  "short_name": "Vylos",
+  "description": "Vylos is an AI-powered financial management platform for budgeting, tracking, insights, and smarter financial decisions.",
+  "theme_color": "#0b1f4d",
+  "background_color": "#020617",
+  "display": "standalone",
+  "start_url": "/",
+  "icons": []
+}

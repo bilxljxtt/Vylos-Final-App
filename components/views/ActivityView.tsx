@@ -24,7 +24,7 @@ export function ActivityView() {
     return notifications.filter(n => {
       const matchesFilter = filter === "all" || !n.read;
       const matchesSearch = n.title.toLowerCase().includes(search.toLowerCase()) || 
-                           n.message.toLowerCase().includes(search.toLowerCase());
+                           (n.message || "").toLowerCase().includes(search.toLowerCase());
       return matchesFilter && matchesSearch;
     });
   }, [notifications, filter, search]);
@@ -143,7 +143,7 @@ export function ActivityView() {
                 <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center shrink-0 border ${
                   !notif.read ? 'bg-white/20 border-primary/30 shadow-lg' : 'bg-white/5 border-white/10'
                 }`}>
-                  {getIcon(notif.type)}
+                  {getIcon(notif.type || '')}
                 </div>
                 
                 <div className="flex flex-col min-w-0 flex-1">

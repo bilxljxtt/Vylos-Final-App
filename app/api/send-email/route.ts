@@ -19,6 +19,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    // Security Hardening: Only allow users to send emails to themselves
+    if (to.trim().toLowerCase() !== user.email?.trim().toLowerCase()) {
+      return NextResponse.json({ error: 'Forbidden: You can only send emails to your own registered address.' }, { status: 403 });
+    }
+
     // In a real app with verified domain, use something like "alerts@yourdomain.com"
     // Since this is a testing/onboarding phase without a verified domain,
     // Resend requires using their test email "onboarding@resend.dev"

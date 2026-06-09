@@ -358,6 +358,8 @@ export const AIAdvisorView: React.FC<AIAdvisorViewProps> = ({
                 <Paperclip size={20} />
               </button>
               <input 
+                id="vylos-ai-chat-input"
+                name="vylosAiChatInput"
                 type="text" 
                 value={aiInput}
                 onChange={(e) => setAiInput(e.target.value)}

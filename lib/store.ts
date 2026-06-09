@@ -154,13 +154,12 @@ export interface NotificationPrefs {
 
 export interface Notification {
   id: string;
-  user_id?: string;
+  user_id: string;
   title: string;
-  message: string;
-  type: 'info' | 'warning' | 'success';
+  message: string | null;
+  type: string | null;
   read: boolean;
   created_at: string;
-  stable_id?: string;
 }
 
 export interface Reminder {
@@ -215,6 +214,24 @@ export interface BackendHealthScore {
 
 import { MerchantRule } from "./services/CategorizationEngine";
 
+export type AiUsage = {
+  id: string;
+  user_id: string;
+  messages: number;
+  date: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type AiDailyUsage = {
+  id: string;
+  user_id: string;
+  usage_date: string;
+  message_count: number;
+  created_at?: string;
+  updated_at?: string;
+};
+
 export interface AppState {
   transactions: Transaction[];
   subscriptions: Subscription[];
@@ -230,7 +247,7 @@ export interface AppState {
   notificationList: Notification[];
   unreadNotificationCount: number;
   selectedMonth: string; // ISO format "YYYY-MM-DD"
-  aiUsage: { messages_used: number; billing_month: string };
+  aiUsage: AiUsage;
   backendHealthScore: BackendHealthScore | null;
   isCalculatingHealthScore: boolean;
 }
@@ -275,7 +292,7 @@ export const initialState: AppState = {
   unreadNotificationCount: 0,
   notificationList: [],
   selectedMonth: getMonthStart(),
-  aiUsage: { messages_used: 0, billing_month: new Date().toISOString().slice(0, 7) },
+  aiUsage: { id: "", user_id: "", messages: 0, date: new Date().toISOString().split("T")[0] },
   budgets: {},
   userProfile: {
     id: "",

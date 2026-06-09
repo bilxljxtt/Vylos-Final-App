@@ -93,6 +93,8 @@ export default function ResetPassword() {
                 <Lock size={20} />
               </div>
               <input 
+                id="reset-password"
+                name="password"
                 type="password" 
                 placeholder="••••••••••••" 
                 value={password} 
@@ -110,6 +112,8 @@ export default function ResetPassword() {
                 <Lock size={20} />
               </div>
               <input 
+                id="reset-confirm-password"
+                name="confirmPassword"
                 type="password" 
                 placeholder="••••••••••••" 
                 value={confirmPassword} 

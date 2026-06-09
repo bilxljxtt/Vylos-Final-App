@@ -128,6 +128,8 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose })
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">Your Name</label>
                 <input 
+                  id="feedback-name"
+                  name="name"
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -138,6 +140,8 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose })
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">Email Address</label>
                 <input 
+                  id="feedback-email"
+                  name="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -205,6 +209,8 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose })
             <div className="space-y-2">
               <label className="text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">Your Message <span className="text-primary">*</span></label>
               <textarea 
+                id="feedback-message"
+                name="message"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="Tell us what's on your mind..."

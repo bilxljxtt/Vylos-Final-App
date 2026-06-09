@@ -223,6 +223,8 @@ export default function SignupPage() {
                       <User size={20} />
                     </div>
                     <input 
+                      id="signup-name"
+                      name="name"
                       type="text" placeholder="John Doe" required
                       value={form.name} onChange={e => setForm({...form, name: e.target.value})}
                       className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl pl-14 pr-4 py-4 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 transition-all font-bold tracking-tight text-lg"
@@ -238,6 +240,8 @@ export default function SignupPage() {
                       <Mail size={20} />
                     </div>
                     <input 
+                      id="signup-email"
+                      name="email"
                       type="email" placeholder="john@example.com" required
                       value={form.email} onChange={e => setForm({...form, email: e.target.value})}
                       className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl pl-14 pr-4 py-4 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 transition-all font-bold tracking-tight text-lg"
@@ -254,6 +258,8 @@ export default function SignupPage() {
                         <Lock size={18} />
                       </div>
                       <input 
+                        id="signup-password"
+                        name="password"
                         type={showPassword ? "text" : "password"} placeholder="••••••••" required
                         value={form.password} onChange={e => setForm({...form, password: e.target.value})}
                         className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl pl-14 pr-12 py-4 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 transition-all font-bold tracking-tight text-base"
@@ -271,6 +277,8 @@ export default function SignupPage() {
                         <ShieldCheck size={18} />
                       </div>
                       <input 
+                        id="signup-confirm-password"
+                        name="confirmPassword"
                         type={showPassword ? "text" : "password"} placeholder="••••••••" required
                         value={form.confirmPassword} onChange={e => setForm({...form, confirmPassword: e.target.value})}
                         className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl pl-14 pr-4 py-4 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 transition-all font-bold tracking-tight text-base"
@@ -287,6 +295,8 @@ export default function SignupPage() {
                       <Phone size={20} />
                     </div>
                     <input 
+                      id="signup-phone"
+                      name="phone"
                       type="tel" placeholder="+27 82 000 0000"
                       value={form.phone} onChange={e => setForm({...form, phone: e.target.value})}
                       className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl pl-14 pr-4 py-4 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 transition-all font-bold tracking-tight text-lg"
@@ -298,6 +308,8 @@ export default function SignupPage() {
                 <div className="flex items-start gap-4 py-2 px-2">
                   <div className="relative flex items-center justify-center mt-1">
                     <input 
+                      id="signup-agree-to-terms"
+                      name="agreeToTerms"
                       type="checkbox" required
                       checked={agreeToTerms} onChange={() => setAgreeToTerms(!agreeToTerms)}
                       className="peer h-6 w-6 appearance-none rounded-lg border border-slate-300 dark:border-white/20 bg-white dark:bg-white/5 checked:bg-blue-600 checked:border-blue-600 transition-all cursor-pointer"

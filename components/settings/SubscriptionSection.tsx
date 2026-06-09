@@ -5,13 +5,13 @@ import { Shield, Crown, Zap, User, ExternalLink } from 'lucide-react';
 
 interface SubscriptionSectionProps {
   user: UserProfile;
-  aiUsage?: { messages_used: number; billing_month: string };
+  aiUsage?: { messages: number; date: string };
 }
 
 export const SubscriptionSection: React.FC<SubscriptionSectionProps> = ({ user, aiUsage }) => {
   const isInternal = Permissions.isInternalUser(user);
   const monthlyLimit = Permissions.getAIMonthlyLimit(user);
-  const messagesUsed = aiUsage?.messages_used || 0;
+  const messagesUsed = aiUsage?.messages || 0;
   
   const tierLabels: Record<UserProfile['subscription_tier'], string> = {
     free: 'Premium Beta Access',

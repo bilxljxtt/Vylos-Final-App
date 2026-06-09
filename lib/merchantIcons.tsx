@@ -11,16 +11,15 @@ import {
 export interface MerchantLogo {
   id: string;
   keywords: string[];
-  logo?: string; // URL to local asset or external
   icon: React.ReactNode;
   bg: string;
 }
 
 export const MERCHANT_LOGOS: MerchantLogo[] = [
   // Streaming / Subscriptions
-  { id: 'netflix', keywords: ['netflix'], logo: '/merchant-logos/netflix.png', icon: <Video size={18} />, bg: 'bg-black text-red-600' },
-  { id: 'spotify', keywords: ['spotify'], logo: '/merchant-logos/spotify.png', icon: <Music size={18} />, bg: 'bg-[#1DB954] text-black' },
-  { id: 'youtube', keywords: ['youtube', 'yt music', 'google *youtube'], logo: '/merchant-logos/youtube.png', icon: <Play size={18} />, bg: 'bg-white text-red-600' },
+  { id: 'netflix', keywords: ['netflix'], icon: <Video size={18} />, bg: 'bg-black text-red-600' },
+  { id: 'spotify', keywords: ['spotify'], icon: <Music size={18} />, bg: 'bg-[#1DB954] text-black' },
+  { id: 'youtube', keywords: ['youtube', 'yt music', 'google *youtube'], icon: <Play size={18} />, bg: 'bg-white text-red-600' },
   { id: 'disney', keywords: ['disney', 'disney+'], icon: <Video size={18} />, bg: 'bg-[#006E99] text-white' },
   { id: 'amazon', keywords: ['amazon', 'prime'], icon: <ShoppingBag size={18} />, bg: 'bg-[#FF9900] text-black' },
   
@@ -102,7 +101,6 @@ export function getTransactionIcon(merchant: string, category: string, type: 'in
   
   if (merchantMatch) {
     return {
-      logo: merchantMatch.logo,
       icon: merchantMatch.icon,
       bg: merchantMatch.bg,
       id: merchantMatch.id

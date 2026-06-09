@@ -292,24 +292,55 @@ export default function App() {
     try {
       const supabase = createClient();
       const today = new Date().toISOString().slice(0, 10);
-      const currentMonth = new Date().toISOString().slice(0, 7);
 
-      const { data: dailyData } = await supabase
+      const { data: dailyData, error: dailyErr } = await supabase
         .from('ai_daily_usage')
         .select('message_count')
         .eq('user_id', sessionUser.id)
         .eq('usage_date', today)
         .maybeSingle();
 
-      const { data: monthlyData } = await supabase
+      if (dailyErr) {
+        console.warn("Failed to fetch daily AI usage:", dailyErr.message);
+      }
+
+      let { data: monthlyData, error: monthlyErr } = await supabase
         .from('ai_usage')
-        .select('messages_used')
+        .select('messages')
         .eq('user_id', sessionUser.id)
-        .eq('billing_month', currentMonth)
+        .eq('date', today)
         .maybeSingle();
 
+      if (monthlyErr) {
+        console.warn("Failed to fetch monthly AI usage:", monthlyErr.message);
+      }
+
+      // If the monthly row does not exist, create it with messages = 0
+      if (!monthlyData && !monthlyErr) {
+        try {
+          const defaultUsage = {
+            user_id: sessionUser.id,
+            date: today,
+            messages: 0
+          };
+          const { data: newUsage, error: insertErr } = await supabase
+            .from('ai_usage')
+            .insert([defaultUsage])
+            .select('messages')
+            .maybeSingle();
+
+          if (insertErr) {
+            console.warn("Failed to create ai_usage row in fetchAiUsage (using fallback):", insertErr.message);
+          } else if (newUsage) {
+            monthlyData = newUsage;
+          }
+        } catch (err: any) {
+          console.warn("Exception during ai_usage auto-creation in fetchAiUsage:", err.message);
+        }
+      }
+
       setDailyUsed(dailyData?.message_count || 0);
-      setMonthlyUsed(monthlyData?.messages_used || 0);
+      setMonthlyUsed(monthlyData?.messages || 0);
     } catch (err) {
       console.error("Error fetching AI limits:", err);
     }

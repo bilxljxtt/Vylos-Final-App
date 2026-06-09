@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React from 'react';
 import { getTransactionIcon } from '@/lib/merchantIcons';
 
 interface TransactionIconProps {
@@ -15,7 +15,6 @@ export const TransactionIcon: React.FC<TransactionIconProps> = ({
   merchant, category, type = 'expense', size = 'md', className = "" 
 }) => {
   const iconData = getTransactionIcon(merchant, category, type);
-  const [imgError, setImgError] = useState(false);
 
   const sizeClasses = {
     sm: "w-8 h-8 rounded-xl text-sm",
@@ -24,22 +23,6 @@ export const TransactionIcon: React.FC<TransactionIconProps> = ({
   };
 
   const containerSize = sizeClasses[size];
-
-  const logoUrl = 'logo' in iconData ? iconData.logo : undefined;
-
-  // If we have a logo and it hasn't errored out, try to show it
-  if (logoUrl && !imgError) {
-    return (
-      <div className={`flex items-center justify-center shrink-0 shadow-lg border border-white/10 overflow-hidden ${containerSize} ${iconData.bg} ${className}`}>
-        <img 
-          src={logoUrl} 
-          alt={merchant} 
-          className="w-full h-full object-contain p-1.5"
-          onError={() => setImgError(true)}
-        />
-      </div>
-    );
-  }
 
   // Fallback to Icon or Initials
   return (

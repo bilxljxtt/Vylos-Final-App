@@ -514,6 +514,8 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                     {/* Custom hobby entry */}
                     <div className="flex gap-3">
                       <input
+                        id="onboarding-custom-hobby-input"
+                        name="customHobbyInput"
                         type="text"
                         placeholder="e.g. Photography, Tennis..."
                         value={hobbyInput}
@@ -541,6 +543,8 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                                 <div className="relative w-24">
                                   <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">R</span>
                                   <input
+                                    id={`onboarding-hobby-amount-${idx}`}
+                                    name={`hobbyAmount_${idx}`}
                                     type="number"
                                     placeholder="0"
                                     value={h.amount}
@@ -593,6 +597,8 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                     {/* Custom goal entry */}
                     <div className="flex gap-3">
                       <input
+                        id="onboarding-custom-goal-input"
+                        name="customGoalInput"
                         type="text"
                         placeholder="e.g. Save for MacBook, Wedding..."
                         value={customGoalInput}
@@ -635,6 +641,8 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                                   <div className="relative">
                                     <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">R</span>
                                     <input
+                                      id={`onboarding-goal-target-amount-${idx}`}
+                                      name={`goalTargetAmount_${idx}`}
                                       type="number"
                                       required
                                       placeholder="e.g. 50000"
@@ -651,6 +659,8 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                                   <div className="relative">
                                     <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">R</span>
                                     <input
+                                      id={`onboarding-goal-current-amount-${idx}`}
+                                      name={`goalCurrentAmount_${idx}`}
                                       type="number"
                                       placeholder="0"
                                       value={g.current_amount}
@@ -664,6 +674,8 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                                 <div className="space-y-1 col-span-2">
                                   <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Target Date (Optional)</label>
                                   <input
+                                    id={`onboarding-goal-deadline-${idx}`}
+                                    name={`goalDeadline_${idx}`}
                                     type="date"
                                     value={g.deadline}
                                     onChange={e => handleGoalDetailChange(idx, "deadline", e.target.value)}
@@ -675,6 +687,8 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                                 <div className="space-y-1 col-span-2">
                                   <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Type</label>
                                   <select
+                                    id={`onboarding-goal-category-${idx}`}
+                                    name={`goalCategory_${idx}`}
                                     value={g.category}
                                     onChange={e => handleGoalDetailChange(idx, "category", e.target.value)}
                                     className="w-full bg-white dark:bg-slate-955 border border-slate-200 dark:border-white/10 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
@@ -718,6 +732,8 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                           <div className="relative">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">R</span>
                             <input
+                              id={`onboarding-housing-${f.k}`}
+                              name={`housing_${f.k}`}
                               type="number"
                               placeholder="0"
                               value={answers.infrastructure[f.k as keyof typeof answers.infrastructure]}
@@ -745,6 +761,8 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                           <div className="relative">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">R</span>
                             <input
+                              id={`onboarding-transport-${f.k}`}
+                              name={`transport_${f.k}`}
                               type="number"
                               placeholder="0"
                               value={answers.infrastructure[f.k as keyof typeof answers.infrastructure]}
@@ -785,6 +803,8 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                           <div className="relative">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">R</span>
                             <input
+                              id={`onboarding-essential-${f.k}`}
+                              name={`essential_${f.k}`}
                               type="number"
                               placeholder="0"
                               value={answers[f.k as keyof typeof answers] as string}
@@ -831,17 +851,21 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                             <div className="space-y-1">
                               <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Debt Name / Provider</label>
                               <input
+                                id="onboarding-temp-debt-name"
+                                name="tempDebtName"
                                 type="text"
                                 placeholder="e.g. FNB CC, Store Card"
                                 value={tempDebt.name}
                                 onChange={e => setTempDebt({ ...tempDebt, name: e.target.value })}
-                                className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
+                                className="w-full bg-white dark:bg-slate-955 border border-slate-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
                               />
                             </div>
                             
                             <div className="space-y-1">
                               <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Category</label>
                               <select
+                                id="onboarding-temp-debt-category"
+                                name="tempDebtCategory"
                                 value={tempDebt.category}
                                 onChange={e => setTempDebt({ ...tempDebt, category: e.target.value })}
                                 className="w-full bg-white dark:bg-slate-955 border border-slate-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
@@ -857,6 +881,8 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                               <div className="relative">
                                 <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">R</span>
                                 <input
+                                  id="onboarding-temp-debt-repayment"
+                                  name="tempDebtRepayment"
                                   type="number"
                                   placeholder="0"
                                   value={tempDebt.repayment}
@@ -871,6 +897,8 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                               <div className="relative">
                                 <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">R</span>
                                 <input
+                                  id="onboarding-temp-debt-balance"
+                                  name="tempDebtBalance"
                                   type="number"
                                   placeholder="0"
                                   value={tempDebt.balance}
@@ -928,6 +956,8 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ userName, onComp
                     <div className="relative">
                       <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-2xl text-slate-400">R</span>
                       <input
+                        id="onboarding-take-home-pay"
+                        name="takeHomePay"
                         type="number"
                         placeholder="e.g. 25000"
                         value={answers.takeHomePay}

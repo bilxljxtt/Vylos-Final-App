@@ -254,7 +254,7 @@ interface AppContextValue {
   updateNotifications: (updates: Partial<NotificationPrefs>) => void;
   deleteNotification: (id: string) => Promise<void>;
   deleteAllNotifications: () => Promise<void>;
-  addNotification: (notif: Omit<Notification, "id" | "read" | "created_at">) => Promise<void>;
+  addNotification: (notif: Omit<Notification, "id" | "user_id" | "read" | "created_at">) => Promise<void>;
   markAllNotificationsAsRead: () => Promise<void>;
   addReminder: (rem: Omit<Reminder, "id">) => Promise<void>;
   updateReminder: (id: string, updates: Partial<Reminder>) => Promise<void>;
@@ -547,9 +547,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const isDismissed = state.userProfile.dismissed_notifications?.includes(stableId);
         if (isDismissed) continue;
 
-        // Check if we already have this in our current list (check both stable_id and message search)
+        // Check if we already have this in our current list (check message search)
         const alreadyExists = state.notificationList.some(n => 
-          n.stable_id === stableId || 
           n.message?.includes(`[SID:${stableId}]`)
         );
 
@@ -557,8 +556,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           await addNotification({
             title: `Overdue: ${r.title}`,
             message: `Your ${r.category} task was due on ${formatDate(r.due_date)}. Please clear it as soon as possible. [SID:${stableId}]`,
-            type: 'warning',
-            stable_id: stableId
+            type: 'warning'
           });
         }
       }
@@ -776,9 +774,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // Optimistic update
       dispatch({ type: "DELETE_NOTIFICATION", payload: id });
       
-      // If it has a stable_id (or hidden in message), track it as dismissed
-      let stableId = notif?.stable_id;
-      if (!stableId && notif?.message?.includes("[SID:")) {
+      // If it has a stable_id hidden in message, track it as dismissed
+      let stableId = undefined;
+      if (notif?.message?.includes("[SID:")) {
         const match = notif.message?.match(/\[SID:([^\]]+)\]/);
         if (match) stableId = match[1];
       }
@@ -816,46 +814,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
   
   const addNotification = useCallback(
-    async (notif: Omit<Notification, "id" | "read" | "created_at">) => {
+    async (notif: Omit<Notification, "id" | "user_id" | "read" | "created_at">) => {
       if (!sessionUser) return;
       
-      const insertData: any = {
+      const insertData = {
         user_id: sessionUser.id,
         title: notif.title,
         message: notif.message,
         type: notif.type,
         read: false
       };
-      
-      // Try to include stable_id if provided
-      if (notif.stable_id) insertData.stable_id = notif.stable_id;
 
-      const { data, error } = await supabase.from('notifications').insert([insertData]).select().single();
-      
-      if (error) {
-        // If it failed because of stable_id column missing, try again without it
-        if (error.message.includes("stable_id") || error.code === "P0001") {
-          const { data: retryData, error: retryError } = await supabase.from('notifications').insert([{
-            user_id: sessionUser.id,
-            title: notif.title,
-            message: notif.message,
-            type: notif.type,
-            read: false
-          }]).select().single();
-          
-          if (retryError) throw new Error(retryError.message);
-          if (retryData) {
-            dispatch({ type: "SET_NOTIFICATIONS", payload: [retryData, ...state.notificationList] });
-            dispatch({ type: "SET_UNREAD_COUNT", payload: state.unreadNotificationCount + 1 });
-          }
+      try {
+        const { data, error } = await supabase
+          .from('notifications')
+          .insert([insertData])
+          .select('id, user_id, title, message, type, read, created_at')
+          .maybeSingle();
+        
+        if (error) {
+          console.error("Failed to add notification:", error);
           return;
         }
-        throw new Error(error.message);
-      }
-      
-      if (data) {
-        dispatch({ type: "SET_NOTIFICATIONS", payload: [data, ...state.notificationList] });
-        dispatch({ type: "SET_UNREAD_COUNT", payload: state.unreadNotificationCount + 1 });
+        
+        if (data) {
+          const mappedData = {
+            id: data.id,
+            user_id: data.user_id,
+            title: data.title,
+            message: data.message,
+            type: data.type,
+            read: data.read,
+            created_at: data.created_at
+          };
+          dispatch({ type: "SET_NOTIFICATIONS", payload: [mappedData, ...state.notificationList] });
+          dispatch({ type: "SET_UNREAD_COUNT", payload: state.unreadNotificationCount + 1 });
+        }
+      } catch (err: any) {
+        console.error("Exception in addNotification:", err);
       }
     },
     [sessionUser, state.notificationList, state.unreadNotificationCount, supabase]
@@ -868,9 +864,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // Optimistic update
       dispatch({ type: "MARK_ALL_READ" });
       
-      const { error } = await supabase.from('notifications').update({ read: true }).eq('user_id', sessionUser.id).eq('read', false);
-      if (error) {
-        console.error("Mark all read error:", error);
+      try {
+        const { error } = await supabase
+          .from('notifications')
+          .update({ read: true })
+          .eq('user_id', sessionUser.id)
+          .eq('read', false);
+        if (error) {
+          console.error("Mark all read error:", error);
+        }
+      } catch (err: any) {
+        console.error("Exception in markAllNotificationsAsRead:", err);
       }
     },
     [sessionUser, supabase]
@@ -1064,27 +1068,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setProfileLoadingError(null); // Clear error on new hydration attempt
 
     const currentMonth = new Date().toISOString().slice(0, 7);
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Wrapper to catch promise rejections and ensure login/hydration is non-blocking
+    const safeQuery = async <T,>(query: PromiseLike<T>): Promise<T | null> => {
+      try {
+        return await query;
+      } catch (error) {
+        console.warn("Safe query failed:", error);
+        return null;
+      }
+    };
+
     const results = await Promise.all([
-      supabase.from('user_profiles').select('*').eq('id', user.id).single(),
-      supabase.from('transactions').select('id, title, amount, date, transaction_date, category, notes, recurring, payment_status, created_at').eq('user_id', user.id).order('date', { ascending: false }),
-      supabase.from('subscriptions').select('id, name, amount, category, frequency, next_due').eq('user_id', user.id),
-      supabase.from('goals').select('id, title, target_amount, current_amount, deadline, status, category, notes, icon, color, created_at').eq('user_id', user.id).order('created_at', { ascending: false }),
-      supabase.from('goal_contributions').select('id, goal_id, amount, date, notes').eq('user_id', user.id),
-      supabase.from('budgets').select('category, limit, spent, type').eq('user_id', user.id),
-      supabase.from('notifications').select('id, title, message, type, read, stable_id, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(100),
-      supabase.from('reminders').select('id, title, description, amount, due_date, due_time, category, priority, recurring, status, created_at, billing_day').eq('user_id', user.id).order('due_date', { ascending: true }),
-      supabase.from('reminder_completions').select('id, reminder_id, user_id, year, month, completed_at').eq('user_id', user.id),
-      supabase.from('merchant_rules').select('id, user_id, merchant_keyword, category').eq('user_id', user.id),
-      supabase.from('ai_usage').select('messages_used, billing_month').eq('user_id', user.id).eq('billing_month', currentMonth).single(),
-      supabase.from('user_health_scores').select('score, status, breakdown, calculated_at').eq('user_id', user.id).order('calculated_at', { ascending: false }).limit(1).maybeSingle(),
-      supabase.from('debts').select('id, name, category, monthly_repayment, outstanding_balance, created_at').eq('user_id', user.id)
+      safeQuery(supabase.from('user_profiles').select('*').eq('id', user.id).single()),
+      safeQuery(supabase.from('transactions').select('id, title, amount, date, transaction_date, category, notes, recurring, payment_status, created_at').eq('user_id', user.id).order('date', { ascending: false })),
+      safeQuery(supabase.from('subscriptions').select('id, name, amount, category, frequency, next_due').eq('user_id', user.id)),
+      safeQuery(supabase.from('goals').select('id, title, target_amount, current_amount, deadline, status, category, notes, icon, color, created_at').eq('user_id', user.id).order('created_at', { ascending: false })),
+      safeQuery(supabase.from('goal_contributions').select('id, goal_id, amount, date, notes').eq('user_id', user.id)),
+      safeQuery(supabase.from('budgets').select('category, limit, spent, type').eq('user_id', user.id)),
+      safeQuery(supabase.from('notifications').select('id, user_id, title, message, type, read, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(100)),
+      safeQuery(supabase.from('reminders').select('id, title, description, amount, due_date, due_time, category, priority, recurring, status, created_at, billing_day').eq('user_id', user.id).order('due_date', { ascending: true })),
+      safeQuery(supabase.from('reminder_completions').select('id, reminder_id, user_id, year, month, completed_at').eq('user_id', user.id)),
+      safeQuery(supabase.from('merchant_rules').select('id, user_id, merchant_keyword, category').eq('user_id', user.id)),
+      safeQuery(supabase.from('ai_usage').select('id, user_id, messages, date, created_at, updated_at').eq('user_id', user.id).eq('date', today).maybeSingle()),
+      safeQuery(supabase.from('user_health_scores').select('score, status, breakdown, calculated_at').eq('user_id', user.id).order('calculated_at', { ascending: false }).limit(1).maybeSingle()),
+      safeQuery(supabase.from('debts').select('id, name, category, monthly_repayment, outstanding_balance, created_at').eq('user_id', user.id))
     ]);
 
     const [profRes, txsRes, subsRes, gpsRes, contribsRes, budgetsRes, notifyRes, remRes, compRes, rulesRes, usageRes, scoreRes, debtsRes] = results;
     
     // Check if the query returned an error that is NOT 'PGRST116' (row not found)
-    const isNoRowFound = profRes.error && profRes.error.code === 'PGRST116';
-    if (profRes.error && !isNoRowFound) {
+    const isNoRowFound = profRes?.error && profRes.error.code === 'PGRST116';
+    if (profRes?.error && !isNoRowFound) {
       console.error("Critical error fetching user profile:", profRes.error);
       // Release lock ref so user can click retry
       hydratingUserRef.current = null;
@@ -1098,7 +1114,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    let prof = profRes.data;
+    let prof = profRes?.data;
     if (!prof && user && isNoRowFound) {
       // Auto-create default user profile row in database since it is confirmed missing
       const defaultProf = {
@@ -1137,19 +1153,46 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         prof = newProf;
       }
     }
-    const txs = txsRes.data;
-    const subs = subsRes.data;
-    const gps = gpsRes.data;
-    const contribs = contribsRes.data;
-    const budgets = budgetsRes.data;
-    const rems = remRes.data;
-    const rules = rulesRes.data;
-    const usage = usageRes?.data;
+    const txs = txsRes?.data;
+    const subs = subsRes?.data;
+    const gps = gpsRes?.data;
+    const contribs = contribsRes?.data;
+    const budgets = budgetsRes?.data;
+    const rems = remRes?.data;
+    const rules = rulesRes?.data;
+    
+    let usage = usageRes?.data;
+    if (!usage && user) {
+      try {
+        const defaultUsage = {
+          user_id: user.id,
+          date: today,
+          messages: 0,
+        };
+        const { data: newUsage, error: insertErr } = await supabase
+          .from('ai_usage')
+          .insert([defaultUsage])
+          .select('id, user_id, messages, date, created_at, updated_at')
+          .maybeSingle();
+
+        if (insertErr) {
+          console.warn("Failed to create ai_usage row in hydrateCloudState (using fallback):", insertErr.message);
+          usage = { id: "", user_id: user.id, messages: 0, date: today, created_at: "", updated_at: "" };
+        } else if (newUsage) {
+          usage = newUsage;
+        } else {
+          usage = { id: "", user_id: user.id, messages: 0, date: today, created_at: "", updated_at: "" };
+        }
+      } catch (err: any) {
+        console.warn("Exception during ai_usage auto-creation in hydrateCloudState:", err.message);
+        usage = { id: "", user_id: user.id, messages: 0, date: today, created_at: "", updated_at: "" };
+      }
+    }
 
     let debtsData: any[] = [];
     if (debtsRes && debtsRes.error) {
       console.warn("Warning: Failed to fetch debts from Supabase. Falling back to profile onboardingAnswers. Error:", debtsRes.error.message);
-      const profileData = profRes.data;
+      const profileData = profRes?.data;
       if (profileData && profileData.onboarding_answers && profileData.onboarding_answers.debts) {
         debtsData = profileData.onboarding_answers.debts;
       }
@@ -1209,7 +1252,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           completed_at: r.completed_at,
           billing_day: r.billing_day
         })) : [],
-        reminderCompletions: compRes.data || [],
+        reminderCompletions: compRes?.data || [],
         merchantRules: rules ? rules.map((r: any) => ({ id: r.id, user_id: r.user_id, merchant_keyword: r.merchant_keyword, category: r.category })) : [],
         debts: debtsData.map((d: any) => ({
           id: d.id,
@@ -1220,7 +1263,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           createdAt: d.created_at
         })),
         budgets: Object.keys(budgetsObj).length > 0 ? budgetsObj : initialState.budgets,
-        aiUsage: usage ? { messages_used: usage.messages_used, billing_month: usage.billing_month } : { messages_used: 0, billing_month: currentMonth },
+        aiUsage: usage ? { id: usage.id, user_id: usage.user_id, messages: usage.messages, date: usage.date, created_at: usage.created_at, updated_at: usage.updated_at } : { id: "", user_id: user.id, messages: 0, date: today },
         userProfile: prof ? {
           id: prof.id || user.id,
           name: prof.name || "",
@@ -1280,10 +1323,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           avatarUrl: user.user_metadata?.avatar_url || "",
         },
         notifications: prof?.notifications ? (prof.notifications as any) : initialState.notifications,
-        notificationList: notifyRes?.data || [],
+        notificationList: notifyRes?.data ? notifyRes.data.map((n: any) => ({
+          id: n.id,
+          user_id: n.user_id,
+          title: n.title,
+          message: n.message,
+          type: n.type,
+          read: !!n.read,
+          created_at: n.created_at
+        })) : [],
         unreadNotificationCount: (notifyRes?.data || []).filter((n: any) => !n.read).length,
         selectedMonth: getMonthStart(),
-        backendHealthScore: scoreRes.data || null,
+        backendHealthScore: scoreRes?.data || null,
         isCalculatingHealthScore: false
       }
     });

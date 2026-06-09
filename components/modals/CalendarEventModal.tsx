@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Calendar as CalendarIcon, Tag, Clock, AlignLeft, CheckCircle2 } from "lucide-react";
+import { X, Calendar as CalendarIcon, Tag, AlignLeft, CheckCircle2 } from "lucide-react";
 import { useAppStore } from "@/lib/AppContext";
 import { Reminder } from "@/lib/store";
 import { useToast } from "@/components/Toast";
@@ -138,13 +138,9 @@ export function CalendarEventModal({ isOpen, onClose, editingEvent }: CalendarEv
       const savePromise = (async () => {
         if (editingEvent) {
           await updateReminder(editingEvent.id, payload);
-          console.log("Updated reminder:", payload);
-          console.log("Reminder date field:", payload.due_date);
           toast("Event updated successfully", "success");
         } else {
           await addReminder(payload);
-          console.log("Saved reminder:", payload);
-          console.log("Reminder date field:", payload.due_date);
           toast("New event added to calendar", "success");
         }
       })();

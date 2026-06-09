@@ -1,16 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { createClient } from "@/utils/supabase/server";
+import { withAiRateLimit } from "@/lib/ai/aiLimitHelper";
 
 export async function POST(req: NextRequest) {
-  try {
-    const { message, history } = await req.json();
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  return withAiRateLimit(req, async (request, user, profile, supabase) => {
+    const { message, history } = await request.json();
 
     const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || "");
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
@@ -36,8 +30,5 @@ export async function POST(req: NextRequest) {
     ]);
 
     return NextResponse.json({ message: aiMessage });
-  } catch (error: any) {
-    console.error("AI Chat API Error:", error);
-    return NextResponse.json({ error: "Failed to generate AI chat response due to an unexpected server error." }, { status: 500 });
-  }
+  });
 }

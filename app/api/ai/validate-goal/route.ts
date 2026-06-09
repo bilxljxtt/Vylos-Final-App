@@ -1,16 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/utils/supabase/server";
 import { FinancialAdvisor } from "@/lib/ai/FinancialAdvisor";
+import { withAiRateLimit } from "@/lib/ai/aiLimitHelper";
 
 export async function POST(req: NextRequest) {
-  try {
-    const { state, goal } = await req.json();
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  return withAiRateLimit(req, async (request, user, profile, supabase) => {
+    const { state, goal } = await request.json();
 
     if (!process.env.GOOGLE_AI_API_KEY) {
       return NextResponse.json({ 
@@ -25,8 +19,5 @@ export async function POST(req: NextRequest) {
     const result = await advisor.validateGoal(state, goal);
 
     return NextResponse.json(result);
-  } catch (error: any) {
-    console.error("AI Goal Validation API Error:", error);
-    return NextResponse.json({ error: "Failed to validate the financial goal due to an unexpected server error." }, { status: 500 });
-  }
+  });
 }

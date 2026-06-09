@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { ChevronLeft, ChevronRight, Plus, Home, Lightbulb, Smartphone, Music, TrendingUp, CreditCard as CreditCardIcon, Calendar as CalendarIcon, CheckCircle2, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Lightbulb, TrendingUp, CreditCard as CreditCardIcon, Calendar as CalendarIcon, Clock } from "lucide-react";
 import { useAppStore } from "@/lib/AppContext";
 import { toDateKey, createLocalDate, getTransactionDateKey, formatDate, getReminderDerivedStatus, generateReminderOccurrences } from "@/lib/utils";
 import { CalendarEventModal } from "@/components/modals/CalendarEventModal";
@@ -163,9 +163,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ setPage }) => {
     const year = viewDate.getFullYear();
     const month = viewDate.getMonth() + 1;
     const reminders = generateReminderOccurrences(state.reminders || [], state.reminderCompletions || [], year, month, 1);
-    
-    console.log("Viewed month:", viewDate);
-    console.log("Visible reminders:", reminders);
     
     return reminders;
   }, [state.reminders, state.reminderCompletions, viewDate]);

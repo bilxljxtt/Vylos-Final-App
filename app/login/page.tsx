@@ -219,6 +219,8 @@ export default function LoginPage() {
                   <Mail size={20} />
                 </div>
                 <input 
+                  id="login-email"
+                  name="email"
                   type="email" 
                   placeholder="name@company.com" 
                   value={email} 
@@ -238,6 +240,8 @@ export default function LoginPage() {
                   <Lock size={20} />
                 </div>
                 <input 
+                  id="login-password"
+                  name="password"
                   type={showPassword ? "text" : "password"} 
                   placeholder="••••••••••••" 
                   value={password} 
@@ -259,6 +263,8 @@ export default function LoginPage() {
               <label className="flex items-center gap-3 cursor-pointer group">
                 <div className="relative flex items-center justify-center">
                     <input 
+                        id="login-remember-me"
+                        name="rememberMe"
                         type="checkbox" 
                         checked={rememberMe} 
                         onChange={() => setRememberMe(!rememberMe)}
