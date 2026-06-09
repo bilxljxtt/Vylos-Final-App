@@ -72,6 +72,18 @@ export default function RootLayout({
             `
           }}
         />
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-P6G5DEWCZX"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){window.dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-P6G5DEWCZX');
+          `}
+        </Script>
       </head>
       <body
         className="min-h-screen bg-bg text-text-main selection:bg-primary/20 selection:text-primary font-[Inter,system-ui,sans-serif]"
